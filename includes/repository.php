@@ -227,6 +227,261 @@ function fetch_upcoming_events(int $limit = 3): array
     return $statement->fetchAll();
 }
 
+function fetch_event_categories(): array
+{
+    return db()->query(
+        'SELECT id, slug, label, icon, color
+        FROM community_event_categories
+        ORDER BY label ASC'
+    )->fetchAll();
+}
+
+function fetch_community_event_by_id(int $eventId, ?int $viewerUserId = null): ?array
+{
+    $viewerId = $viewerUserId ?? 0;
+    $statement = db()->prepare(
+        'SELECT community_events.*,
+            community_event_categories.slug AS category_slug,
+            community_event_categories.label AS category_label,
+            community_event_categories.color AS category_color,
+            users.name AS created_by_name,
+            COALESCE(rsvp_counts.going_count, 0) AS going_count,
+            COALESCE(rsvp_counts.interested_count, 0) AS interested_count,
+            COALESCE(rsvp_counts.maybe_count, 0) AS maybe_count,
+            COALESCE(rsvp_counts.not_going_count, 0) AS not_going_count,
+            COALESCE(rsvp_counts.total_count, 0) AS total_rsvp_count,
+            user_rsvp.response AS current_user_rsvp
+        FROM community_events
+        LEFT JOIN community_event_categories
+            ON community_event_categories.id = community_events.category_id
+        LEFT JOIN users
+            ON users.id = community_events.created_by_user_id
+        LEFT JOIN (
+            SELECT community_event_id,
+                SUM(CASE WHEN response = \'going\' THEN 1 ELSE 0 END) AS going_count,
+                SUM(CASE WHEN response = \'interested\' THEN 1 ELSE 0 END) AS interested_count,
+                SUM(CASE WHEN response = \'maybe\' THEN 1 ELSE 0 END) AS maybe_count,
+                SUM(CASE WHEN response = \'not-going\' THEN 1 ELSE 0 END) AS not_going_count,
+                COUNT(*) AS total_count
+            FROM community_event_rsvps
+            GROUP BY community_event_id
+        ) AS rsvp_counts
+            ON rsvp_counts.community_event_id = community_events.id
+        LEFT JOIN community_event_rsvps AS user_rsvp
+            ON user_rsvp.community_event_id = community_events.id
+            AND user_rsvp.user_id = :viewer_user_id
+        WHERE community_events.id = :id
+        LIMIT 1'
+    );
+    $statement->execute([
+        'id' => $eventId,
+        'viewer_user_id' => $viewerId,
+    ]);
+    $event = $statement->fetch();
+
+    return $event ?: null;
+}
+
+function fetch_community_events(?int $categoryId = null, ?int $viewerUserId = null): array
+{
+    $viewerId = $viewerUserId ?? 0;
+    $sql = 'SELECT community_events.*,
+            community_event_categories.slug AS category_slug,
+            community_event_categories.label AS category_label,
+            community_event_categories.color AS category_color,
+            users.name AS created_by_name,
+            COALESCE(rsvp_counts.going_count, 0) AS going_count,
+            COALESCE(rsvp_counts.interested_count, 0) AS interested_count,
+            COALESCE(rsvp_counts.maybe_count, 0) AS maybe_count,
+            COALESCE(rsvp_counts.not_going_count, 0) AS not_going_count,
+            COALESCE(rsvp_counts.total_count, 0) AS total_rsvp_count,
+            user_rsvp.response AS current_user_rsvp
+        FROM community_events
+        LEFT JOIN community_event_categories
+            ON community_event_categories.id = community_events.category_id
+        LEFT JOIN users
+            ON users.id = community_events.created_by_user_id
+        LEFT JOIN (
+            SELECT community_event_id,
+                SUM(CASE WHEN response = \'going\' THEN 1 ELSE 0 END) AS going_count,
+                SUM(CASE WHEN response = \'interested\' THEN 1 ELSE 0 END) AS interested_count,
+                SUM(CASE WHEN response = \'maybe\' THEN 1 ELSE 0 END) AS maybe_count,
+                SUM(CASE WHEN response = \'not-going\' THEN 1 ELSE 0 END) AS not_going_count,
+                COUNT(*) AS total_count
+            FROM community_event_rsvps
+            GROUP BY community_event_id
+        ) AS rsvp_counts
+            ON rsvp_counts.community_event_id = community_events.id
+        LEFT JOIN community_event_rsvps AS user_rsvp
+            ON user_rsvp.community_event_id = community_events.id
+            AND user_rsvp.user_id = :viewer_user_id
+        WHERE community_events.status <> :draft_status';
+    $params = [
+        'viewer_user_id' => $viewerId,
+        'draft_status' => 'draft',
+    ];
+
+    if ($categoryId !== null) {
+        $sql .= ' AND community_events.category_id = :category_id';
+        $params['category_id'] = $categoryId;
+    }
+
+    $sql .= ' ORDER BY community_events.is_featured DESC, community_events.start_at ASC, community_events.id DESC';
+
+    $statement = db()->prepare($sql);
+    $statement->execute($params);
+
+    return $statement->fetchAll();
+}
+
+function fetch_manageable_community_events(int $userId, bool $canManageAll = false, int $limit = 12): array
+{
+    $sql = 'SELECT community_events.*,
+            community_event_categories.label AS category_label,
+            community_event_categories.slug AS category_slug,
+            users.name AS created_by_name
+        FROM community_events
+        LEFT JOIN community_event_categories
+            ON community_event_categories.id = community_events.category_id
+        LEFT JOIN users
+            ON users.id = community_events.created_by_user_id';
+
+    $params = [];
+
+    if (!$canManageAll) {
+        $sql .= ' WHERE community_events.created_by_user_id = :user_id';
+        $params['user_id'] = $userId;
+    }
+
+    $sql .= ' ORDER BY community_events.updated_at DESC, community_events.start_at DESC
+        LIMIT ' . (int) $limit;
+
+    $statement = db()->prepare($sql);
+    $statement->execute($params);
+
+    return $statement->fetchAll();
+}
+
+function create_community_event_record(int $userId, array $payload): int
+{
+    $statement = db()->prepare(
+        'INSERT INTO community_events (
+            created_by_user_id,
+            category_id,
+            title,
+            description,
+            event_type,
+            visibility,
+            location_name,
+            location_address,
+            meeting_url,
+            start_at,
+            end_at,
+            is_featured,
+            status
+        ) VALUES (
+            :created_by_user_id,
+            :category_id,
+            :title,
+            :description,
+            :event_type,
+            :visibility,
+            :location_name,
+            :location_address,
+            :meeting_url,
+            :start_at,
+            :end_at,
+            :is_featured,
+            :status
+        )'
+    );
+    $statement->execute([
+        'created_by_user_id' => $userId,
+        'category_id' => $payload['category_id'],
+        'title' => trim((string) $payload['title']),
+        'description' => trim((string) $payload['description']),
+        'event_type' => trim((string) $payload['event_type']),
+        'visibility' => trim((string) $payload['visibility']),
+        'location_name' => normalize_optional_text((string) ($payload['location_name'] ?? '')),
+        'location_address' => normalize_optional_text((string) ($payload['location_address'] ?? '')),
+        'meeting_url' => normalize_optional_text((string) ($payload['meeting_url'] ?? '')),
+        'start_at' => $payload['start_at'],
+        'end_at' => $payload['end_at'],
+        'is_featured' => !empty($payload['is_featured']) ? 1 : 0,
+        'status' => trim((string) $payload['status']),
+    ]);
+
+    return (int) db()->lastInsertId();
+}
+
+function update_community_event_record(int $eventId, array $payload): void
+{
+    $statement = db()->prepare(
+        'UPDATE community_events
+        SET category_id = :category_id,
+            title = :title,
+            description = :description,
+            event_type = :event_type,
+            visibility = :visibility,
+            location_name = :location_name,
+            location_address = :location_address,
+            meeting_url = :meeting_url,
+            start_at = :start_at,
+            end_at = :end_at,
+            is_featured = :is_featured,
+            status = :status
+        WHERE id = :id'
+    );
+    $statement->execute([
+        'id' => $eventId,
+        'category_id' => $payload['category_id'],
+        'title' => trim((string) $payload['title']),
+        'description' => trim((string) $payload['description']),
+        'event_type' => trim((string) $payload['event_type']),
+        'visibility' => trim((string) $payload['visibility']),
+        'location_name' => normalize_optional_text((string) ($payload['location_name'] ?? '')),
+        'location_address' => normalize_optional_text((string) ($payload['location_address'] ?? '')),
+        'meeting_url' => normalize_optional_text((string) ($payload['meeting_url'] ?? '')),
+        'start_at' => $payload['start_at'],
+        'end_at' => $payload['end_at'],
+        'is_featured' => !empty($payload['is_featured']) ? 1 : 0,
+        'status' => trim((string) $payload['status']),
+    ]);
+}
+
+function delete_community_event_record(int $eventId): void
+{
+    $statement = db()->prepare('DELETE FROM community_events WHERE id = :id');
+    $statement->execute(['id' => $eventId]);
+}
+
+function upsert_community_event_rsvp(int $eventId, int $userId, string $response): void
+{
+    $statement = db()->prepare(
+        'INSERT INTO community_event_rsvps (community_event_id, user_id, response)
+        VALUES (:community_event_id, :user_id, :response)
+        ON DUPLICATE KEY UPDATE response = VALUES(response), updated_at = CURRENT_TIMESTAMP'
+    );
+    $statement->execute([
+        'community_event_id' => $eventId,
+        'user_id' => $userId,
+        'response' => $response,
+    ]);
+}
+
+function delete_community_event_rsvp(int $eventId, int $userId): void
+{
+    $statement = db()->prepare(
+        'DELETE FROM community_event_rsvps
+        WHERE community_event_id = :community_event_id
+            AND user_id = :user_id'
+    );
+    $statement->execute([
+        'community_event_id' => $eventId,
+        'user_id' => $userId,
+    ]);
+}
+
 function fetch_books(): array
 {
     return db()->query('SELECT id, name, abbreviation FROM books ORDER BY id ASC')->fetchAll();
@@ -757,6 +1012,15 @@ function format_event_date(?string $date): string
     }
 
     return date('M d', strtotime($date));
+}
+
+function format_event_datetime(?string $date): string
+{
+    if ($date === null || $date === '') {
+        return 'TBD';
+    }
+
+    return date('M j, Y g:i A', strtotime($date));
 }
 
 function truncate_text(string $text, int $length = 140): string

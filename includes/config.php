@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+load_env_file(dirname(__DIR__) . '/.env');
+load_env_file(dirname(__DIR__) . '/.env.local');
+
 if (!defined('APP_NAME')) {
     define('APP_NAME', 'Word Trail Bible App');
 }
@@ -28,4 +31,53 @@ if (!defined('DB_PASS')) {
 
 if (!defined('DB_CHARSET')) {
     define('DB_CHARSET', 'utf8mb4');
+}
+
+function load_env_file(string $path): void
+{
+    if (!is_file($path) || !is_readable($path)) {
+        return;
+    }
+
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+    if ($lines === false) {
+        return;
+    }
+
+    foreach ($lines as $line) {
+        $trimmedLine = trim($line);
+
+        if ($trimmedLine === '' || str_starts_with($trimmedLine, '#')) {
+            continue;
+        }
+
+        $separatorPosition = strpos($trimmedLine, '=');
+
+        if ($separatorPosition === false) {
+            continue;
+        }
+
+        $name = trim(substr($trimmedLine, 0, $separatorPosition));
+        $value = trim(substr($trimmedLine, $separatorPosition + 1));
+
+        if ($name === '') {
+            continue;
+        }
+
+        if (
+            (str_starts_with($value, '"') && str_ends_with($value, '"'))
+            || (str_starts_with($value, '\'') && str_ends_with($value, '\''))
+        ) {
+            $value = substr($value, 1, -1);
+        }
+
+        if (getenv($name) !== false) {
+            continue;
+        }
+
+        putenv($name . '=' . $value);
+        $_ENV[$name] = $value;
+        $_SERVER[$name] = $value;
+    }
 }

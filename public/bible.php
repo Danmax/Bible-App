@@ -305,7 +305,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                     <h2><?= e($searchHeading); ?></h2>
                 </div>
                 <div class="showcase-actions">
-                    <span class="mini-card"><?= e($displayMode === 'chapter' ? 'Chapter Reader' : ($displayMode === 'search' ? 'Search Results' : 'Reader')); ?></span>
+                    <span class="mini-card"><?= e(($displayMode === 'chapter' || $displayMode === 'verse') ? 'Chapter Reader' : ($displayMode === 'search' ? 'Search Results' : 'Reader')); ?></span>
                     <?php if ($selectedBook): ?>
                         <span class="mini-card"><?= e((string) $selectedBook['abbreviation']); ?></span>
                     <?php endif; ?>
@@ -332,7 +332,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                         <?php include dirname(__DIR__) . '/includes/verse-card.php'; ?>
                     <?php endforeach; ?>
                 </div>
-            <?php elseif ($displayMode === 'chapter' && $browseVerses !== []) : ?>
+            <?php elseif (($displayMode === 'chapter' || $displayMode === 'verse') && $browseVerses !== []) : ?>
                 <article class="chapter-reader top-gap-sm" data-chapter-reader>
                     <?php foreach ($browseVerses as $verse): ?>
                         <?php

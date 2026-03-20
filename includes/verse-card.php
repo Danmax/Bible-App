@@ -17,6 +17,28 @@ declare(strict_types=1);
         </div>
     </div>
 
+    <?php if (!empty($translations)): ?>
+        <div class="result-translation-row">
+            <strong>View In</strong>
+            <div class="inline-actions">
+                <?php foreach ($translations as $translation): ?>
+                    <?php
+                    $translationClasses = ['filter-chip'];
+                    if ((string) $verse['translation'] === $translation) {
+                        $translationClasses[] = 'is-active';
+                    }
+                    if (!($translationAvailability[$translation] ?? false)) {
+                        $translationClasses[] = 'is-muted';
+                    }
+                    ?>
+                    <a class="<?= e(implode(' ', $translationClasses)); ?>" href="<?= e(app_url('bible.php?translation=' . urlencode($translation) . '&book_id=' . $verse['book_id'] . '&chapter=' . $verse['chapter_number'] . '&verse=' . $verse['verse_number'])); ?>">
+                        <?= e($translation); ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div class="inline-actions">
         <a class="button button-secondary" href="<?= e(app_url('bible.php?translation=' . urlencode((string) $verse['translation']) . '&book_id=' . $verse['book_id'] . '&chapter=' . $verse['chapter_number'])); ?>">
             Open Chapter

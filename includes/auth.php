@@ -75,6 +75,36 @@ function current_user(): ?array
     return $_SESSION['user'] ?? null;
 }
 
+function current_user_has_role(array $roles): bool
+{
+    $user = current_user();
+
+    if ($user === null) {
+        return false;
+    }
+
+    return in_array((string) ($user['role'] ?? 'member'), $roles, true);
+}
+
+function can_manage_community_event(?array $event, ?array $user = null): bool
+{
+    if ($event === null) {
+        return false;
+    }
+
+    $activeUser = $user ?? current_user();
+
+    if ($activeUser === null) {
+        return false;
+    }
+
+    if (in_array((string) ($activeUser['role'] ?? 'member'), ['admin', 'leader'], true)) {
+        return true;
+    }
+
+    return (int) ($event['created_by_user_id'] ?? 0) === (int) ($activeUser['id'] ?? 0);
+}
+
 function refresh_current_user(): ?array
 {
     $user = current_user();
