@@ -5,7 +5,11 @@ declare(strict_types=1);
 <article class="scripture-result">
     <div class="scripture-result-top">
         <div>
-            <h3><?= e(format_verse_reference($verse)); ?></h3>
+            <h3>
+                <a href="<?= e(app_url('bible.php?translation=' . urlencode((string) $verse['translation']) . '&book_id=' . $verse['book_id'] . '&chapter=' . $verse['chapter_number'] . '&verse=' . $verse['verse_number'])); ?>">
+                    <?= e(format_verse_reference($verse)); ?>
+                </a>
+            </h3>
             <p class="scripture-text">
                 <strong><?= e((string) $verse['verse_number']); ?></strong>
                 <?= e((string) $verse['verse_text']); ?>
@@ -14,6 +18,9 @@ declare(strict_types=1);
     </div>
 
     <div class="inline-actions">
+        <a class="button button-secondary" href="<?= e(app_url('bible.php?translation=' . urlencode((string) $verse['translation']) . '&book_id=' . $verse['book_id'] . '&chapter=' . $verse['chapter_number'])); ?>">
+            Open Chapter
+        </a>
         <?php if (is_logged_in()): ?>
             <form class="inline-form" method="post">
                 <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">

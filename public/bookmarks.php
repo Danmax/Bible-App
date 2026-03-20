@@ -28,7 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (int) ($_POST['bookmark_id'] ?? 0),
                 (int) $user['id'],
                 trim($_POST['tag'] ?? ''),
-                trim($_POST['note'] ?? '')
+                trim($_POST['note'] ?? ''),
+                trim($_POST['highlight_color'] ?? '')
             );
             set_flash('Bookmark updated.', 'success');
         } elseif ($action === 'delete') {
@@ -79,11 +80,25 @@ require_once dirname(__DIR__) . '/includes/header.php';
                         <div class="bookmark-header">
                             <div>
                                 <h3><?= e(format_verse_reference($bookmark)); ?></h3>
-                                <p><?= e((string) $bookmark['verse_text']); ?></p>
+                                <p>
+                                    <?php if (!empty($bookmark['selected_text'])): ?>
+                                        <mark class="verse-highlight <?= e(highlight_class((string) ($bookmark['highlight_color'] ?? 'neon-yellow'))); ?>">
+                                            <?= e((string) $bookmark['selected_text']); ?>
+                                        </mark>
+                                        <span class="muted-copy">from <?= e((string) $bookmark['verse_text']); ?></span>
+                                    <?php else: ?>
+                                        <?= e((string) $bookmark['verse_text']); ?>
+                                    <?php endif; ?>
+                                </p>
                             </div>
-                            <?php if (!empty($bookmark['tag'])): ?>
-                                <span class="pill"><?= e((string) $bookmark['tag']); ?></span>
-                            <?php endif; ?>
+                            <div class="inline-actions">
+                                <?php if (!empty($bookmark['tag'])): ?>
+                                    <span class="pill"><?= e((string) $bookmark['tag']); ?></span>
+                                <?php endif; ?>
+                                <?php if (!empty($bookmark['highlight_color'])): ?>
+                                    <span class="pill <?= e(highlight_class((string) $bookmark['highlight_color'])); ?>"><?= e((string) $bookmark['highlight_color']); ?></span>
+                                <?php endif; ?>
+                            </div>
                         </div>
 
                         <form class="form-stack compact-form" method="post">
@@ -101,8 +116,21 @@ require_once dirname(__DIR__) . '/includes/header.php';
                                 <textarea name="note" rows="3" placeholder="Why did you save this verse?"><?= e((string) ($bookmark['note'] ?? '')); ?></textarea>
                             </label>
 
+                            <label>
+                                <span>Highlight color</span>
+                                <select name="highlight_color">
+                                    <option value="">No color</option>
+                                    <?php foreach (['neon-yellow', 'neon-green', 'neon-pink', 'neon-blue'] as $color): ?>
+                                        <option value="<?= e($color); ?>" <?= ($bookmark['highlight_color'] ?? '') === $color ? 'selected' : ''; ?>>
+                                            <?= e($color); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+
                             <div class="inline-actions">
                                 <button class="button button-primary" type="submit">Save Changes</button>
+                                <a class="button button-secondary" href="<?= e(app_url('bible.php?translation=' . urlencode((string) $bookmark['translation']) . '&book_id=' . $bookmark['book_id'] . '&chapter=' . $bookmark['chapter_number'] . '&verse=' . $bookmark['verse_number'])); ?>">Open in Reader</a>
                                 <a class="button button-secondary" href="<?= e(app_url('notes.php?verse_id=' . $bookmark['verse_id'])); ?>">Add Note</a>
                             </div>
                         </form>

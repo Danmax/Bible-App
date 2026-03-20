@@ -198,7 +198,7 @@ function fetch_recent_notes(int $userId, int $limit = 3): array
 function fetch_recent_bookmarks(int $userId, int $limit = 3): array
 {
     $statement = db()->prepare(
-        'SELECT bookmarks.*, books.name AS book_name, verses.chapter_number, verses.verse_number, verses.translation, verses.verse_text
+        'SELECT bookmarks.*, verses.book_id, books.name AS book_name, verses.chapter_number, verses.verse_number, verses.translation, verses.verse_text
         FROM bookmarks
         INNER JOIN verses ON verses.id = bookmarks.verse_id
         INNER JOIN books ON books.id = verses.book_id
@@ -471,46 +471,161 @@ function is_bookmarked(int $userId, int $verseId): bool
     ) > 0;
 }
 
-function save_bookmark_record(int $userId, int $verseId, string $tag = '', string $note = ''): void
+function save_bookmark_record(
+    int $userId,
+    int $verseId,
+    string $tag = '',
+    string $note = '',
+    ?string $selectedText = null,
+    ?string $highlightColor = null,
+    ?int $selectionStart = null,
+    ?int $selectionEnd = null
+): void
 {
-    if (is_bookmarked($userId, $verseId)) {
-        $statement = db()->prepare(
-            'UPDATE bookmarks SET tag = :tag, note = :note WHERE user_id = :user_id AND verse_id = :verse_id'
-        );
-        $statement->execute([
-            'user_id' => $userId,
-            'verse_id' => $verseId,
-            'tag' => normalize_optional_text($tag),
-            'note' => normalize_optional_text($note),
-        ]);
+    $normalizedTag = normalize_optional_text($tag);
+    $normalizedNote = normalize_optional_text($note);
+    $normalizedSelectedText = normalize_optional_text($selectedText ?? '');
+    $normalizedColor = normalize_optional_text($highlightColor ?? '');
+    $isSectionBookmark = $normalizedSelectedText !== null || $selectionStart !== null || $selectionEnd !== null;
 
-        return;
+    if (!$isSectionBookmark) {
+        $existing = fetch_full_verse_bookmark($userId, $verseId);
+
+        if ($existing !== null) {
+            $statement = db()->prepare(
+                'UPDATE bookmarks
+                SET tag = :tag, note = :note
+                WHERE id = :id AND user_id = :user_id'
+            );
+            $statement->execute([
+                'id' => $existing['id'],
+                'user_id' => $userId,
+                'tag' => $normalizedTag,
+                'note' => $normalizedNote,
+            ]);
+
+            return;
+        }
     }
 
     $statement = db()->prepare(
-        'INSERT INTO bookmarks (user_id, verse_id, tag, note) VALUES (:user_id, :verse_id, :tag, :note)'
+        'INSERT INTO bookmarks (
+            user_id,
+            verse_id,
+            tag,
+            note,
+            selected_text,
+            highlight_color,
+            selection_start,
+            selection_end
+        ) VALUES (
+            :user_id,
+            :verse_id,
+            :tag,
+            :note,
+            :selected_text,
+            :highlight_color,
+            :selection_start,
+            :selection_end
+        )'
     );
     $statement->execute([
         'user_id' => $userId,
         'verse_id' => $verseId,
-        'tag' => normalize_optional_text($tag),
-        'note' => normalize_optional_text($note),
+        'tag' => $normalizedTag,
+        'note' => $normalizedNote,
+        'selected_text' => $normalizedSelectedText,
+        'highlight_color' => $normalizedColor ?: null,
+        'selection_start' => $selectionStart,
+        'selection_end' => $selectionEnd,
     ]);
 }
 
-function fetch_bookmarks(int $userId): array
+function fetch_full_verse_bookmark(int $userId, int $verseId): ?array
 {
     $statement = db()->prepare(
-        'SELECT bookmarks.*, books.name AS book_name, verses.chapter_number, verses.verse_number, verses.translation, verses.verse_text
+        'SELECT *
+        FROM bookmarks
+        WHERE user_id = :user_id
+            AND verse_id = :verse_id
+            AND selected_text IS NULL
+            AND selection_start IS NULL
+            AND selection_end IS NULL
+        LIMIT 1'
+    );
+    $statement->execute([
+        'user_id' => $userId,
+        'verse_id' => $verseId,
+    ]);
+
+    $bookmark = $statement->fetch();
+
+    return $bookmark ?: null;
+}
+
+function fetch_favorite_bookmarks(int $userId, int $limit = 8): array
+{
+    $statement = db()->prepare(
+        'SELECT bookmarks.*, verses.book_id, books.name AS book_name, verses.chapter_number, verses.verse_number, verses.translation, verses.verse_text
         FROM bookmarks
         INNER JOIN verses ON verses.id = bookmarks.verse_id
         INNER JOIN books ON books.id = verses.book_id
         WHERE bookmarks.user_id = :user_id
-        ORDER BY bookmarks.created_at DESC'
+        ORDER BY bookmarks.created_at DESC
+        LIMIT ' . (int) $limit
     );
     $statement->execute(['user_id' => $userId]);
 
     return $statement->fetchAll();
+}
+
+function fetch_bookmarks_for_verses(int $userId, array $verseIds): array
+{
+    if ($verseIds === []) {
+        return [];
+    }
+
+    $placeholders = implode(', ', array_fill(0, count($verseIds), '?'));
+    $params = array_merge([$userId], array_map('intval', $verseIds));
+
+    $statement = db()->prepare(
+        'SELECT *
+        FROM bookmarks
+        WHERE user_id = ?
+            AND verse_id IN (' . $placeholders . ')
+        ORDER BY created_at ASC'
+    );
+    $statement->execute($params);
+
+    $grouped = [];
+
+    foreach ($statement->fetchAll() as $bookmark) {
+        $grouped[(int) $bookmark['verse_id']][] = $bookmark;
+    }
+
+    return $grouped;
+}
+
+function update_bookmark_record(
+    int $bookmarkId,
+    int $userId,
+    string $tag,
+    string $note,
+    ?string $highlightColor = null
+): void
+{
+    $statement = db()->prepare(
+        'UPDATE bookmarks
+        SET tag = :tag, note = :note, highlight_color = :highlight_color
+        WHERE id = :id AND user_id = :user_id'
+    );
+    $statement->execute([
+        'id' => $bookmarkId,
+        'user_id' => $userId,
+        'tag' => normalize_optional_text($tag),
+        'note' => normalize_optional_text($note),
+        'highlight_color' => normalize_optional_text($highlightColor ?? ''),
+    ]);
 }
 
 function fetch_bookmark(int $bookmarkId, int $userId): ?array
@@ -527,17 +642,19 @@ function fetch_bookmark(int $bookmarkId, int $userId): ?array
     return $bookmark ?: null;
 }
 
-function update_bookmark_record(int $bookmarkId, int $userId, string $tag, string $note): void
+function fetch_bookmarks(int $userId): array
 {
     $statement = db()->prepare(
-        'UPDATE bookmarks SET tag = :tag, note = :note WHERE id = :id AND user_id = :user_id'
+        'SELECT bookmarks.*, verses.book_id, books.name AS book_name, verses.chapter_number, verses.verse_number, verses.translation, verses.verse_text
+        FROM bookmarks
+        INNER JOIN verses ON verses.id = bookmarks.verse_id
+        INNER JOIN books ON books.id = verses.book_id
+        WHERE bookmarks.user_id = :user_id
+        ORDER BY bookmarks.created_at DESC'
     );
-    $statement->execute([
-        'id' => $bookmarkId,
-        'user_id' => $userId,
-        'tag' => normalize_optional_text($tag),
-        'note' => normalize_optional_text($note),
-    ]);
+    $statement->execute(['user_id' => $userId]);
+
+    return $statement->fetchAll();
 }
 
 function delete_bookmark_record(int $bookmarkId, int $userId): void

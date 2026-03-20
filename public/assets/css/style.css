@@ -426,6 +426,10 @@ textarea {
     color: #fff;
 }
 
+.filter-chip.is-muted {
+    opacity: 0.55;
+}
+
 .event-card.is-hidden {
     display: none;
 }
@@ -436,6 +440,17 @@ textarea {
 
 .search-row select {
     flex: 0 1 170px;
+}
+
+.reader-select-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 2fr auto;
+    gap: 0.9rem;
+    align-items: end;
+}
+
+.reader-go {
+    align-self: end;
 }
 
 .top-gap {
@@ -499,26 +514,15 @@ textarea {
     margin: 0;
 }
 
-.bible-sidebar {
-    align-self: start;
-}
-
-.book-grid,
 .chapter-grid {
     display: grid;
     gap: 0.75rem;
-}
-
-.book-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-top: 1rem;
 }
 
 .chapter-grid {
     grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));
 }
 
-.book-link,
 .chapter-link {
     display: grid;
     gap: 0.2rem;
@@ -534,20 +538,163 @@ textarea {
     font-weight: 700;
 }
 
-.book-link strong,
 .chapter-link {
     color: var(--primary-dark);
 }
 
-.book-link span,
-.book-link small {
-    color: var(--muted);
-}
-
-.book-link.is-active,
 .chapter-link.is-active {
     background: linear-gradient(135deg, rgba(214, 166, 79, 0.28), rgba(184, 87, 46, 0.18));
     border-color: rgba(107, 62, 38, 0.28);
+}
+
+.favorites-strip {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.translation-switch-row {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.favorite-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.4rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.76);
+}
+
+.bible-control-panel {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.chapter-reader {
+    display: grid;
+    gap: 1rem;
+    padding: 1.2rem;
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(243, 223, 191, 0.82));
+    border: 1px solid var(--border);
+}
+
+.reader-verse {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0.75rem 0;
+    padding-bottom: 1rem;
+    border-bottom: 1px dashed rgba(107, 62, 38, 0.2);
+    cursor: pointer;
+}
+
+.reader-verse:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.reader-verse.is-target {
+    padding: 1rem;
+    margin-inline: -0.35rem;
+    border-radius: 18px;
+    background: rgba(214, 166, 79, 0.2);
+    border-bottom-color: transparent;
+}
+
+.reader-verse-copy {
+    margin: 0;
+    font-size: 1.18rem;
+    line-height: 1.9;
+}
+
+.reader-verse-copy sup {
+    margin-right: 0.35rem;
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.reader-verse-text {
+    cursor: text;
+}
+
+.color-picker-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.color-swatch {
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    cursor: pointer;
+}
+
+.color-swatch.is-active {
+    border-color: var(--primary-dark);
+    box-shadow: 0 0 0 3px rgba(35, 57, 91, 0.12);
+}
+
+.verse-highlight {
+    padding: 0.06em 0.2em;
+    border-radius: 0.3em;
+}
+
+.neon-yellow {
+    background: #f8ff67;
+    color: #2f2700;
+}
+
+.neon-green {
+    background: #77ff8c;
+    color: #093310;
+}
+
+.neon-pink {
+    background: #ff6fda;
+    color: #3b062c;
+}
+
+.neon-blue {
+    background: #6ff1ff;
+    color: #05333a;
+}
+
+.neon-orange {
+    background: #ffb14a;
+    color: #4a2200;
+}
+
+.bookmark-popup {
+    position: fixed;
+    right: 1.5rem;
+    bottom: 1.5rem;
+    z-index: 30;
+    width: min(26rem, calc(100vw - 2rem));
+}
+
+.bookmark-popup-card {
+    padding: 1.15rem;
+    border-radius: 24px;
+    border: 1px solid rgba(107, 62, 38, 0.18);
+    background: rgba(255, 249, 240, 0.98);
+    box-shadow: 0 24px 60px rgba(68, 34, 20, 0.18);
+    backdrop-filter: blur(10px);
+}
+
+.popup-close {
+    border: 0;
+    background: rgba(35, 57, 91, 0.08);
+    color: var(--navy);
+    min-height: 2.5rem;
+    padding: 0.7rem 1rem;
+    border-radius: 999px;
+    font-weight: 700;
+    cursor: pointer;
 }
 
 .site-footer {
@@ -577,7 +724,8 @@ textarea {
 
     .hero-grid,
     .two-column,
-    .card-grid-2 {
+    .card-grid-2,
+    .reader-select-row {
         grid-template-columns: 1fr;
     }
 }
@@ -619,8 +767,7 @@ textarea {
     .card-grid-4,
     .card-grid-3,
     .card-grid-2,
-    .footer-grid,
-    .book-grid {
+    .footer-grid {
         grid-template-columns: 1fr;
     }
 
@@ -638,5 +785,11 @@ textarea {
 
     .inline-form {
         width: 100%;
+    }
+
+    .bookmark-popup {
+        right: 1rem;
+        left: 1rem;
+        width: auto;
     }
 }

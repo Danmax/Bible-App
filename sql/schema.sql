@@ -44,8 +44,12 @@ CREATE TABLE bookmarks (
     verse_id BIGINT UNSIGNED NOT NULL,
     note TEXT NULL,
     tag VARCHAR(100) NULL,
+    selected_text TEXT NULL,
+    highlight_color VARCHAR(20) NULL,
+    selection_start INT UNSIGNED NULL,
+    selection_end INT UNSIGNED NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_user_verse_bookmark (user_id, verse_id),
+    KEY idx_bookmarks_user_verse (user_id, verse_id),
     CONSTRAINT fk_bookmarks_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_bookmarks_verse FOREIGN KEY (verse_id) REFERENCES verses(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
