@@ -1,0 +1,3 @@
+ALTER TABLE users
+    ADD COLUMN city VARCHAR(120) NULL AFTER role,
+    ADD COLUMN avatar_url VARCHAR(255) NULL AFTER city;

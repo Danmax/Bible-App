@@ -1,14 +1,16 @@
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
     email VARCHAR(190) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(30) NOT NULL DEFAULT 'member',
+    city VARCHAR(120) NULL,
+    avatar_url VARCHAR(255) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE password_reset_tokens (
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     token_hash CHAR(64) NOT NULL UNIQUE,
@@ -18,7 +20,18 @@ CREATE TABLE password_reset_tokens (
     CONSTRAINT fk_password_reset_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE books (
+CREATE TABLE IF NOT EXISTS email_change_tokens (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    new_email VARCHAR(190) NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_email_change_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS books (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(80) NOT NULL,
     abbreviation VARCHAR(10) NOT NULL,
@@ -26,7 +39,7 @@ CREATE TABLE books (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE verses (
+CREATE TABLE IF NOT EXISTS verses (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     book_id BIGINT UNSIGNED NOT NULL,
     chapter_number INT UNSIGNED NOT NULL,
@@ -38,7 +51,7 @@ CREATE TABLE verses (
     CONSTRAINT fk_verses_book FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE bookmarks (
+CREATE TABLE IF NOT EXISTS bookmarks (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     verse_id BIGINT UNSIGNED NOT NULL,
@@ -54,7 +67,7 @@ CREATE TABLE bookmarks (
     CONSTRAINT fk_bookmarks_verse FOREIGN KEY (verse_id) REFERENCES verses(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE study_notes (
+CREATE TABLE IF NOT EXISTS study_notes (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     verse_id BIGINT UNSIGNED NULL,
@@ -66,7 +79,7 @@ CREATE TABLE study_notes (
     CONSTRAINT fk_study_notes_verse FOREIGN KEY (verse_id) REFERENCES verses(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE reading_plans (
+CREATE TABLE IF NOT EXISTS reading_plans (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(160) NOT NULL,
     description TEXT NULL,
@@ -74,7 +87,7 @@ CREATE TABLE reading_plans (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE user_reading_progress (
+CREATE TABLE IF NOT EXISTS user_reading_progress (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     reading_plan_id BIGINT UNSIGNED NOT NULL,
@@ -85,7 +98,7 @@ CREATE TABLE user_reading_progress (
     CONSTRAINT fk_reading_progress_plan FOREIGN KEY (reading_plan_id) REFERENCES reading_plans(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE yearly_goals (
+CREATE TABLE IF NOT EXISTS yearly_goals (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     year YEAR NOT NULL,
@@ -99,7 +112,7 @@ CREATE TABLE yearly_goals (
     CONSTRAINT fk_yearly_goals_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE planner_events (
+CREATE TABLE IF NOT EXISTS planner_events (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     title VARCHAR(160) NOT NULL,
@@ -112,7 +125,7 @@ CREATE TABLE planner_events (
     CONSTRAINT fk_planner_events_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE prayer_entries (
+CREATE TABLE IF NOT EXISTS prayer_entries (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     title VARCHAR(160) NOT NULL,
@@ -123,7 +136,7 @@ CREATE TABLE prayer_entries (
     CONSTRAINT fk_prayer_entries_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE community_event_categories (
+CREATE TABLE IF NOT EXISTS community_event_categories (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     slug VARCHAR(60) NOT NULL UNIQUE,
     label VARCHAR(100) NOT NULL,
@@ -132,7 +145,7 @@ CREATE TABLE community_event_categories (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE community_events (
+CREATE TABLE IF NOT EXISTS community_events (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     created_by_user_id BIGINT UNSIGNED NULL,
     category_id BIGINT UNSIGNED NULL,
@@ -153,7 +166,7 @@ CREATE TABLE community_events (
     CONSTRAINT fk_community_events_category FOREIGN KEY (category_id) REFERENCES community_event_categories(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE community_event_rsvps (
+CREATE TABLE IF NOT EXISTS community_event_rsvps (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     community_event_id BIGINT UNSIGNED NOT NULL,
     user_id BIGINT UNSIGNED NOT NULL,
@@ -164,3 +177,13 @@ CREATE TABLE community_event_rsvps (
     CONSTRAINT fk_community_event_rsvps_event FOREIGN KEY (community_event_id) REFERENCES community_events(id) ON DELETE CASCADE,
     CONSTRAINT fk_community_event_rsvps_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS city VARCHAR(120) NULL AFTER role,
+    ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(255) NULL AFTER city;
+
+ALTER TABLE bookmarks
+    ADD COLUMN IF NOT EXISTS selected_text TEXT NULL AFTER tag,
+    ADD COLUMN IF NOT EXISTS highlight_color VARCHAR(20) NULL AFTER selected_text,
+    ADD COLUMN IF NOT EXISTS selection_start INT UNSIGNED NULL AFTER highlight_color,
+    ADD COLUMN IF NOT EXISTS selection_end INT UNSIGNED NULL AFTER selection_start;

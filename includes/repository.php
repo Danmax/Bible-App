@@ -45,15 +45,22 @@ function create_user(string $name, string $email, string $password): array
     return $user;
 }
 
-function update_user_profile_record(int $userId, string $name, string $email): array
+function update_user_profile_record(int $userId, string $name, string $email, ?string $city = null, ?string $avatarUrl = null): array
 {
     $statement = db()->prepare(
-        'UPDATE users SET name = :name, email = :email WHERE id = :id'
+        'UPDATE users
+        SET name = :name,
+            email = :email,
+            city = :city,
+            avatar_url = :avatar_url
+        WHERE id = :id'
     );
     $statement->execute([
         'id' => $userId,
         'name' => trim($name),
         'email' => mb_strtolower(trim($email)),
+        'city' => normalize_optional_text($city ?? ''),
+        'avatar_url' => normalize_optional_text($avatarUrl ?? ''),
     ]);
 
     $user = fetch_user_by_id($userId);
@@ -157,6 +164,102 @@ function reset_user_password_with_token(string $token, string $password): ?int
     return (int) $record['user_id'];
 }
 
+function create_email_change_token(int $userId, string $newEmail): string
+{
+    $normalizedEmail = mb_strtolower(trim($newEmail));
+
+    db()->prepare('DELETE FROM email_change_tokens WHERE user_id = :user_id')
+        ->execute(['user_id' => $userId]);
+
+    $token = bin2hex(random_bytes(24));
+    $statement = db()->prepare(
+        'INSERT INTO email_change_tokens (user_id, new_email, token_hash, expires_at)
+        VALUES (:user_id, :new_email, :token_hash, :expires_at)'
+    );
+    $statement->execute([
+        'user_id' => $userId,
+        'new_email' => $normalizedEmail,
+        'token_hash' => hash('sha256', $token),
+        'expires_at' => date('Y-m-d H:i:s', strtotime('+1 hour')),
+    ]);
+
+    return $token;
+}
+
+function fetch_email_change_token(string $token): ?array
+{
+    $statement = db()->prepare(
+        'SELECT email_change_tokens.*, users.email AS current_email, users.name
+        FROM email_change_tokens
+        INNER JOIN users ON users.id = email_change_tokens.user_id
+        WHERE token_hash = :token_hash
+            AND used_at IS NULL
+            AND expires_at >= NOW()
+        LIMIT 1'
+    );
+    $statement->execute([
+        'token_hash' => hash('sha256', $token),
+    ]);
+
+    $record = $statement->fetch();
+
+    return $record ?: null;
+}
+
+function fetch_pending_email_change_request(int $userId): ?array
+{
+    $statement = db()->prepare(
+        'SELECT *
+        FROM email_change_tokens
+        WHERE user_id = :user_id
+            AND used_at IS NULL
+            AND expires_at >= NOW()
+        ORDER BY created_at DESC
+        LIMIT 1'
+    );
+    $statement->execute(['user_id' => $userId]);
+
+    $record = $statement->fetch();
+
+    return $record ?: null;
+}
+
+function confirm_email_change_with_token(string $token): ?array
+{
+    $record = fetch_email_change_token($token);
+
+    if ($record === null) {
+        return null;
+    }
+
+    $existingUser = fetch_user_by_email((string) $record['new_email']);
+
+    if ($existingUser !== null && (int) $existingUser['id'] !== (int) $record['user_id']) {
+        throw new RuntimeException('That email address is already in use.');
+    }
+
+    $pdo = db();
+    $pdo->beginTransaction();
+
+    try {
+        $statement = $pdo->prepare('UPDATE users SET email = :email WHERE id = :id');
+        $statement->execute([
+            'email' => (string) $record['new_email'],
+            'id' => (int) $record['user_id'],
+        ]);
+
+        $statement = $pdo->prepare('UPDATE email_change_tokens SET used_at = NOW() WHERE id = :id');
+        $statement->execute(['id' => (int) $record['id']]);
+
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        $pdo->rollBack();
+        throw $exception;
+    }
+
+    return fetch_user_by_id((int) $record['user_id']);
+}
+
 function fetch_dashboard_stats(int $userId): array
 {
     return [
@@ -225,6 +328,252 @@ function fetch_upcoming_events(int $limit = 3): array
     $statement->execute(['status' => 'published']);
 
     return $statement->fetchAll();
+}
+
+function fetch_yearly_goals_for_user(int $userId, int $year): array
+{
+    $statement = db()->prepare(
+        'SELECT *
+        FROM yearly_goals
+        WHERE user_id = :user_id
+            AND year = :year
+        ORDER BY
+            CASE status
+                WHEN :active_status THEN 0
+                WHEN :paused_status THEN 1
+                WHEN :completed_status THEN 2
+                ELSE 3
+            END,
+            updated_at DESC,
+            id DESC'
+    );
+    $statement->execute([
+        'user_id' => $userId,
+        'year' => $year,
+        'active_status' => 'active',
+        'paused_status' => 'paused',
+        'completed_status' => 'completed',
+    ]);
+
+    return $statement->fetchAll();
+}
+
+function fetch_yearly_goal_by_id(int $goalId, int $userId): ?array
+{
+    $statement = db()->prepare(
+        'SELECT *
+        FROM yearly_goals
+        WHERE id = :id
+            AND user_id = :user_id
+        LIMIT 1'
+    );
+    $statement->execute([
+        'id' => $goalId,
+        'user_id' => $userId,
+    ]);
+
+    $goal = $statement->fetch();
+
+    return $goal ?: null;
+}
+
+function create_yearly_goal_record(int $userId, array $payload): int
+{
+    $statement = db()->prepare(
+        'INSERT INTO yearly_goals (user_id, year, goal_title, goal_type, target_value, current_value, status)
+        VALUES (:user_id, :year, :goal_title, :goal_type, :target_value, :current_value, :status)'
+    );
+    $statement->execute([
+        'user_id' => $userId,
+        'year' => $payload['year'],
+        'goal_title' => $payload['goal_title'],
+        'goal_type' => $payload['goal_type'],
+        'target_value' => $payload['target_value'],
+        'current_value' => $payload['current_value'],
+        'status' => $payload['status'],
+    ]);
+
+    return (int) db()->lastInsertId();
+}
+
+function update_yearly_goal_record(int $goalId, int $userId, array $payload): void
+{
+    $statement = db()->prepare(
+        'UPDATE yearly_goals
+        SET year = :year,
+            goal_title = :goal_title,
+            goal_type = :goal_type,
+            target_value = :target_value,
+            current_value = :current_value,
+            status = :status
+        WHERE id = :id
+            AND user_id = :user_id'
+    );
+    $statement->execute([
+        'id' => $goalId,
+        'user_id' => $userId,
+        'year' => $payload['year'],
+        'goal_title' => $payload['goal_title'],
+        'goal_type' => $payload['goal_type'],
+        'target_value' => $payload['target_value'],
+        'current_value' => $payload['current_value'],
+        'status' => $payload['status'],
+    ]);
+}
+
+function delete_yearly_goal_record(int $goalId, int $userId): void
+{
+    $statement = db()->prepare('DELETE FROM yearly_goals WHERE id = :id AND user_id = :user_id');
+    $statement->execute([
+        'id' => $goalId,
+        'user_id' => $userId,
+    ]);
+}
+
+function fetch_planner_events_for_user(int $userId, int $limit = 50): array
+{
+    $statement = db()->prepare(
+        'SELECT *
+        FROM planner_events
+        WHERE user_id = :user_id
+        ORDER BY event_date ASC, id ASC
+        LIMIT ' . (int) $limit
+    );
+    $statement->execute(['user_id' => $userId]);
+
+    return $statement->fetchAll();
+}
+
+function fetch_planner_event_by_id(int $eventId, int $userId): ?array
+{
+    $statement = db()->prepare(
+        'SELECT *
+        FROM planner_events
+        WHERE id = :id
+            AND user_id = :user_id
+        LIMIT 1'
+    );
+    $statement->execute([
+        'id' => $eventId,
+        'user_id' => $userId,
+    ]);
+
+    $event = $statement->fetch();
+
+    return $event ?: null;
+}
+
+function create_planner_event_record(int $userId, array $payload): int
+{
+    $statement = db()->prepare(
+        'INSERT INTO planner_events (user_id, title, description, event_date, event_type, related_community_event_id)
+        VALUES (:user_id, :title, :description, :event_date, :event_type, :related_community_event_id)'
+    );
+    $statement->execute([
+        'user_id' => $userId,
+        'title' => $payload['title'],
+        'description' => $payload['description'],
+        'event_date' => $payload['event_date'],
+        'event_type' => $payload['event_type'],
+        'related_community_event_id' => $payload['related_community_event_id'],
+    ]);
+
+    return (int) db()->lastInsertId();
+}
+
+function update_planner_event_record(int $eventId, int $userId, array $payload): void
+{
+    $statement = db()->prepare(
+        'UPDATE planner_events
+        SET title = :title,
+            description = :description,
+            event_date = :event_date,
+            event_type = :event_type,
+            related_community_event_id = :related_community_event_id
+        WHERE id = :id
+            AND user_id = :user_id'
+    );
+    $statement->execute([
+        'id' => $eventId,
+        'user_id' => $userId,
+        'title' => $payload['title'],
+        'description' => $payload['description'],
+        'event_date' => $payload['event_date'],
+        'event_type' => $payload['event_type'],
+        'related_community_event_id' => $payload['related_community_event_id'],
+    ]);
+}
+
+function delete_planner_event_record(int $eventId, int $userId): void
+{
+    $statement = db()->prepare('DELETE FROM planner_events WHERE id = :id AND user_id = :user_id');
+    $statement->execute([
+        'id' => $eventId,
+        'user_id' => $userId,
+    ]);
+}
+
+function fetch_planner_schedule(int $userId, int $limit = 8): array
+{
+    $statement = db()->prepare(
+        'SELECT
+            id,
+            title,
+            description,
+            event_date,
+            event_type,
+            related_community_event_id,
+            created_at,
+            updated_at,
+            :source AS source
+        FROM planner_events
+        WHERE user_id = :user_id
+            AND event_date >= NOW() - INTERVAL 1 DAY
+        ORDER BY event_date ASC, id ASC
+        LIMIT ' . (int) $limit
+    );
+    $statement->execute([
+        'source' => 'personal',
+        'user_id' => $userId,
+    ]);
+
+    return $statement->fetchAll();
+}
+
+function summarize_yearly_goals(array $goals): array
+{
+    $summary = [
+        'total' => count($goals),
+        'active' => 0,
+        'completed' => 0,
+        'progress_percent' => 0,
+    ];
+
+    $percentages = [];
+
+    foreach ($goals as $goal) {
+        $status = (string) ($goal['status'] ?? 'active');
+
+        if ($status === 'active') {
+            $summary['active']++;
+        }
+
+        if ($status === 'completed') {
+            $summary['completed']++;
+        }
+
+        $percent = calculate_goal_progress_percent($goal);
+
+        if ($percent !== null) {
+            $percentages[] = $percent;
+        }
+    }
+
+    if ($percentages !== []) {
+        $summary['progress_percent'] = (int) round(array_sum($percentages) / count($percentages));
+    }
+
+    return $summary;
 }
 
 function fetch_event_categories(): array
@@ -1140,6 +1489,18 @@ function format_verse_reference(array $verse): string
         $verse['verse_number'],
         $verse['translation']
     );
+}
+
+function calculate_goal_progress_percent(array $goal): ?int
+{
+    $targetValue = isset($goal['target_value']) ? (int) $goal['target_value'] : 0;
+    $currentValue = isset($goal['current_value']) ? (int) $goal['current_value'] : 0;
+
+    if ($targetValue <= 0) {
+        return null;
+    }
+
+    return max(0, min(100, (int) round(($currentValue / $targetValue) * 100)));
 }
 
 function format_event_date(?string $date): string

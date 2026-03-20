@@ -239,6 +239,7 @@ span {
 .showcase-top,
 .event-meta,
 .profile-row,
+.profile-hero,
 .footer-base,
 .scripture-heading,
 .panel-heading,
@@ -591,6 +592,67 @@ textarea {
 
 .community-rsvp-row form {
     margin: 0;
+}
+
+.profile-hero {
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.profile-avatar {
+    width: 5.5rem;
+    height: 5.5rem;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 2px solid rgba(107, 62, 38, 0.18);
+    background: rgba(255, 255, 255, 0.85);
+}
+
+.profile-avatar-fallback {
+    display: inline-grid;
+    place-items: center;
+    font-family: "Bree Serif", serif;
+    font-size: 1.5rem;
+    color: #fff8ee;
+    background: linear-gradient(135deg, var(--accent), var(--primary));
+}
+
+.planner-item-body {
+    display: grid;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.planner-item-header,
+.planner-pill-row,
+.planner-progress-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.planner-item-header {
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.planner-progress-meta {
+    color: var(--muted);
+}
+
+.planner-progress-bar {
+    width: 100%;
+    height: 0.7rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(35, 57, 91, 0.08);
+}
+
+.planner-progress-bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(135deg, var(--gold), var(--accent));
 }
 
 .community-checkbox {

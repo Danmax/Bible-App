@@ -56,6 +56,8 @@ function log_in_user(array $user): void
         'name' => (string) $user['name'],
         'email' => (string) $user['email'],
         'role' => (string) ($user['role'] ?? 'member'),
+        'city' => (string) ($user['city'] ?? ''),
+        'avatar_url' => (string) ($user['avatar_url'] ?? ''),
     ];
 }
 
@@ -130,6 +132,8 @@ function refresh_current_user(): ?array
         'name' => (string) $freshUser['name'],
         'email' => (string) $freshUser['email'],
         'role' => (string) ($freshUser['role'] ?? 'member'),
+        'city' => (string) ($freshUser['city'] ?? ''),
+        'avatar_url' => (string) ($freshUser['avatar_url'] ?? ''),
     ];
 
     return current_user();
