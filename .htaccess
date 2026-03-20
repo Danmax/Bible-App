@@ -8,3 +8,5 @@ DirectoryIndex index.php
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>
+
+RewriteRule ^(includes|sql|scripts|vendor|storage|cache|logs|tmp)(/|$) - [F,L,NC]

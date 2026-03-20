@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/includes/auth.php';
+require_once __DIR__ . '/includes/auth.php';
 
 if (is_logged_in()) {
     redirect('dashboard.php');
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $pageTitle = 'Reset Password';
 $activePage = '';
 
-require_once dirname(__DIR__) . '/includes/header.php';
+require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
     <div class="container narrow">
@@ -86,4 +86,4 @@ require_once dirname(__DIR__) . '/includes/header.php';
         </div>
     </div>
 </section>
-<?php require_once dirname(__DIR__) . '/includes/footer.php'; ?>
+<?php require_once __DIR__ . '/includes/footer.php'; ?>

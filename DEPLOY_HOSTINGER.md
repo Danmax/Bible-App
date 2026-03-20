@@ -4,96 +4,68 @@ This app is a plain PHP + MySQL site. It is not a Node app and it does not need 
 
 ## Repo Tree
 
-Your GitHub repo should stay organized like this:
+The repo now matches the shape you can deploy directly into Hostinger `public_html`:
 
 ```text
 Bible App/
-  includes/
-  public/
-    .htaccess
-    index.php
-    bible.php
-    community.php
-    login.php
-    register.php
-    dashboard.php
-    bookmarks.php
-    notes.php
-    planner.php
-    profile.php
-    forgot-password.php
-    reset-password.php
-    logout.php
-    assets/
-  sql/
-  .env.example
-  DEPLOY_HOSTINGER.md
-```
-
-`public/` is the web root inside the repo.
-
-## Hostinger Target Tree
-
-On Hostinger shared hosting, your domain should look like this:
-
-```text
-/home/USERNAME/domains/yourdomain.com/
-  includes/
-  sql/
-  .env.local
-  public_html/
-    .htaccess
-    index.php
-    login.php
-    register.php
-    dashboard.php
-    bible.php
-    community.php
-    bookmarks.php
-    planner.php
-    notes.php
-    profile.php
-    logout.php
-    forgot-password.php
-    reset-password.php
-    assets/
-```
-
-`public_html/` should contain the contents of this repo's [`public/`](/Users/daniel.maldonado1/Documents/Code/Bible%20App/public) folder, not the whole repo.
-
-## Common 403 Mistake
-
-This is the wrong upload layout and it causes the root domain to return `403 Forbidden`:
-
-```text
-public_html/
-  public/
-    index.php
-    bible.php
-    community.php
-```
-
-That layout makes the app reachable at `/public/` instead of `/`.
-
-The correct layout is:
-
-```text
-public_html/
+  .htaccess
   index.php
   bible.php
   community.php
   login.php
   register.php
+  dashboard.php
+  bookmarks.php
+  notes.php
+  planner.php
+  profile.php
+  forgot-password.php
+  reset-password.php
+  logout.php
   assets/
+  includes/
+  sql/
+  .env.example
+  DEPLOY_HOSTINGER.md
 ```
+
+## Hostinger Layout
+
+If you deploy this repo directly to Hostinger `public_html`, the tree should look like this:
+
+```text
+/home/USERNAME/domains/yourdomain.com/public_html/
+  .htaccess
+  index.php
+  bible.php
+  community.php
+  login.php
+  register.php
+  dashboard.php
+  bookmarks.php
+  notes.php
+  planner.php
+  profile.php
+  forgot-password.php
+  reset-password.php
+  logout.php
+  assets/
+  includes/
+  sql/
+  .env.local
+```
+
+This refactor removes the old `public/` deployment step. You no longer need to move files out of a nested `public/` folder after each update.
 
 ## What To Upload
 
-Upload these repo paths:
+Upload or deploy the repo root into `public_html/`.
 
-- [`public/`](/Users/daniel.maldonado1/Documents/Code/Bible%20App/public) -> `public_html/`
-- [`includes/`](/Users/daniel.maldonado1/Documents/Code/Bible%20App/includes) -> next to `public_html/`
-- [`sql/`](/Users/daniel.maldonado1/Documents/Code/Bible%20App/sql) -> next to `public_html/`
+Important:
+
+- keep `.env.local` local to the server
+- do not commit `.env.local`
+- do not upload `.git/`
 
 Do not upload:
 
@@ -101,17 +73,22 @@ Do not upload:
 - `.env.local` from your laptop
 - [`PROJECT_PLAN.md`](/Users/daniel.maldonado1/Documents/Code/Bible%20App/PROJECT_PLAN.md)
 
-If you already uploaded the repo incorrectly:
+## Protected Paths
 
-1. Open `public_html/public/`
-2. Move every file and folder inside it up into `public_html/`
-3. Delete the now-empty `public/` folder
-4. Confirm `public_html/index.php` exists
-5. Confirm `public_html/assets/` exists
+Because `includes/` and `sql/` now live in the deploy root, [`.htaccess`](/Users/daniel.maldonado1/Documents/Code/Bible%20App/.htaccess) blocks direct web access to:
+
+- `includes/`
+- `sql/`
+- `scripts/`
+- `vendor/`
+- `storage/`
+- `cache/`
+- `logs/`
+- `tmp/`
 
 ## Environment File
 
-Create `.env.local` one level above `public_html/` with your live Hostinger database values:
+Create `.env.local` inside `public_html/` with your live Hostinger database values:
 
 ```env
 APP_BASE_URL=https://yourdomain.com
@@ -136,4 +113,5 @@ This app already loads `.env` and `.env.local` in [`config.php`](/Users/daniel.m
 
 - Use `DB_HOST=localhost` on Hostinger when the website and MySQL database are on the same hosting account.
 - The app now uses real DB-backed auth, bookmarks, notes, Bible content, and community events.
+- If the old deployment created `public_html/public/`, remove that folder after deploying this refactor.
 - If you change `.env.local`, refresh the page. You usually do not need a special restart step for standard PHP page loads on shared hosting.

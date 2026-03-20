@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/includes/auth.php';
+require_once __DIR__ . '/includes/auth.php';
 
 function community_redirect_url(string $categorySlug = 'all', ?int $editEventId = null): string
 {
@@ -274,7 +274,7 @@ if ($editingEvent !== null && $formError === null && $_SERVER['REQUEST_METHOD'] 
     $formData = community_event_form_defaults($editingEvent);
 }
 
-require_once dirname(__DIR__) . '/includes/header.php';
+require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
     <div class="container">
@@ -564,4 +564,4 @@ require_once dirname(__DIR__) . '/includes/header.php';
         </div>
     </div>
 </section>
-<?php require_once dirname(__DIR__) . '/includes/footer.php'; ?>
+<?php require_once __DIR__ . '/includes/footer.php'; ?>
