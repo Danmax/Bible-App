@@ -43,7 +43,7 @@ declare(strict_types=1);
         <a class="button button-secondary" href="<?= e(app_url('bible.php?translation=' . urlencode((string) $verse['translation']) . '&book_id=' . $verse['book_id'] . '&chapter=' . $verse['chapter_number'])); ?>">
             Open Chapter
         </a>
-        <?php if (is_logged_in()): ?>
+        <?php if (is_logged_in() && !empty($verse['id'])): ?>
             <form class="inline-form" method="post">
                 <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                 <input type="hidden" name="verse_id" value="<?= e((string) $verse['id']); ?>">
@@ -55,6 +55,8 @@ declare(strict_types=1);
                 <button class="button button-primary" type="submit">Save Bookmark</button>
             </form>
             <a class="button button-secondary" href="<?= e(app_url('notes.php?verse_id=' . $verse['id'])); ?>">Add Note</a>
+        <?php elseif (is_logged_in()): ?>
+            <span class="muted-copy">Bookmarking for this result is unavailable until the verse is mapped locally.</span>
         <?php else: ?>
             <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign in to save</a>
         <?php endif; ?>

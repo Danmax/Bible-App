@@ -84,10 +84,12 @@ try {
     }
 
     foreach ($translations as $translation) {
-        $translationAvailability[$translation] = count_records(
-            'SELECT COUNT(*) FROM verses WHERE translation = :translation',
-            ['translation' => $translation]
-        ) > 0;
+        $translationAvailability[$translation] = uses_external_translation($translation)
+            ? external_translation_available($translation)
+            : count_records(
+                'SELECT COUNT(*) FROM verses WHERE translation = :translation',
+                ['translation' => $translation]
+            ) > 0;
     }
 
     $bookCatalog = fetch_book_catalog($selectedTranslation);

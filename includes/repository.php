@@ -489,6 +489,10 @@ function fetch_books(): array
 
 function fetch_book_catalog(string $translation): array
 {
+    if (uses_external_translation($translation)) {
+        $translation = 'KJV';
+    }
+
     $statement = db()->prepare(
         'SELECT books.id, books.name, books.abbreviation, books.testament, COUNT(DISTINCT verses.chapter_number) AS chapter_count
         FROM books
@@ -514,6 +518,10 @@ function fetch_book_by_id(int $bookId): ?array
 
 function fetch_book_chapters(int $bookId, string $translation): array
 {
+    if (uses_external_translation($translation)) {
+        $translation = 'KJV';
+    }
+
     $statement = db()->prepare(
         'SELECT chapter_number, COUNT(*) AS verse_count
         FROM verses
@@ -531,6 +539,10 @@ function fetch_book_chapters(int $bookId, string $translation): array
 
 function fetch_chapter_verses(int $bookId, int $chapterNumber, string $translation): array
 {
+    if (uses_external_translation($translation)) {
+        return fetch_external_translation_chapter_verses($bookId, $chapterNumber, $translation);
+    }
+
     $statement = db()->prepare(
         'SELECT verses.*, books.name AS book_name, books.abbreviation
         FROM verses
@@ -563,6 +575,47 @@ function fetch_available_translations(): array
     );
 
     return array_values(array_unique(array_merge(supported_translations(), $translations)));
+}
+
+function uses_external_translation(string $translation): bool
+{
+    return external_translation_provider_config($translation) !== null;
+}
+
+function external_translation_available(string $translation): bool
+{
+    $provider = external_translation_provider_config($translation);
+
+    if ($provider === null || !($provider['implemented'] ?? false)) {
+        return false;
+    }
+
+    $envKey = (string) ($provider['env_key'] ?? '');
+
+    if ($envKey === '') {
+        return true;
+    }
+
+    return trim((string) getenv($envKey)) !== '';
+}
+
+function external_translation_provider_config(string $translation): ?array
+{
+    $translation = strtoupper(trim($translation));
+
+    return match ($translation) {
+        'NLT' => [
+            'provider' => 'nlt',
+            'env_key' => 'NLT_API_KEY',
+            'implemented' => true,
+        ],
+        'NIV' => [
+            'provider' => 'youversion',
+            'env_key' => 'YOUVERSION_APP_KEY',
+            'implemented' => false,
+        ],
+        default => null,
+    };
 }
 
 function parse_reference_query(string $query, array $books): ?array
@@ -604,6 +657,10 @@ function parse_reference_query(string $query, array $books): ?array
 
 function search_scripture(string $query, string $translation): array
 {
+    if (uses_external_translation($translation)) {
+        return search_external_translation($query, $translation);
+    }
+
     $books = fetch_books();
     $reference = parse_reference_query($query, $books);
 
@@ -612,6 +669,74 @@ function search_scripture(string $query, string $translation): array
     }
 
     return fetch_keyword_verses($query, $translation);
+}
+
+function search_external_translation(string $query, string $translation): array
+{
+    $books = fetch_books();
+    $reference = parse_reference_query($query, $books);
+
+    if ($reference !== null) {
+        return fetch_external_translation_reference_verses($reference, $translation);
+    }
+
+    return fetch_external_translation_keyword_verses($query, $translation, $books);
+}
+
+function fetch_external_translation_reference_verses(array $reference, string $translation): array
+{
+    $book = fetch_book_by_id((int) $reference['book_id']);
+
+    if ($book === null) {
+        return [
+            'mode' => 'reference',
+            'results' => [],
+            'heading' => build_reference_heading($reference, $translation),
+        ];
+    }
+
+    $referenceString = build_external_translation_reference_string(
+        (string) $book['name'],
+        (int) $reference['chapter'],
+        isset($reference['start_verse']) ? (int) $reference['start_verse'] : null,
+        isset($reference['end_verse']) ? (int) $reference['end_verse'] : null
+    );
+
+    $html = external_translation_api_get($translation, '/api/passages', [
+        'ref' => $referenceString,
+        'version' => $translation,
+    ]);
+
+    $verseIdMap = fetch_canonical_verse_id_map((int) $reference['book_id'], (int) $reference['chapter']);
+    $verses = parse_external_translation_passage_html(
+        $html,
+        (int) $book['id'],
+        (string) $book['name'],
+        (string) $book['abbreviation'],
+        (int) $reference['chapter'],
+        $translation,
+        $verseIdMap
+    );
+
+    return [
+        'mode' => 'reference',
+        'results' => $verses,
+        'heading' => build_reference_heading($reference, $translation),
+    ];
+}
+
+function fetch_external_translation_keyword_verses(string $query, string $translation, array $books, int $limit = 25): array
+{
+    $html = external_translation_api_get($translation, '/api/search', [
+        'text' => trim($query),
+        'version' => $translation,
+    ]);
+
+    return [
+        'mode' => 'keyword',
+        'results' => parse_external_translation_search_html($html, $books, $translation, $limit),
+        'heading' => 'Search Results',
+    ];
 }
 
 function fetch_reference_verses(array $reference, string $translation): array
@@ -680,6 +805,18 @@ function fetch_keyword_verses(string $query, string $translation, int $limit = 2
 
 function fetch_featured_verses(string $translation, int $limit = 3): array
 {
+    if (uses_external_translation($translation)) {
+        $reference = [
+            'book_id' => 43,
+            'book_name' => 'John',
+            'chapter' => 3,
+            'start_verse' => 16,
+            'end_verse' => null,
+        ];
+
+        return fetch_external_translation_reference_verses($reference, $translation)['results'];
+    }
+
     $statement = db()->prepare(
         'SELECT verses.*, books.name AS book_name, books.abbreviation
         FROM verses
@@ -1065,4 +1202,383 @@ function build_reference_heading(array $reference, string $translation): string
     }
 
     return $heading . ' (' . $translation . ')';
+}
+
+function fetch_external_translation_chapter_verses(int $bookId, int $chapterNumber, string $translation): array
+{
+    $book = fetch_book_by_id($bookId);
+
+    if ($book === null) {
+        return [];
+    }
+
+    $html = external_translation_api_get($translation, '/api/passages', [
+        'ref' => build_external_translation_reference_string((string) $book['name'], $chapterNumber),
+        'version' => $translation,
+    ]);
+
+    return parse_external_translation_passage_html(
+        $html,
+        (int) $book['id'],
+        (string) $book['name'],
+        (string) $book['abbreviation'],
+        $chapterNumber,
+        $translation,
+        fetch_canonical_verse_id_map($bookId, $chapterNumber)
+    );
+}
+
+function fetch_canonical_verse_id_map(int $bookId, int $chapterNumber): array
+{
+    $statement = db()->prepare(
+        'SELECT verse_number, id
+        FROM verses
+        WHERE book_id = :book_id
+            AND chapter_number = :chapter_number
+            AND translation = :translation
+        ORDER BY verse_number ASC'
+    );
+    $statement->execute([
+        'book_id' => $bookId,
+        'chapter_number' => $chapterNumber,
+        'translation' => 'KJV',
+    ]);
+
+    $map = [];
+
+    foreach ($statement->fetchAll() as $row) {
+        $map[(int) $row['verse_number']] = (int) $row['id'];
+    }
+
+    return $map;
+}
+
+function fetch_canonical_verse_id(int $bookId, int $chapterNumber, int $verseNumber): ?int
+{
+    $statement = db()->prepare(
+        'SELECT id
+        FROM verses
+        WHERE book_id = :book_id
+            AND chapter_number = :chapter_number
+            AND verse_number = :verse_number
+        ORDER BY CASE WHEN translation = :preferred_translation THEN 0 ELSE 1 END, id ASC
+        LIMIT 1'
+    );
+    $statement->execute([
+        'book_id' => $bookId,
+        'chapter_number' => $chapterNumber,
+        'verse_number' => $verseNumber,
+        'preferred_translation' => 'KJV',
+    ]);
+
+    $value = $statement->fetchColumn();
+
+    return $value === false ? null : (int) $value;
+}
+
+function build_external_translation_reference_string(
+    string $bookName,
+    int $chapterNumber,
+    ?int $startVerse = null,
+    ?int $endVerse = null
+): string {
+    $reference = $bookName . ' ' . $chapterNumber;
+
+    if ($startVerse !== null && $endVerse !== null) {
+        $reference .= ':' . $startVerse . '-' . $endVerse;
+    } elseif ($startVerse !== null) {
+        $reference .= ':' . $startVerse;
+    }
+
+    return $reference;
+}
+
+function external_translation_api_get(string $translation, string $path, array $params): string
+{
+    $provider = external_translation_provider_config($translation);
+
+    if ($provider === null) {
+        throw new RuntimeException('No external provider is configured for ' . strtoupper(trim($translation)) . '.');
+    }
+
+    $providerName = (string) ($provider['provider'] ?? '');
+    $request = build_external_translation_request($providerName, $path, $params);
+    $url = $request['url'];
+    $headers = $request['headers'];
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_HTTPHEADER => $headers,
+        ]);
+        $response = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false || $status >= 400) {
+            throw new RuntimeException(build_external_translation_error_message($translation, $error));
+        }
+
+        return (string) $response;
+    }
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => 20,
+            'header' => implode("\r\n", $headers) . "\r\n",
+        ],
+    ]);
+
+    $response = @file_get_contents($url, false, $context);
+
+    if ($response === false) {
+        throw new RuntimeException(build_external_translation_error_message($translation));
+    }
+
+    return $response;
+}
+
+function build_external_translation_request(string $provider, string $path, array $params): array
+{
+    return match ($provider) {
+        'nlt' => build_nlt_translation_request($path, $params),
+        'youversion' => throw new RuntimeException(
+            'NIV support via YouVersion is configured but not implemented yet. Add the YouVersion request details or app key so it can be completed.'
+        ),
+        default => throw new RuntimeException('Unsupported external translation provider: ' . $provider . '.'),
+    };
+}
+
+function build_nlt_translation_request(string $path, array $params): array
+{
+    $apiKey = trim((string) (getenv('NLT_API_KEY') ?: 'TEST'));
+    $params['key'] = $apiKey;
+
+    return [
+        'url' => 'https://api.nlt.to' . $path . '?' . http_build_query($params),
+        'headers' => ['Accept: text/html,application/json'],
+    ];
+}
+
+function build_external_translation_error_message(string $translation, string $transportError = ''): string
+{
+    $message = 'The ' . strtoupper(trim($translation)) . ' API request failed';
+
+    if ($transportError !== '') {
+        $message .= ': ' . $transportError;
+    } else {
+        $message .= '.';
+    }
+
+    return $message;
+}
+
+function parse_external_translation_passage_html(
+    string $html,
+    int $bookId,
+    string $bookName,
+    string $abbreviation,
+    int $chapterNumber,
+    string $translation,
+    array $verseIdMap
+): array {
+    if (!preg_match_all('/<verse_export\b([^>]*)>(.*?)<\/verse_export>/is', $html, $matches, PREG_SET_ORDER)) {
+        return [];
+    }
+
+    $verses = [];
+
+    foreach ($matches as $match) {
+        $attributes = parse_external_translation_attributes($match[1]);
+        $verseNumber = isset($attributes['vn']) ? (int) $attributes['vn'] : 0;
+
+        if ($verseNumber <= 0) {
+            continue;
+        }
+
+        $verseText = sanitize_external_translation_html($match[2]);
+
+        if ($verseText === '') {
+            continue;
+        }
+
+        $verses[] = [
+            'id' => $verseIdMap[$verseNumber] ?? fetch_canonical_verse_id($bookId, $chapterNumber, $verseNumber) ?? 0,
+            'book_id' => $bookId,
+            'book_name' => $bookName,
+            'abbreviation' => $abbreviation,
+            'chapter_number' => $chapterNumber,
+            'verse_number' => $verseNumber,
+            'verse_text' => $verseText,
+            'translation' => $translation,
+        ];
+    }
+
+    return $verses;
+}
+
+function parse_external_translation_search_html(string $html, array $books, string $translation, int $limit = 25): array
+{
+    if (!preg_match_all('/<tr>\s*<td><a[^>]*>([^<]+)<\/a><\/td>\s*<td>(.*?)<\/td>\s*<\/tr>/is', $html, $matches, PREG_SET_ORDER)) {
+        return [];
+    }
+
+    $results = [];
+
+    foreach ($matches as $match) {
+        $reference = parse_external_translation_dot_reference(trim(html_entity_decode(strip_tags($match[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8')), $books);
+
+        if ($reference === null) {
+            continue;
+        }
+
+        $results[] = [
+            'id' => fetch_canonical_verse_id($reference['book_id'], $reference['chapter_number'], $reference['verse_number']) ?? 0,
+            'book_id' => $reference['book_id'],
+            'book_name' => $reference['book_name'],
+            'abbreviation' => $reference['abbreviation'],
+            'chapter_number' => $reference['chapter_number'],
+            'verse_number' => $reference['verse_number'],
+            'verse_text' => sanitize_external_translation_html($match[2]),
+            'translation' => $translation,
+        ];
+
+        if (count($results) >= $limit) {
+            break;
+        }
+    }
+
+    return $results;
+}
+
+function parse_external_translation_attributes(string $attributeString): array
+{
+    $attributes = [];
+
+    if (preg_match_all('/([a-z_]+)="([^"]*)"/i', $attributeString, $matches, PREG_SET_ORDER)) {
+        foreach ($matches as $match) {
+            $attributes[strtolower($match[1])] = html_entity_decode($match[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+    }
+
+    return $attributes;
+}
+
+function sanitize_external_translation_html(string $html): string
+{
+    $clean = preg_replace('/<a\b[^>]*class="a-tn"[^>]*>.*?<\/a>/is', '', $html) ?? $html;
+    $clean = preg_replace('/<span\b[^>]*class="tn"[^>]*>.*?<\/span>/is', '', $clean) ?? $clean;
+    $clean = preg_replace('/<span\b[^>]*class="vn"[^>]*>.*?<\/span>/is', '', $clean) ?? $clean;
+    $clean = preg_replace('/<h[23]\b[^>]*>.*?<\/h[23]>/is', '', $clean) ?? $clean;
+    $clean = preg_replace('/<\/p>\s*<p[^>]*>/i', ' ', $clean) ?? $clean;
+    $clean = preg_replace('/<br\s*\/?>/i', ' ', $clean) ?? $clean;
+    $clean = strip_tags($clean);
+    $clean = html_entity_decode($clean, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $clean = preg_replace('/\s+/u', ' ', $clean) ?? $clean;
+
+    return trim($clean);
+}
+
+function parse_external_translation_dot_reference(string $reference, array $books): ?array
+{
+    if (!preg_match('/^([1-3]?\s*[A-Za-z]+)\.(\d+)\.(\d+)$/', str_replace(' ', '', $reference), $matches)) {
+        return null;
+    }
+
+    $bookToken = normalize_book_key($matches[1]);
+    $chapterNumber = (int) $matches[2];
+    $verseNumber = (int) $matches[3];
+    $lookup = external_translation_book_alias_lookup($books);
+    $book = $lookup[$bookToken] ?? null;
+
+    if ($book === null) {
+        return null;
+    }
+
+    return [
+        'book_id' => (int) $book['id'],
+        'book_name' => (string) $book['name'],
+        'abbreviation' => (string) $book['abbreviation'],
+        'chapter_number' => $chapterNumber,
+        'verse_number' => $verseNumber,
+    ];
+}
+
+function external_translation_book_alias_lookup(array $books): array
+{
+    static $lookup = null;
+
+    if ($lookup !== null) {
+        return $lookup;
+    }
+
+    $lookup = [];
+
+    foreach ($books as $book) {
+        $aliases = [
+            (string) $book['name'],
+            (string) $book['abbreviation'],
+        ];
+
+        foreach (external_translation_manual_aliases() as $alias => $canonicalName) {
+            if (strcasecmp((string) $book['name'], $canonicalName) === 0) {
+                $aliases[] = $alias;
+            }
+        }
+
+        foreach ($aliases as $alias) {
+            $lookup[normalize_book_key($alias)] = $book;
+        }
+    }
+
+    return $lookup;
+}
+
+function external_translation_manual_aliases(): array
+{
+    return [
+        'Gen' => 'Genesis',
+        'Exod' => 'Exodus',
+        'Judg' => 'Judges',
+        '1Sam' => '1 Samuel',
+        '2Sam' => '2 Samuel',
+        '1Kgs' => '1 Kings',
+        '2Kgs' => '2 Kings',
+        '1Chr' => '1 Chronicles',
+        '2Chr' => '2 Chronicles',
+        'Esth' => 'Esther',
+        'Ps' => 'Psalms',
+        'Pr' => 'Proverbs',
+        'Prov' => 'Proverbs',
+        'Eccl' => 'Ecclesiastes',
+        'Ezek' => 'Ezekiel',
+        'Obad' => 'Obadiah',
+        'Zech' => 'Zechariah',
+        'Matt' => 'Matthew',
+        'Mk' => 'Mark',
+        'Lk' => 'Luke',
+        'Jn' => 'John',
+        'Ac' => 'Acts',
+        'Rom' => 'Romans',
+        '1Cor' => '1 Corinthians',
+        '2Cor' => '2 Corinthians',
+        '1Thess' => '1 Thessalonians',
+        '2Thess' => '2 Thessalonians',
+        '1Tim' => '1 Timothy',
+        '2Tim' => '2 Timothy',
+        'Phlm' => 'Philemon',
+        'Jas' => 'James',
+        '1Pet' => '1 Peter',
+        '2Pet' => '2 Peter',
+        '1John' => '1 John',
+        '2John' => '2 John',
+        '3John' => '3 John',
+        'Rev' => 'Revelation',
+    ];
 }
