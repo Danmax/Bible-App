@@ -11,7 +11,7 @@ if (!defined('BASE_URL')) {
 }
 
 if (!defined('DB_HOST')) {
-    define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+    define('DB_HOST', getenv('DB_HOST') ?: 'hostinger_database_host');
 }
 
 if (!defined('DB_NAME')) {

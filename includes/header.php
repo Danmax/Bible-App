@@ -43,6 +43,7 @@ $user = current_user();
                     <?php if (is_logged_in()): ?>
                         <a class="<?= $activePage === 'dashboard' ? 'is-active' : ''; ?>" href="<?= e(app_url('dashboard.php')); ?>">Dashboard</a>
                         <a class="<?= $activePage === 'bookmarks' ? 'is-active' : ''; ?>" href="<?= e(app_url('bookmarks.php')); ?>">Saved</a>
+                        <a class="<?= $activePage === 'notes' ? 'is-active' : ''; ?>" href="<?= e(app_url('notes.php')); ?>">Notes</a>
                         <a class="<?= $activePage === 'profile' ? 'is-active' : ''; ?>" href="<?= e(app_url('profile.php')); ?>">Profile</a>
                         <a class="nav-action" href="<?= e(app_url('logout.php')); ?>">Logout</a>
                     <?php else: ?>

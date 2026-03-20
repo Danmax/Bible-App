@@ -43,9 +43,9 @@ require_once dirname(__DIR__) . '/includes/header.php';
             </blockquote>
             <p>Proverbs 3:5</p>
             <div class="showcase-actions">
-                <span class="mini-card">Bookmark</span>
-                <span class="mini-card">Share</span>
-                <span class="mini-card">Study Note</span>
+                <a class="mini-card" href="<?= e(app_url('bible.php?q=' . urlencode('Proverbs 3:5-6') . '&translation=KJV')); ?>">Open Verse</a>
+                <a class="mini-card" href="<?= e(app_url('bookmarks.php')); ?>">Bookmarks</a>
+                <a class="mini-card" href="<?= e(app_url('notes.php')); ?>">Study Note</a>
             </div>
         </aside>
     </div>
