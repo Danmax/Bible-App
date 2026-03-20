@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($user) {
                 $token = create_password_reset_token((int) $user['id']);
-                $resetLink = app_url('reset-password.php') . '?token=' . urlencode($token);
+                $resetLink = app_url('reset-password.php', true) . '?token=' . urlencode($token);
             }
 
             set_flash('If that email exists, a password reset link is ready.', 'success');

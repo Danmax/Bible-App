@@ -4,16 +4,69 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 
-function app_url(string $path = ''): string
+function app_url(string $path = '', bool $absolute = false): string
 {
-    $trimmedBase = rtrim(BASE_URL, '/');
     $trimmedPath = ltrim($path, '/');
+    $relativePath = $trimmedPath === '' ? '/' : '/' . $trimmedPath;
 
-    if ($trimmedBase === '') {
-        return $trimmedPath === '' ? '/' : '/' . $trimmedPath;
+    if (!$absolute) {
+        return $relativePath;
     }
 
-    return $trimmedPath === '' ? $trimmedBase : $trimmedBase . '/' . $trimmedPath;
+    $baseUrl = normalized_base_url(BASE_URL);
+
+    if ($baseUrl === '') {
+        $baseUrl = current_request_base_url();
+    }
+
+    return $baseUrl === '' ? $relativePath : $baseUrl . $relativePath;
+}
+
+function normalized_base_url(?string $value): string
+{
+    $trimmedValue = trim((string) $value);
+
+    if ($trimmedValue === '') {
+        return '';
+    }
+
+    if (!preg_match('/^[a-z][a-z0-9+.-]*:\/\//i', $trimmedValue)) {
+        $trimmedValue = 'https://' . ltrim($trimmedValue, '/');
+    }
+
+    $parts = parse_url($trimmedValue);
+
+    if ($parts === false || !isset($parts['scheme'], $parts['host'])) {
+        return '';
+    }
+
+    $baseUrl = strtolower((string) $parts['scheme']) . '://' . $parts['host'];
+
+    if (isset($parts['port'])) {
+        $baseUrl .= ':' . (int) $parts['port'];
+    }
+
+    $path = trim((string) ($parts['path'] ?? ''), '/');
+
+    if ($path !== '') {
+        $baseUrl .= '/' . $path;
+    }
+
+    return rtrim($baseUrl, '/');
+}
+
+function current_request_base_url(): string
+{
+    $host = trim((string) ($_SERVER['HTTP_HOST'] ?? ''));
+
+    if ($host === '') {
+        return '';
+    }
+
+    $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+    $scheme = ($https !== '' && $https !== 'off') ? 'https' : 'http';
+
+    return $scheme . '://' . $host;
 }
 
 function e(?string $value): string
