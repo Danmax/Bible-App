@@ -2,7 +2,37 @@
 
 This app is a plain PHP + MySQL site. It is not a Node app and it does not need a Node process manager or restart file.
 
-## Folder Layout
+## Repo Tree
+
+Your GitHub repo should stay organized like this:
+
+```text
+Bible App/
+  includes/
+  public/
+    .htaccess
+    index.php
+    bible.php
+    community.php
+    login.php
+    register.php
+    dashboard.php
+    bookmarks.php
+    notes.php
+    planner.php
+    profile.php
+    forgot-password.php
+    reset-password.php
+    logout.php
+    assets/
+  sql/
+  .env.example
+  DEPLOY_HOSTINGER.md
+```
+
+`public/` is the web root inside the repo.
+
+## Hostinger Target Tree
 
 On Hostinger shared hosting, your domain should look like this:
 
@@ -31,6 +61,32 @@ On Hostinger shared hosting, your domain should look like this:
 
 `public_html/` should contain the contents of this repo's [`public/`](/Users/daniel.maldonado1/Documents/Code/Bible%20App/public) folder, not the whole repo.
 
+## Common 403 Mistake
+
+This is the wrong upload layout and it causes the root domain to return `403 Forbidden`:
+
+```text
+public_html/
+  public/
+    index.php
+    bible.php
+    community.php
+```
+
+That layout makes the app reachable at `/public/` instead of `/`.
+
+The correct layout is:
+
+```text
+public_html/
+  index.php
+  bible.php
+  community.php
+  login.php
+  register.php
+  assets/
+```
+
 ## What To Upload
 
 Upload these repo paths:
@@ -44,6 +100,14 @@ Do not upload:
 - `.git/`
 - `.env.local` from your laptop
 - [`PROJECT_PLAN.md`](/Users/daniel.maldonado1/Documents/Code/Bible%20App/PROJECT_PLAN.md)
+
+If you already uploaded the repo incorrectly:
+
+1. Open `public_html/public/`
+2. Move every file and folder inside it up into `public_html/`
+3. Delete the now-empty `public/` folder
+4. Confirm `public_html/index.php` exists
+5. Confirm `public_html/assets/` exists
 
 ## Environment File
 
