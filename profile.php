@@ -52,15 +52,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $pageError = 'That email address is already in use.';
                     } else {
                         $token = create_email_change_token((int) $user['id'], $email);
+                        $confirmationLink = app_url('confirm-email.php', true) . '?token=' . urlencode($token);
+
                         if (debug_links_enabled()) {
-                            $emailChangeLink = app_url('confirm-email.php', true) . '?token=' . urlencode($token);
+                            $emailChangeLink = $confirmationLink;
                         }
+
+                        $deliverySent = false;
+
+                        if (mailer_enabled()) {
+                            try {
+                                send_email_change_confirmation_email(
+                                    (string) ($user['name'] ?? ''),
+                                    $email,
+                                    (string) ($user['email'] ?? ''),
+                                    $confirmationLink
+                                );
+                                $deliverySent = true;
+                            } catch (Throwable $mailException) {
+                                $deliverySent = false;
+                            }
+                        }
+
                         $pendingEmailChange = fetch_pending_email_change_request((int) $user['id']);
                         set_flash(
-                            debug_links_enabled()
-                                ? 'Profile updated. Confirm the new email from the approval link below before it becomes active.'
-                                : 'Profile updated. Confirm the new email from your inbox before it becomes active.',
-                            'success'
+                            $deliverySent
+                                ? 'Profile updated. Confirm the new email from your inbox before it becomes active.'
+                                : (
+                                    debug_links_enabled()
+                                        ? 'Profile updated. Confirm the new email from the approval link below before it becomes active.'
+                                        : 'Profile updated. The email change request was created, but delivery is not configured yet.'
+                                ),
+                            $deliverySent || debug_links_enabled() ? 'success' : 'warning'
                         );
                     }
                 } else {

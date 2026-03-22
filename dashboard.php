@@ -62,6 +62,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <div class="hero-actions">
                 <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Open Bible</a>
+                <a class="button button-secondary" href="<?= e(app_url('good-news.php')); ?>">Open Good News</a>
                 <a class="button button-secondary" href="<?= e(app_url('planner.php')); ?>">Open Planner</a>
                 <a class="button button-secondary" href="<?= e(app_url('community.php')); ?>">Open Community</a>
             </div>

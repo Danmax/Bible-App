@@ -20,6 +20,8 @@ $form = [
     'content' => '',
     'verse_id' => '',
 ];
+$noteFormError = null;
+$showNotePanel = false;
 
 if ($user === null) {
     set_flash('Sign in again to continue.', 'warning');
@@ -91,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pageError = 'The note could not be deleted because the database is unavailable.';
         }
     } elseif ($form['title'] === '' || $form['content'] === '') {
-        $pageError = 'Enter a title and note content.';
+        $noteFormError = 'Enter a title and note content.';
     } else {
         try {
             if ($action === 'update') {
@@ -120,6 +122,8 @@ try {
 } catch (Throwable $exception) {
     $pageError = $pageError ?? 'Notes could not be loaded because the database is unavailable.';
 }
+
+$showNotePanel = $editingNote !== null || $selectedVerse !== null || $noteFormError !== null;
 
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -154,55 +158,80 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
 
         <div class="two-column">
-            <div class="panel">
-                <div class="panel-heading">
-                    <div>
-                        <h2><?= $editingNote ? 'Edit note' : 'New note'; ?></h2>
-                        <p class="muted-copy">Create a focused study note and optionally connect it to a saved verse.</p>
-                    </div>
+            <div class="stack-list" data-community-panels>
+                <div class="community-action-bar">
+                    <button class="button button-primary" type="button" data-community-panel-toggle="note" aria-expanded="<?= $showNotePanel ? 'true' : 'false'; ?>">
+                        <?= $editingNote ? 'Edit Note' : 'New Note'; ?>
+                    </button>
                 </div>
 
-                <?php if ($selectedVerse): ?>
-                    <div class="inline-message">
-                        <strong>Linked verse</strong>
-                        <p><?= e(format_verse_reference($selectedVerse)); ?></p>
+                <div class="panel community-manager-panel" data-community-panel="note" <?= $showNotePanel ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>>
+                    <div class="panel-heading">
+                        <div>
+                            <h2><?= $editingNote ? 'Edit note' : 'New note'; ?></h2>
+                            <p class="muted-copy">Create a focused study note and optionally connect it to a saved verse.</p>
+                        </div>
+                        <button class="button button-secondary" type="button" data-community-panel-close="note">Close</button>
                     </div>
-                <?php endif; ?>
 
-                <form class="form-stack" method="post">
-                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                    <input type="hidden" name="action" value="<?= $editingNote ? 'update' : 'create'; ?>">
-                    <?php if ($editingNote): ?>
-                        <input type="hidden" name="note_id" value="<?= e((string) $editingNote['id']); ?>">
+                    <?php if ($noteFormError): ?>
+                        <div class="flash flash-warning"><?= e($noteFormError); ?></div>
                     <?php endif; ?>
 
-                    <label>
-                        <span>Attach to saved verse</span>
-                        <select name="verse_id">
-                            <option value="">No linked verse</option>
-                            <?php foreach ($linkedVerseOptions as $verse): ?>
-                                <option value="<?= e((string) $verse['id']); ?>" <?= $form['verse_id'] === (string) $verse['id'] ? 'selected' : ''; ?>>
-                                    <?= e(format_verse_reference($verse)); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
+                    <?php if ($selectedVerse): ?>
+                        <div class="inline-message">
+                            <strong>Linked verse</strong>
+                            <p><?= e(format_verse_reference($selectedVerse)); ?></p>
+                        </div>
+                    <?php endif; ?>
 
-                    <label>
-                        <span>Title</span>
-                        <input type="text" name="title" value="<?= e($form['title']); ?>" placeholder="Romans study, Sunday sermon, prayer insight" required>
-                    </label>
+                    <form class="form-stack" method="post">
+                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                        <input type="hidden" name="action" value="<?= $editingNote ? 'update' : 'create'; ?>">
+                        <?php if ($editingNote): ?>
+                            <input type="hidden" name="note_id" value="<?= e((string) $editingNote['id']); ?>">
+                        <?php endif; ?>
 
-                    <label>
-                        <span>Note</span>
-                        <textarea name="content" rows="8" placeholder="Write what you are learning..." required><?= e($form['content']); ?></textarea>
-                    </label>
+                        <label>
+                            <span>Attach to saved verse</span>
+                            <select name="verse_id">
+                                <option value="">No linked verse</option>
+                                <?php foreach ($linkedVerseOptions as $verse): ?>
+                                    <option value="<?= e((string) $verse['id']); ?>" <?= $form['verse_id'] === (string) $verse['id'] ? 'selected' : ''; ?>>
+                                        <?= e(format_verse_reference($verse)); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
 
-                    <div class="inline-actions">
-                        <button class="button button-primary" type="submit"><?= $editingNote ? 'Update Note' : 'Save Note'; ?></button>
-                        <a class="button button-secondary" href="<?= e(app_url('bible.php')); ?>">Open Bible</a>
-                    </div>
-                </form>
+                        <label>
+                            <span>Title</span>
+                            <input type="text" name="title" value="<?= e($form['title']); ?>" placeholder="Romans study, Sunday sermon, prayer insight" required>
+                        </label>
+
+                        <label>
+                            <span>Note</span>
+                            <div class="inline-actions top-gap-sm" data-voice-compose>
+                                <button class="button button-secondary voice-search-button" type="button" data-voice-compose-start aria-label="Speak your note">
+                                    <svg class="voice-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z" />
+                                        <path d="M19 11a7 7 0 0 1-14 0" />
+                                        <path d="M12 18v3" />
+                                        <path d="M9 21h6" />
+                                    </svg>
+                                </button>
+                                <button class="button button-secondary" type="button" data-voice-compose-stop hidden>Stop</button>
+                                <span class="muted-copy" data-voice-compose-status>Speak to capture your note.</span>
+                            </div>
+                            <textarea name="content" rows="8" placeholder="Write what you are learning..." required><?= e($form['content']); ?></textarea>
+                        </label>
+
+                        <div class="inline-actions">
+                            <button class="button button-primary" type="submit"><?= $editingNote ? 'Update Note' : 'Save Note'; ?></button>
+                            <button class="button button-secondary" type="button" data-community-panel-close="note">Cancel</button>
+                        </div>
+                    </form>
+                </div>
             </div>
 
             <div class="panel">

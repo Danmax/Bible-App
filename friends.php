@@ -15,6 +15,7 @@ $inviteLink = null;
 $friends = [];
 $incomingInvites = [];
 $sentInvites = [];
+$showInvitePanel = false;
 
 if ($user === null) {
     set_flash('Sign in again to continue.', 'warning');
@@ -32,7 +33,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $email = trim((string) ($_POST['recipient_email'] ?? ''));
             $invite = create_friend_invite_record((int) $user['id'], $email);
             $inviteLink = app_url('accept-friend.php', true) . '?token=' . urlencode((string) ($invite['share_token'] ?? ''));
-            set_flash('Friend invite created.', 'success');
+
+            if (mailer_enabled()) {
+                try {
+                    send_friend_invite_email((string) ($user['name'] ?? ''), $email, $inviteLink);
+                    set_flash('Friend invite created and emailed.', 'success');
+                } catch (Throwable $mailException) {
+                    $inviteError = 'Friend invite created, but the email could not be delivered. Share the link below instead.';
+                }
+            } else {
+                set_flash('Friend invite created. Share the link below.', 'success');
+            }
         } elseif ($action === 'accept-invite') {
             $inviteId = (int) ($_POST['invite_id'] ?? 0);
             accept_friend_invite_record($inviteId, (int) $user['id'], (string) $user['email']);
@@ -66,6 +77,8 @@ try {
     $pageError = 'Friend connections could not be loaded because the database is unavailable.';
 }
 
+$showInvitePanel = $inviteError !== null || $inviteLink !== null;
+
 require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
@@ -98,7 +111,7 @@ require_once __DIR__ . '/includes/header.php';
             </article>
         </div>
 
-        <div class="community-layout top-gap">
+        <div class="two-column top-gap">
             <div class="stack-list">
                 <section class="panel">
                     <div class="panel-heading">
@@ -216,13 +229,20 @@ require_once __DIR__ . '/includes/header.php';
                 </section>
             </div>
 
-            <div class="stack-list community-manager-panel">
-                <section class="panel">
+            <div class="stack-list" data-community-panels>
+                <div class="community-action-bar">
+                    <button class="button button-primary" type="button" data-community-panel-toggle="invite" aria-expanded="<?= $showInvitePanel ? 'true' : 'false'; ?>">
+                        Invite Friend
+                    </button>
+                </div>
+
+                <section class="panel community-manager-panel" data-community-panel="invite" <?= $showInvitePanel ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>>
                     <div class="panel-heading">
                         <div>
                             <h2>Invite a friend</h2>
                             <p class="muted-copy">Invite someone by email and share the generated friend link.</p>
                         </div>
+                        <button class="button button-secondary" type="button" data-community-panel-close="invite">Close</button>
                     </div>
 
                     <?php if ($inviteError): ?>
@@ -238,7 +258,10 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="email" name="recipient_email" placeholder="friend@example.com" required>
                         </label>
 
-                        <button class="button button-primary" type="submit">Create Invite</button>
+                        <div class="inline-actions">
+                            <button class="button button-primary" type="submit">Create Invite</button>
+                            <button class="button button-secondary" type="button" data-community-panel-close="invite">Cancel</button>
+                        </div>
                     </form>
 
                     <?php if ($inviteLink): ?>

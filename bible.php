@@ -30,6 +30,9 @@ function bible_theme_queries(): array
         'Wisdom' => 'James 1:5',
         'Peace' => 'Isaiah 26:3',
         'Courage' => 'Joshua 1:9',
+        'Forgiveness' => 'forgiveness',
+        'Identity' => 'identity',
+        'Resurrection' => 'resurrection',
     ];
 }
 
@@ -398,9 +401,9 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
 
         <div class="panel bible-control-panel">
-            <form class="form-stack" method="get">
-                <div class="search-row">
-                    <input type="search" name="q" value="<?= e($query); ?>" placeholder="Quick search: John 3:28 or grace">
+            <form class="form-stack bible-search-form" method="get">
+                <div class="search-row search-row-compact" data-voice-search>
+                    <input type="search" name="q" value="<?= e($query); ?>" placeholder="Quick search: John 3:28 or grace" data-voice-search-input>
                     <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
                     <select name="translation" aria-label="Translation">
                         <?php foreach ($translations as $translation): ?>
@@ -409,8 +412,18 @@ require_once __DIR__ . '/includes/header.php';
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <button class="button button-secondary voice-search-button" type="button" data-voice-search-start aria-label="Speak your Bible search">
+                        <svg class="voice-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z" />
+                            <path d="M19 11a7 7 0 0 1-14 0" />
+                            <path d="M12 18v3" />
+                            <path d="M9 21h6" />
+                        </svg>
+                    </button>
+                    <button class="button button-secondary voice-search-button" type="button" data-voice-search-stop hidden>Stop</button>
                     <button class="button button-primary" type="submit">Search</button>
                 </div>
+                <p class="muted-copy" data-voice-search-status>Speak a reference or keyword search.</p>
             </form>
 
             <div class="bible-search-tools">
@@ -423,32 +436,14 @@ require_once __DIR__ . '/includes/header.php';
                         ])); ?>"><?= e($themeLabel); ?></a>
                     <?php endforeach; ?>
                 </div>
-
-                <?php if ($recentSearches !== []): ?>
-                    <div class="bible-search-history">
-                        <span class="muted-copy">Recent</span>
-                        <div class="bible-chip-row">
-                            <?php foreach ($recentSearches as $recentSearch): ?>
-                                <a class="mini-card" href="<?= e(bible_reader_url([
-                                    'q' => (string) $recentSearch['query'],
-                                    'translation' => (string) $recentSearch['translation'],
-                                    'reader_mode' => $readerMode,
-                                ])); ?>">
-                                    <?= e((string) $recentSearch['query']); ?> · <?= e((string) $recentSearch['translation']); ?>
-                                </a>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
             </div>
 
             <form class="form-stack top-gap" method="get" data-reader-nav>
-                <div class="reader-select-row">
+                <div class="reader-select-row reader-select-row-compact">
                     <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
                     <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
 
-                    <label>
-                        <span>Book</span>
+                    <label class="reader-compact-label">
                         <select name="book_id" data-reader-select="book">
                             <option value="">Select book</option>
                             <?php foreach ($bookCatalog as $book): ?>
@@ -459,8 +454,7 @@ require_once __DIR__ . '/includes/header.php';
                         </select>
                     </label>
 
-                    <label>
-                        <span>Chapter</span>
+                    <label class="reader-compact-label">
                         <select name="chapter" data-reader-select="chapter">
                             <option value="">Select chapter</option>
                             <?php foreach ($bookChapters as $chapter): ?>
@@ -471,8 +465,7 @@ require_once __DIR__ . '/includes/header.php';
                         </select>
                     </label>
 
-                    <label>
-                        <span>Verse</span>
+                    <label class="reader-compact-label">
                         <select name="verse" data-reader-select="verse">
                             <option value="">Whole chapter</option>
                             <?php foreach ($verseOptions as $verseOption): ?>
@@ -507,69 +500,83 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $selectedBook && $selectedChapter > 0): ?>
-                <div class="reader-nav-bar top-gap-sm">
-                    <div class="reader-mode-switch">
-                        <a class="mini-card <?= $readerMode === 'verse' ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url([
-                            'q' => $query !== '' ? $query : null,
-                            'translation' => $selectedTranslation,
-                            'book_id' => $selectedBookId ?: null,
-                            'chapter' => $selectedChapter ?: null,
-                            'verse' => $selectedVerseNumber ?: null,
-                            'reader_mode' => 'verse',
-                        ])); ?>">Verse View</a>
-                        <a class="mini-card <?= $readerMode === 'paragraph' ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url([
-                            'q' => $query !== '' ? $query : null,
-                            'translation' => $selectedTranslation,
-                            'book_id' => $selectedBookId ?: null,
-                            'chapter' => $selectedChapter ?: null,
-                            'verse' => $selectedVerseNumber ?: null,
-                            'reader_mode' => 'paragraph',
-                        ])); ?>">Paragraph View</a>
-                    </div>
-                    <div class="reader-nav-actions">
-                        <?php if ($previousVerseUrl): ?>
-                            <a class="button button-secondary" href="<?= e($previousVerseUrl); ?>">Previous Verse</a>
-                        <?php endif; ?>
-                        <?php if ($wholeChapterUrl): ?>
-                            <a class="button button-secondary" href="<?= e($wholeChapterUrl); ?>">Whole Chapter</a>
-                        <?php endif; ?>
-                        <?php if ($nextVerseUrl): ?>
-                            <a class="button button-secondary" href="<?= e($nextVerseUrl); ?>">Next Verse</a>
-                        <?php endif; ?>
-                    </div>
-                    <p class="muted-copy">Reference search keeps you inside the chapter so you can move forward or backward without re-running the search.</p>
-                </div>
-            <?php endif; ?>
-
             <?php if ($selectedBook && $bookChapters !== []): ?>
-                <form class="chapter-jump-form top-gap-sm" method="get">
-                    <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
-                    <input type="hidden" name="book_id" value="<?= e((string) $selectedBookId); ?>">
-                    <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
-                    <div class="chapter-jump-card">
-                        <strong class="chapter-jump-title"><?= e((string) $selectedBook['name']); ?></strong>
-                        <div class="chapter-jump-controls">
-                            <?php if ($previousChapterUrl): ?>
-                                <a class="button button-secondary chapter-step-button" href="<?= e($previousChapterUrl); ?>" aria-label="Previous chapter">&lt;&lt;</a>
-                            <?php endif; ?>
-                            <label class="chapter-jump-label">
-                                <span>Ch</span>
-                                <select name="chapter">
-                                    <?php foreach ($bookChapters as $chapter): ?>
-                                        <option value="<?= e((string) $chapter['chapter_number']); ?>" <?= $selectedChapter === (int) $chapter['chapter_number'] ? 'selected' : ''; ?>>
-                                            Chapter <?= e((string) $chapter['chapter_number']); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </label>
-                            <button class="button button-secondary chapter-step-button" type="submit">Go</button>
-                            <?php if ($nextChapterUrl): ?>
-                                <a class="button button-secondary chapter-step-button" href="<?= e($nextChapterUrl); ?>" aria-label="Next chapter">&gt;&gt;</a>
-                            <?php endif; ?>
+                <div class="reader-nav-bar top-gap-sm">
+                    <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $selectedChapter > 0): ?>
+                        <div class="reader-mode-switch">
+                            <a class="mini-card <?= $readerMode === 'verse' ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url([
+                                'q' => $query !== '' ? $query : null,
+                                'translation' => $selectedTranslation,
+                                'book_id' => $selectedBookId ?: null,
+                                'chapter' => $selectedChapter ?: null,
+                                'verse' => $selectedVerseNumber ?: null,
+                                'reader_mode' => 'verse',
+                            ])); ?>">Verse View</a>
+                            <a class="mini-card <?= $readerMode === 'paragraph' ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url([
+                                'q' => $query !== '' ? $query : null,
+                                'translation' => $selectedTranslation,
+                                'book_id' => $selectedBookId ?: null,
+                                'chapter' => $selectedChapter ?: null,
+                                'verse' => $selectedVerseNumber ?: null,
+                                'reader_mode' => 'paragraph',
+                            ])); ?>">Paragraph View</a>
                         </div>
+                    <?php endif; ?>
+
+                    <div class="reader-nav-combined">
+                        <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $selectedChapter > 0): ?>
+                            <div class="reader-nav-actions">
+                                <?php if ($previousVerseUrl): ?>
+                                    <a class="button button-secondary" href="<?= e($previousVerseUrl); ?>">Prev Verse</a>
+                                <?php endif; ?>
+                                <?php if ($wholeChapterUrl): ?>
+                                    <a class="button button-secondary" href="<?= e($wholeChapterUrl); ?>">Whole Chapter</a>
+                                <?php endif; ?>
+                                <?php if ($nextVerseUrl): ?>
+                                    <a class="button button-secondary" href="<?= e($nextVerseUrl); ?>">Next Verse</a>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <form class="chapter-jump-form" method="get">
+                            <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
+                            <input type="hidden" name="book_id" value="<?= e((string) $selectedBookId); ?>">
+                            <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
+                            <div class="chapter-jump-card">
+                                <strong class="chapter-jump-title"><?= e((string) $selectedBook['name']); ?></strong>
+                                <div class="chapter-jump-controls">
+                                    <?php if ($previousChapterUrl): ?>
+                                        <a class="button button-secondary chapter-step-button" href="<?= e($previousChapterUrl); ?>" aria-label="Previous chapter">&lt;&lt;</a>
+                                    <?php endif; ?>
+                                    <label class="chapter-jump-label">
+                                        <select name="chapter">
+                                            <?php foreach ($bookChapters as $chapter): ?>
+                                                <option value="<?= e((string) $chapter['chapter_number']); ?>" <?= $selectedChapter === (int) $chapter['chapter_number'] ? 'selected' : ''; ?>>
+                                                    Chapter <?= e((string) $chapter['chapter_number']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </label>
+                                    <label class="chapter-jump-label">
+                                        <select name="verse">
+                                            <option value="">Whole</option>
+                                            <?php foreach ($verseOptions as $verseOption): ?>
+                                                <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseNumber === $verseOption['number'] ? 'selected' : ''; ?>>
+                                                    <?= e((string) $verseOption['number']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </label>
+                                    <button class="button button-secondary chapter-step-button" type="submit">Go</button>
+                                    <?php if ($nextChapterUrl): ?>
+                                        <a class="button button-secondary chapter-step-button" href="<?= e($nextChapterUrl); ?>" aria-label="Next chapter">&gt;&gt;</a>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </form>
                     </div>
-                </form>
+
+                </div>
             <?php endif; ?>
 
             <?php if ($searchMessage): ?>
@@ -703,6 +710,18 @@ require_once __DIR__ . '/includes/header.php';
 
                                 <label>
                                     <span>Note</span>
+                                    <div class="inline-actions top-gap-sm" data-voice-compose>
+                                        <button class="button button-secondary voice-search-button" type="button" data-voice-compose-start aria-label="Speak your bookmark note">
+                                            <svg class="voice-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                <path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z" />
+                                                <path d="M19 11a7 7 0 0 1-14 0" />
+                                                <path d="M12 18v3" />
+                                                <path d="M9 21h6" />
+                                            </svg>
+                                        </button>
+                                        <button class="button button-secondary" type="button" data-voice-compose-stop hidden>Stop</button>
+                                        <span class="muted-copy" data-voice-compose-status>Speak to add a bookmark note.</span>
+                                    </div>
                                     <textarea name="note" rows="3" placeholder="Why are you saving this?"></textarea>
                                 </label>
 

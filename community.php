@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/openai.php';
 
 function community_redirect_url(string $categorySlug = 'all', ?int $editEventId = null): string
 {
@@ -148,6 +149,7 @@ $events = [];
 $manageableEvents = [];
 $editingEvent = null;
 $formData = community_event_form_defaults();
+$showComposePanel = false;
 
 try {
     $categories = fetch_event_categories();
@@ -221,9 +223,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($formError === null && $payload !== null) {
             if ($action === 'create-event') {
-                $createdEventId = create_community_event_record((int) $user['id'], $payload);
+                create_community_event_record((int) $user['id'], $payload);
                 set_flash('Community event created.', 'success');
-                redirect(community_redirect_url($postCategorySlug, $createdEventId));
+                redirect(community_redirect_url($postCategorySlug));
             }
 
             $eventId = (int) ($_POST['event_id'] ?? 0);
@@ -235,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             update_community_event_record($eventId, $payload, (int) $user['id'], $canManageAllEvents);
             set_flash('Community event updated.', 'success');
-            redirect(community_redirect_url($postCategorySlug, $eventId));
+            redirect(community_redirect_url($postCategorySlug));
         }
 
         $editingEventId = (int) ($_POST['event_id'] ?? $editingEventId ?? 0);
@@ -274,6 +276,8 @@ if ($editingEvent !== null && $formError === null && $_SERVER['REQUEST_METHOD'] 
     $formData = community_event_form_defaults($editingEvent);
 }
 
+$showComposePanel = $editingEvent !== null || $formError !== null;
+
 require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
@@ -300,267 +304,330 @@ require_once __DIR__ . '/includes/header.php';
             <?php endforeach; ?>
         </div>
 
-        <div class="community-layout top-gap">
-            <div class="stack-list">
-                <?php if ($events === []): ?>
-                    <div class="panel">
-                        <p class="empty-state">No community events match this view yet. Create one from the manager panel.</p>
-                    </div>
-                <?php else: ?>
-                    <?php foreach ($events as $event): ?>
-                        <?php $canManageThisEvent = can_manage_community_event($event, $user); ?>
-                        <article class="event-card community-event-card">
-                            <div class="community-card-top">
-                                <div class="community-pill-row">
-                                    <span class="pill"><?= e((string) ($event['category_label'] ?: 'Community')); ?></span>
-                                    <?php if (!empty($event['is_featured'])): ?>
-                                        <span class="pill pill-dark">Featured</span>
-                                    <?php endif; ?>
-                                    <?php if ((string) $event['status'] !== 'published'): ?>
-                                        <span class="pill pill-dark"><?= e(ucfirst((string) $event['status'])); ?></span>
-                                    <?php endif; ?>
-                                </div>
-                                <?php if ($canManageThisEvent): ?>
-                                    <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug, (int) $event['id'])); ?>">Edit</a>
-                                <?php endif; ?>
-                            </div>
-
-                            <h3><?= e((string) $event['title']); ?></h3>
-                            <p><?= e((string) $event['description']); ?></p>
-
-                            <div class="community-meta-grid">
-                                <span><strong>When:</strong> <?= e(format_event_datetime((string) $event['start_at'])); ?></span>
-                                <span><strong>Type:</strong> <?= e((string) $event['event_type']); ?></span>
-                                <?php if (!empty($event['location_name'])): ?>
-                                    <span><strong>Where:</strong> <?= e((string) $event['location_name']); ?></span>
-                                <?php endif; ?>
-                                <?php if (!empty($event['meeting_url'])): ?>
-                                    <span><strong>Online:</strong> Zoom / Meet link attached</span>
-                                <?php endif; ?>
-                                <?php if (!empty($event['created_by_name'])): ?>
-                                    <span><strong>Created by:</strong> <?= e((string) $event['created_by_name']); ?></span>
-                                <?php endif; ?>
-                            </div>
-
-                            <div class="community-rsvp-summary">
-                                <span class="pill pill-dark"><?= e((string) $event['going_count']); ?> going</span>
-                                <span class="pill pill-dark"><?= e((string) $event['interested_count']); ?> interested</span>
-                                <span class="pill pill-dark"><?= e((string) $event['maybe_count']); ?> maybe</span>
-                            </div>
-
-                            <div class="inline-actions">
-                                <?php if (!empty($event['meeting_url'])): ?>
-                                    <a class="button button-secondary" href="<?= e((string) $event['meeting_url']); ?>" target="_blank" rel="noreferrer">Open Link</a>
-                                <?php endif; ?>
-                                <?php if (!empty($event['location_address'])): ?>
-                                    <span class="muted-copy"><?= e((string) $event['location_address']); ?></span>
-                                <?php endif; ?>
-                            </div>
-
-                            <?php if ($user !== null): ?>
-                                <div class="community-rsvp-row">
-                                    <?php foreach (['going' => 'Going', 'interested' => 'Interested', 'maybe' => 'Maybe', 'not-going' => 'Can’t Go'] as $responseValue => $responseLabel): ?>
-                                        <form method="post" action="<?= e(app_url('community.php')); ?>">
-                                            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                                            <input type="hidden" name="action" value="rsvp">
-                                            <input type="hidden" name="event_id" value="<?= e((string) $event['id']); ?>">
-                                            <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
-                                            <input
-                                                type="hidden"
-                                                name="response"
-                                                value="<?= e($responseValue); ?>"
-                                            >
-                                            <button
-                                                class="filter-chip <?= (string) ($event['current_user_rsvp'] ?? '') === $responseValue ? 'is-active' : ''; ?>"
-                                                type="submit"
-                                            >
-                                                <?= e($responseLabel); ?>
-                                            </button>
-                                        </form>
-                                    <?php endforeach; ?>
-
-                                    <?php if (!empty($event['current_user_rsvp'])): ?>
-                                        <form method="post" action="<?= e(app_url('community.php')); ?>">
-                                            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                                            <input type="hidden" name="action" value="rsvp">
-                                            <input type="hidden" name="event_id" value="<?= e((string) $event['id']); ?>">
-                                            <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
-                                            <input type="hidden" name="response" value="clear">
-                                            <button class="button button-secondary" type="submit">Clear RSVP</button>
-                                        </form>
-                                    <?php endif; ?>
-                                </div>
-                            <?php else: ?>
-                                <p class="muted-copy">Sign in to RSVP, track attendance, and manage your events.</p>
-                            <?php endif; ?>
-
-                            <?php if ($canManageThisEvent): ?>
-                                <div class="inline-actions">
-                                    <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug, (int) $event['id'])); ?>">Manage Event</a>
-                                    <form method="post" action="<?= e(app_url('community.php')); ?>">
-                                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                                        <input type="hidden" name="action" value="delete-event">
-                                        <input type="hidden" name="event_id" value="<?= e((string) $event['id']); ?>">
-                                        <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
-                                        <button class="button button-secondary" type="submit">Delete</button>
-                                    </form>
-                                </div>
-                            <?php endif; ?>
-                        </article>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+        <?php if ($user !== null): ?>
+            <div class="community-action-bar top-gap" data-community-panels>
+                <button
+                    class="button button-primary"
+                    type="button"
+                    data-community-panel-toggle="compose"
+                    aria-expanded="<?= $showComposePanel ? 'true' : 'false'; ?>"
+                >
+                    <?= $editingEvent ? 'Edit Event' : 'Create Event'; ?>
+                </button>
+                <button
+                    class="button button-secondary"
+                    type="button"
+                    data-community-panel-toggle="manage"
+                    aria-expanded="false"
+                >
+                    Manage Events
+                </button>
             </div>
+        <?php endif; ?>
 
-            <aside class="panel community-manager-panel">
+        <?php if ($user !== null): ?>
+            <div
+                class="panel community-manager-panel top-gap-sm"
+                data-community-panel="compose"
+                <?= $showComposePanel ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>
+            >
                 <div class="panel-heading">
                     <div>
                         <h2><?= $editingEvent ? 'Edit event' : 'Create event'; ?></h2>
                         <p class="muted-copy">
-                            <?= $user === null ? 'Sign in to create community events and respond to RSVP flows.' : 'Build the shared community calendar from here.'; ?>
+                            Build the shared community calendar from here.
                         </p>
                     </div>
-                    <?php if ($editingEvent): ?>
-                        <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug)); ?>">New Event</a>
-                    <?php endif; ?>
+                    <button class="button button-secondary" type="button" data-community-panel-close="compose">Close</button>
                 </div>
 
                 <?php if ($formError): ?>
                     <div class="flash flash-warning"><?= e($formError); ?></div>
                 <?php endif; ?>
-
-                <?php if ($user === null): ?>
-                    <p class="empty-state">Create an account or sign in to publish events, update your own listings, and collect RSVPs.</p>
-                    <div class="inline-actions">
-                        <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Login</a>
-                        <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create Account</a>
+                <div
+                    class="community-ai-panel"
+                    data-ai-event-builder
+                    data-ai-endpoint="<?= e(app_url('community-ai-event.php')); ?>"
+                >
+                    <div class="panel-heading">
+                        <div>
+                            <h3>AI Event Draft</h3>
+                            <p class="muted-copy">Speak or type a prompt, then review the generated event draft before saving.</p>
+                        </div>
+                        <span class="pill pill-dark"><?= e(strtoupper(openai_event_model())); ?></span>
                     </div>
+
+                    <label>
+                        Prompt
+                        <textarea
+                            name="ai_prompt"
+                            rows="4"
+                            placeholder="Example: Create a community prayer night next Thursday at 7 PM in the fellowship hall with public visibility."
+                            data-ai-prompt
+                        ></textarea>
+                    </label>
+
+                    <div class="inline-actions top-gap-sm">
+                        <button class="button button-secondary" type="button" data-ai-voice-start <?= openai_event_drafts_enabled() ? '' : 'disabled'; ?>>Voice to Text</button>
+                        <button class="button button-secondary" type="button" data-ai-voice-stop hidden>Stop</button>
+                        <button class="button button-primary" type="button" data-ai-generate <?= openai_event_drafts_enabled() ? '' : 'disabled'; ?>>Create Draft</button>
+                    </div>
+
+                    <p class="muted-copy" data-ai-status>
+                        <?= openai_event_drafts_enabled()
+                            ? 'AI drafting fills the form only. Review and edit the result before publishing.'
+                            : 'Add OPENAI_API_KEY to enable AI event drafting.'; ?>
+                    </p>
+                </div>
+
+                <form
+                    class="form-stack top-gap"
+                    method="post"
+                    action="<?= e(app_url('community.php' . ($editingEvent ? '?edit=' . (int) $editingEvent['id'] : ''))); ?>"
+                    data-community-event-form
+                >
+                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                    <input type="hidden" name="action" value="<?= e($editingEvent ? 'update-event' : 'create-event'); ?>">
+                    <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
+                    <?php if ($editingEvent): ?>
+                        <input type="hidden" name="event_id" value="<?= e((string) $editingEvent['id']); ?>">
+                    <?php endif; ?>
+
+                    <label>
+                        Title
+                        <input name="title" required value="<?= e($formData['title']); ?>" data-ai-field="title">
+                    </label>
+
+                    <label>
+                        Category
+                        <select name="category_id" data-ai-field="category_id">
+                            <option value="">Select category</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?= e((string) $category['id']); ?>" <?= $formData['category_id'] === (string) $category['id'] ? 'selected' : ''; ?>>
+                                    <?= e((string) $category['label']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+
+                    <label>
+                        Event Type
+                        <input name="event_type" placeholder="Worship, Zoom, Outreach, Study" required value="<?= e($formData['event_type']); ?>" data-ai-field="event_type">
+                    </label>
+
+                    <label>
+                        Starts
+                        <input type="datetime-local" name="start_at" required value="<?= e($formData['start_at']); ?>" data-ai-field="start_at">
+                    </label>
+
+                    <label>
+                        Ends
+                        <input type="datetime-local" name="end_at" value="<?= e($formData['end_at']); ?>" data-ai-field="end_at">
+                    </label>
+
+                    <label>
+                        Location Name
+                        <input name="location_name" placeholder="Main Sanctuary or Zoom" value="<?= e($formData['location_name']); ?>" data-ai-field="location_name">
+                    </label>
+
+                    <label>
+                        Location Address
+                        <input name="location_address" placeholder="123 Main St" value="<?= e($formData['location_address']); ?>" data-ai-field="location_address">
+                    </label>
+
+                    <label>
+                        Meeting Link
+                        <input name="meeting_url" placeholder="https://..." value="<?= e($formData['meeting_url']); ?>" data-ai-field="meeting_url">
+                    </label>
+
+                    <label>
+                        Visibility
+                        <select name="visibility" data-ai-field="visibility">
+                            <?php foreach (['public' => 'Public', 'members' => 'Members', 'private' => 'Private'] as $value => $label): ?>
+                                <option value="<?= e($value); ?>" <?= $formData['visibility'] === $value ? 'selected' : ''; ?>>
+                                    <?= e($label); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+
+                    <label>
+                        Status
+                        <select name="status" data-ai-field="status">
+                            <?php foreach (['published' => 'Published', 'draft' => 'Draft', 'cancelled' => 'Cancelled'] as $value => $label): ?>
+                                <option value="<?= e($value); ?>" <?= $formData['status'] === $value ? 'selected' : ''; ?>>
+                                    <?= e($label); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+
+                    <?php if ($canManageAllEvents): ?>
+                        <label class="community-checkbox">
+                            <input type="checkbox" name="is_featured" value="1" <?= $formData['is_featured'] === '1' ? 'checked' : ''; ?> data-ai-field="is_featured">
+                            <span>Feature this event on the feed</span>
+                        </label>
+                    <?php endif; ?>
+
+                    <label>
+                        Description
+                        <textarea name="description" rows="6" required data-ai-field="description"><?= e($formData['description']); ?></textarea>
+                    </label>
+
+                    <div class="inline-actions">
+                        <button class="button button-primary" type="submit"><?= $editingEvent ? 'Update Event' : 'Create Event'; ?></button>
+                        <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug)); ?>">Cancel</a>
+                    </div>
+                </form>
+            </div>
+
+            <div
+                class="panel community-manager-panel top-gap-sm"
+                data-community-panel="manage"
+                hidden
+                aria-hidden="true"
+                style="display: none;"
+            >
+                <div class="panel-heading">
+                    <div>
+                        <h2><?= $canManageAllEvents ? 'Event queue' : 'Your events'; ?></h2>
+                        <p class="muted-copy"><?= $canManageAllEvents ? 'Leaders can review every event from this panel.' : 'Quick shortcuts into the events you created.'; ?></p>
+                    </div>
+                    <button class="button button-secondary" type="button" data-community-panel-close="manage">Close</button>
+                </div>
+
+                <?php if ($manageableEvents === []): ?>
+                    <p class="empty-state">No events to manage yet.</p>
                 <?php else: ?>
-                    <form class="form-stack" method="post" action="<?= e(app_url('community.php' . ($editingEvent ? '?edit=' . (int) $editingEvent['id'] : ''))); ?>">
-                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                        <input type="hidden" name="action" value="<?= e($editingEvent ? 'update-event' : 'create-event'); ?>">
-                        <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
-                        <?php if ($editingEvent): ?>
-                            <input type="hidden" name="event_id" value="<?= e((string) $editingEvent['id']); ?>">
-                        <?php endif; ?>
+                    <div class="stack-list">
+                        <?php foreach ($manageableEvents as $manageableEvent): ?>
+                            <div class="list-card list-card-block">
+                                <div>
+                                    <strong><?= e((string) $manageableEvent['title']); ?></strong>
+                                    <span><?= e(format_event_datetime((string) $manageableEvent['start_at'])); ?></span>
+                                    <span class="muted-copy"><?= e((string) ($manageableEvent['category_label'] ?: $manageableEvent['event_type'])); ?></span>
+                                </div>
+                                <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug, (int) $manageableEvent['id'])); ?>">Edit</a>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php elseif ($user === null): ?>
+            <div class="panel top-gap">
+                <p class="empty-state">Create an account or sign in to publish events, update your own listings, and collect RSVPs.</p>
+                <div class="inline-actions">
+                    <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Login</a>
+                    <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create Account</a>
+                </div>
+            </div>
+        <?php endif; ?>
 
-                        <label>
-                            Title
-                            <input name="title" required value="<?= e($formData['title']); ?>">
-                        </label>
-
-                        <label>
-                            Category
-                            <select name="category_id">
-                                <option value="">Select category</option>
-                                <?php foreach ($categories as $category): ?>
-                                    <option value="<?= e((string) $category['id']); ?>" <?= $formData['category_id'] === (string) $category['id'] ? 'selected' : ''; ?>>
-                                        <?= e((string) $category['label']); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-
-                        <label>
-                            Event Type
-                            <input name="event_type" placeholder="Worship, Zoom, Outreach, Study" required value="<?= e($formData['event_type']); ?>">
-                        </label>
-
-                        <label>
-                            Starts
-                            <input type="datetime-local" name="start_at" required value="<?= e($formData['start_at']); ?>">
-                        </label>
-
-                        <label>
-                            Ends
-                            <input type="datetime-local" name="end_at" value="<?= e($formData['end_at']); ?>">
-                        </label>
-
-                        <label>
-                            Location Name
-                            <input name="location_name" placeholder="Main Sanctuary or Zoom" value="<?= e($formData['location_name']); ?>">
-                        </label>
-
-                        <label>
-                            Location Address
-                            <input name="location_address" placeholder="123 Main St" value="<?= e($formData['location_address']); ?>">
-                        </label>
-
-                        <label>
-                            Meeting Link
-                            <input name="meeting_url" placeholder="https://..." value="<?= e($formData['meeting_url']); ?>">
-                        </label>
-
-                        <label>
-                            Visibility
-                            <select name="visibility">
-                                <?php foreach (['public' => 'Public', 'members' => 'Members', 'private' => 'Private'] as $value => $label): ?>
-                                    <option value="<?= e($value); ?>" <?= $formData['visibility'] === $value ? 'selected' : ''; ?>>
-                                        <?= e($label); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-
-                        <label>
-                            Status
-                            <select name="status">
-                                <?php foreach (['published' => 'Published', 'draft' => 'Draft', 'cancelled' => 'Cancelled'] as $value => $label): ?>
-                                    <option value="<?= e($value); ?>" <?= $formData['status'] === $value ? 'selected' : ''; ?>>
-                                        <?= e($label); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-
-                        <?php if ($canManageAllEvents): ?>
-                            <label class="community-checkbox">
-                                <input type="checkbox" name="is_featured" value="1" <?= $formData['is_featured'] === '1' ? 'checked' : ''; ?>>
-                                <span>Feature this event on the feed</span>
-                            </label>
-                        <?php endif; ?>
-
-                        <label>
-                            Description
-                            <textarea name="description" rows="6" required><?= e($formData['description']); ?></textarea>
-                        </label>
-
-                        <div class="inline-actions">
-                            <button class="button button-primary" type="submit"><?= $editingEvent ? 'Update Event' : 'Create Event'; ?></button>
-                            <?php if ($editingEvent): ?>
-                                <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug)); ?>">Cancel</a>
+        <div class="stack-list top-gap">
+            <?php if ($events === []): ?>
+                <div class="panel">
+                    <p class="empty-state">No community events match this view yet. Create one from the event controls above.</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($events as $event): ?>
+                    <?php $canManageThisEvent = can_manage_community_event($event, $user); ?>
+                    <article class="event-card community-event-card">
+                        <div class="community-card-top">
+                            <div class="community-pill-row">
+                                <span class="pill"><?= e((string) ($event['category_label'] ?: 'Community')); ?></span>
+                                <?php if (!empty($event['is_featured'])): ?>
+                                    <span class="pill pill-dark">Featured</span>
+                                <?php endif; ?>
+                                <?php if ((string) $event['status'] !== 'published'): ?>
+                                    <span class="pill pill-dark"><?= e(ucfirst((string) $event['status'])); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if ($canManageThisEvent): ?>
+                                <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug, (int) $event['id'])); ?>">Edit</a>
                             <?php endif; ?>
                         </div>
-                    </form>
-                <?php endif; ?>
 
-                <?php if ($user !== null): ?>
-                    <div class="top-gap">
-                        <div class="panel-heading">
-                            <div>
-                                <h3><?= $canManageAllEvents ? 'Event queue' : 'Your events'; ?></h3>
-                                <p class="muted-copy"><?= $canManageAllEvents ? 'Leaders can review every event from this panel.' : 'Quick shortcuts into the events you created.'; ?></p>
-                            </div>
+                        <h3><?= e((string) $event['title']); ?></h3>
+                        <p><?= e((string) $event['description']); ?></p>
+
+                        <div class="community-meta-grid">
+                            <span><strong>When:</strong> <?= e(format_event_datetime((string) $event['start_at'])); ?></span>
+                            <span><strong>Type:</strong> <?= e((string) $event['event_type']); ?></span>
+                            <?php if (!empty($event['location_name'])): ?>
+                                <span><strong>Where:</strong> <?= e((string) $event['location_name']); ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($event['meeting_url'])): ?>
+                                <span><strong>Online:</strong> Zoom / Meet link attached</span>
+                            <?php endif; ?>
+                            <?php if (!empty($event['created_by_name'])): ?>
+                                <span><strong>Created by:</strong> <?= e((string) $event['created_by_name']); ?></span>
+                            <?php endif; ?>
                         </div>
 
-                        <?php if ($manageableEvents === []): ?>
-                            <p class="empty-state">No events to manage yet.</p>
-                        <?php else: ?>
-                            <div class="stack-list">
-                                <?php foreach ($manageableEvents as $manageableEvent): ?>
-                                    <div class="list-card list-card-block">
-                                        <div>
-                                            <strong><?= e((string) $manageableEvent['title']); ?></strong>
-                                            <span><?= e(format_event_datetime((string) $manageableEvent['start_at'])); ?></span>
-                                            <span class="muted-copy"><?= e((string) ($manageableEvent['category_label'] ?: $manageableEvent['event_type'])); ?></span>
-                                        </div>
-                                        <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug, (int) $manageableEvent['id'])); ?>">Edit</a>
-                                    </div>
+                        <div class="community-rsvp-summary">
+                            <span class="pill pill-dark"><?= e((string) $event['going_count']); ?> going</span>
+                            <span class="pill pill-dark"><?= e((string) $event['interested_count']); ?> interested</span>
+                            <span class="pill pill-dark"><?= e((string) $event['maybe_count']); ?> maybe</span>
+                        </div>
+
+                        <div class="inline-actions">
+                            <a class="button button-secondary" href="<?= e(app_url('community-event-calendar.php?event_id=' . (int) $event['id'])); ?>">Add to Calendar</a>
+                            <?php if (!empty($event['meeting_url'])): ?>
+                                <a class="button button-secondary" href="<?= e((string) $event['meeting_url']); ?>" target="_blank" rel="noreferrer">Open Link</a>
+                            <?php endif; ?>
+                            <?php if (!empty($event['location_address'])): ?>
+                                <span class="muted-copy"><?= e((string) $event['location_address']); ?></span>
+                            <?php endif; ?>
+                        </div>
+
+                        <?php if ($user !== null): ?>
+                            <div class="community-rsvp-row">
+                                <?php foreach (['going' => 'Going', 'interested' => 'Interested', 'maybe' => 'Maybe', 'not-going' => 'Can’t Go'] as $responseValue => $responseLabel): ?>
+                                    <form method="post" action="<?= e(app_url('community.php')); ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                                        <input type="hidden" name="action" value="rsvp">
+                                        <input type="hidden" name="event_id" value="<?= e((string) $event['id']); ?>">
+                                        <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
+                                        <input type="hidden" name="response" value="<?= e($responseValue); ?>">
+                                        <button
+                                            class="filter-chip <?= (string) ($event['current_user_rsvp'] ?? '') === $responseValue ? 'is-active' : ''; ?>"
+                                            type="submit"
+                                        >
+                                            <?= e($responseLabel); ?>
+                                        </button>
+                                    </form>
                                 <?php endforeach; ?>
+
+                                <?php if (!empty($event['current_user_rsvp'])): ?>
+                                    <form method="post" action="<?= e(app_url('community.php')); ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                                        <input type="hidden" name="action" value="rsvp">
+                                        <input type="hidden" name="event_id" value="<?= e((string) $event['id']); ?>">
+                                        <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
+                                        <input type="hidden" name="response" value="clear">
+                                        <button class="button button-secondary" type="submit">Clear RSVP</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        <?php else: ?>
+                            <p class="muted-copy">Sign in to RSVP, track attendance, and manage your events.</p>
+                        <?php endif; ?>
+
+                        <?php if ($canManageThisEvent): ?>
+                            <div class="inline-actions">
+                                <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug, (int) $event['id'])); ?>">Manage Event</a>
+                                <form method="post" action="<?= e(app_url('community.php')); ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                                    <input type="hidden" name="action" value="delete-event">
+                                    <input type="hidden" name="event_id" value="<?= e((string) $event['id']); ?>">
+                                    <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
+                                    <button class="button button-secondary" type="submit">Delete</button>
+                                </form>
                             </div>
                         <?php endif; ?>
-                    </div>
-                <?php endif; ?>
-            </aside>
+                    </article>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </div>
 </section>

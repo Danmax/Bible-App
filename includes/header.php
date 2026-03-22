@@ -37,20 +37,31 @@ $user = current_user();
 
                 <nav class="primary-nav" id="primary-nav">
                     <a class="<?= $activePage === 'home' ? 'is-active' : ''; ?>" href="<?= e(app_url('index.php')); ?>">Home</a>
+                    <a class="<?= $activePage === 'good-news' ? 'is-active' : ''; ?>" href="<?= e(app_url('good-news.php')); ?>">Good News</a>
                     <a class="<?= $activePage === 'bible' ? 'is-active' : ''; ?>" href="<?= e(app_url('bible.php')); ?>">Bible</a>
                     <a class="<?= $activePage === 'community' ? 'is-active' : ''; ?>" href="<?= e(app_url('community.php')); ?>">Community</a>
-                    <a class="<?= $activePage === 'planner' ? 'is-active' : ''; ?>" href="<?= e(app_url('planner.php')); ?>">Planner</a>
-                    <?php if (is_logged_in()): ?>
-                        <a class="<?= $activePage === 'dashboard' ? 'is-active' : ''; ?>" href="<?= e(app_url('dashboard.php')); ?>">Dashboard</a>
-                        <a class="<?= $activePage === 'friends' ? 'is-active' : ''; ?>" href="<?= e(app_url('friends.php')); ?>">Friends</a>
-                        <a class="<?= $activePage === 'bookmarks' ? 'is-active' : ''; ?>" href="<?= e(app_url('bookmarks.php')); ?>">Saved</a>
-                        <a class="<?= $activePage === 'notes' ? 'is-active' : ''; ?>" href="<?= e(app_url('notes.php')); ?>">Notes</a>
-                        <a class="<?= $activePage === 'profile' ? 'is-active' : ''; ?>" href="<?= e(app_url('profile.php')); ?>">Profile</a>
-                        <a class="nav-action" href="<?= e(app_url('logout.php')); ?>">Logout</a>
-                    <?php else: ?>
-                        <a href="<?= e(app_url('login.php')); ?>">Login</a>
-                        <a class="nav-action" href="<?= e(app_url('register.php')); ?>">Create Account</a>
-                    <?php endif; ?>
+                    <?php
+                    $morePages = ['planner', 'dashboard', 'friends', 'bookmarks', 'notes', 'prayer', 'profile'];
+                    $moreIsActive = in_array($activePage, $morePages, true);
+                    ?>
+                    <details class="more-nav">
+                        <summary class="<?= $moreIsActive ? 'is-active' : ''; ?>">More</summary>
+                        <div class="more-nav-menu">
+                            <a class="<?= $activePage === 'planner' ? 'is-active' : ''; ?>" href="<?= e(app_url('planner.php')); ?>">Planner</a>
+                            <?php if (is_logged_in()): ?>
+                                <a class="<?= $activePage === 'dashboard' ? 'is-active' : ''; ?>" href="<?= e(app_url('dashboard.php')); ?>">Dashboard</a>
+                                <a class="<?= $activePage === 'friends' ? 'is-active' : ''; ?>" href="<?= e(app_url('friends.php')); ?>">Friends</a>
+                                <a class="<?= $activePage === 'bookmarks' ? 'is-active' : ''; ?>" href="<?= e(app_url('bookmarks.php')); ?>">Saved</a>
+                                <a class="<?= $activePage === 'notes' ? 'is-active' : ''; ?>" href="<?= e(app_url('notes.php')); ?>">Notes</a>
+                                <a class="<?= $activePage === 'prayer' ? 'is-active' : ''; ?>" href="<?= e(app_url('prayer.php')); ?>">Prayer</a>
+                                <a class="<?= $activePage === 'profile' ? 'is-active' : ''; ?>" href="<?= e(app_url('profile.php')); ?>">Profile</a>
+                                <a class="nav-action" href="<?= e(app_url('logout.php')); ?>">Logout</a>
+                            <?php else: ?>
+                                <a href="<?= e(app_url('login.php')); ?>">Login</a>
+                                <a class="nav-action" href="<?= e(app_url('register.php')); ?>">Create Account</a>
+                            <?php endif; ?>
+                        </div>
+                    </details>
                 </nav>
             </div>
         </header>

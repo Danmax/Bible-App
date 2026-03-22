@@ -18,7 +18,7 @@ if (!defined('APP_ENV')) {
 }
 
 if (!defined('APP_PRIMARY_EMAIL')) {
-    define('APP_PRIMARY_EMAIL', getenv('APP_PRIMARY_EMAIL') ?: 'bible@frowear.com');
+    define('APP_PRIMARY_EMAIL', getenv('APP_PRIMARY_EMAIL') ?: 'goodnews@frowear.com');
 }
 
 if (!defined('APP_SUPPORT_EMAIL')) {
@@ -26,7 +26,7 @@ if (!defined('APP_SUPPORT_EMAIL')) {
 }
 
 if (!defined('APP_INFO_EMAIL')) {
-    define('APP_INFO_EMAIL', getenv('APP_INFO_EMAIL') ?: 'goodNews@frowear.com');
+    define('APP_INFO_EMAIL', getenv('APP_INFO_EMAIL') ?: 'goodnews@frowear.com');
 }
 
 if (!defined('APP_MAIL_FROM_EMAIL')) {
@@ -35,6 +35,30 @@ if (!defined('APP_MAIL_FROM_EMAIL')) {
 
 if (!defined('APP_MAIL_FROM_NAME')) {
     define('APP_MAIL_FROM_NAME', getenv('APP_MAIL_FROM_NAME') ?: APP_NAME);
+}
+
+if (!defined('SMTP_HOST')) {
+    define('SMTP_HOST', getenv('SMTP_HOST') ?: '');
+}
+
+if (!defined('SMTP_PORT')) {
+    define('SMTP_PORT', getenv('SMTP_PORT') ?: '587');
+}
+
+if (!defined('SMTP_USER')) {
+    define('SMTP_USER', getenv('SMTP_USER') ?: '');
+}
+
+if (!defined('SMTP_PASS')) {
+    define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
+}
+
+if (!defined('SMTP_ENCRYPTION')) {
+    define('SMTP_ENCRYPTION', getenv('SMTP_ENCRYPTION') ?: 'tls');
+}
+
+if (!defined('SMTP_TIMEOUT')) {
+    define('SMTP_TIMEOUT', getenv('SMTP_TIMEOUT') ?: '15');
 }
 
 if (!defined('APP_DEFAULT_TRANSLATION')) {
@@ -47,6 +71,14 @@ if (!defined('APP_SESSION_IDLE_TIMEOUT')) {
 
 if (!defined('APP_SESSION_ABSOLUTE_TIMEOUT')) {
     define('APP_SESSION_ABSOLUTE_TIMEOUT', getenv('APP_SESSION_ABSOLUTE_TIMEOUT') ?: '604800');
+}
+
+if (!defined('OPENAI_API_KEY')) {
+    define('OPENAI_API_KEY', getenv('OPENAI_API_KEY') ?: '');
+}
+
+if (!defined('OPENAI_EVENT_MODEL')) {
+    define('OPENAI_EVENT_MODEL', getenv('OPENAI_EVENT_MODEL') ?: 'gpt-5-mini');
 }
 
 if (!defined('DB_HOST')) {

@@ -26,16 +26,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($user) {
                 $token = create_password_reset_token((int) $user['id']);
+                $deliveryResetLink = app_url('reset-password.php', true) . '?token=' . urlencode($token);
+
+                if (mailer_enabled()) {
+                    send_password_reset_email(
+                        (string) ($user['name'] ?? ''),
+                        (string) ($user['email'] ?? ''),
+                        $deliveryResetLink
+                    );
+                }
+
                 if (debug_links_enabled()) {
-                    $resetLink = app_url('reset-password.php', true) . '?token=' . urlencode($token);
+                    $resetLink = $deliveryResetLink;
                 }
             }
 
             set_flash('If that email exists, reset instructions have been prepared.', 'success');
         } catch (Throwable $exception) {
-            $errorMessage = $exception instanceof RuntimeException
+            $errorMessage = $exception instanceof RuntimeException && str_starts_with($exception->getMessage(), 'Too many attempts')
                 ? $exception->getMessage()
-                : 'The reset request could not be completed because the database is unavailable.';
+                : 'The reset request could not be completed right now.';
         }
     }
 }

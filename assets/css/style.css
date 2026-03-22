@@ -23,6 +23,7 @@
 
 html {
     scroll-padding-top: var(--sticky-header-offset);
+    scroll-behavior: smooth;
 }
 
 body {
@@ -32,6 +33,10 @@ body {
         radial-gradient(circle at top left, rgba(214, 166, 79, 0.18), transparent 30%),
         linear-gradient(180deg, #f8eedf 0%, var(--bg) 100%);
     color: var(--text);
+}
+
+body.modal-open {
+    overflow: hidden;
 }
 
 a {
@@ -113,7 +118,8 @@ main {
     gap: 0.9rem;
 }
 
-.primary-nav a {
+.primary-nav a,
+.more-nav summary {
     padding: 0.8rem 1rem;
     border-radius: 999px;
     color: var(--muted);
@@ -121,10 +127,77 @@ main {
 }
 
 .primary-nav a.is-active,
+.more-nav summary.is-active,
 .primary-nav a:hover,
+.more-nav summary:hover,
 .nav-action {
     background: rgba(107, 62, 38, 0.1);
     color: var(--primary-dark);
+}
+
+.more-nav {
+    position: relative;
+}
+
+.more-nav summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    cursor: pointer;
+    list-style: none;
+}
+
+.more-nav summary::-webkit-details-marker {
+    display: none;
+}
+
+.more-nav summary::after {
+    content: "▾";
+    font-size: 0.8rem;
+}
+
+.more-nav[open] summary::after {
+    transform: rotate(180deg);
+}
+
+.more-nav-menu {
+    position: absolute;
+    top: calc(100% + 0.55rem);
+    right: 0;
+    min-width: 13rem;
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.6rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    z-index: 20;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.more-nav[open] .more-nav-menu,
+.more-nav.is-closing .more-nav-menu {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.more-nav[open] .more-nav-menu {
+    pointer-events: auto;
+}
+
+.more-nav.is-closing .more-nav-menu {
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+}
+
+.more-nav-menu a {
+    display: flex;
+    justify-content: flex-start;
 }
 
 .menu-toggle {
@@ -487,6 +560,39 @@ textarea {
     gap: 0.3rem;
 }
 
+.good-news-tile p,
+.good-news-spotlight p,
+.celebration-card p {
+    margin: 0;
+}
+
+.good-news-tile-link {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.good-news-spotlight {
+    display: grid;
+    gap: 0.8rem;
+    padding: 1.2rem;
+    border-radius: 22px;
+    border: 1px solid rgba(107, 62, 38, 0.08);
+    background:
+        radial-gradient(circle at top right, rgba(214, 166, 79, 0.12), transparent 34%),
+        linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(246, 237, 219, 0.86));
+}
+
+.soap-steps {
+    display: grid;
+    gap: 1rem;
+}
+
+.celebration-card {
+    background:
+        radial-gradient(circle at top right, rgba(214, 166, 79, 0.18), transparent 34%),
+        linear-gradient(180deg, rgba(255, 247, 231, 0.98), rgba(244, 226, 189, 0.9));
+}
+
 .scripture-panel {
     margin-top: 1.5rem;
 }
@@ -521,11 +627,63 @@ textarea {
     flex: 0 1 170px;
 }
 
+.search-row-compact {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.search-row-compact input {
+    flex: 1 1 260px;
+    min-width: 0;
+}
+
+.search-row-compact select {
+    flex: 0 0 110px;
+}
+
+.search-row-compact .button {
+    min-height: 2.8rem;
+    padding: 0.75rem 1rem;
+}
+
+.voice-search-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.8rem;
+    padding: 0.75rem;
+}
+
+.voice-search-icon {
+    width: 1rem;
+    height: 1rem;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+}
+
 .reader-select-row {
     display: grid;
     grid-template-columns: 2fr 1fr 2fr auto;
     gap: 0.9rem;
     align-items: end;
+}
+
+.reader-select-row-compact {
+    grid-template-columns: minmax(0, 2.3fr) minmax(0, 0.95fr) minmax(0, 2fr) auto;
+    gap: 0.65rem;
+    align-items: center;
+}
+
+.reader-compact-label {
+    min-width: 0;
+}
+
+.reader-compact-label select {
+    width: 100%;
 }
 
 .reader-go {
@@ -731,16 +889,53 @@ textarea {
     border-color: rgba(107, 62, 38, 0.28);
 }
 
-.community-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
-    gap: 1.5rem;
-    align-items: start;
+.community-action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
 }
 
 .community-manager-panel {
-    position: sticky;
-    top: 6.5rem;
+    display: grid;
+    gap: 1rem;
+}
+
+.panel-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(35, 57, 91, 0.42);
+    backdrop-filter: blur(8px);
+}
+
+.panel-modal-card {
+    width: min(44rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 2rem);
+    overflow: auto;
+    box-shadow: 0 28px 64px rgba(20, 33, 56, 0.24);
+}
+
+.community-ai-panel {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1rem 1.05rem;
+    border-radius: 22px;
+    border: 1px solid rgba(107, 62, 38, 0.08);
+    background:
+        radial-gradient(circle at top right, rgba(214, 166, 79, 0.14), transparent 34%),
+        linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(244, 235, 218, 0.86));
+}
+
+.community-ai-panel .panel-heading {
+    margin-bottom: 0;
+}
+
+.community-ai-panel textarea {
+    min-height: 7.5rem;
 }
 
 .community-event-card {
@@ -1051,6 +1246,75 @@ textarea {
     color: var(--primary-dark);
 }
 
+.planner-day-head,
+.planner-week-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.planner-week-head {
+    align-items: center;
+}
+
+.planner-week-head > div:first-child {
+    display: grid;
+    gap: 0.1rem;
+}
+
+.planner-day-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    opacity: 0.42;
+    transform: translateY(-2px);
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.planner-calendar-cell:hover .planner-day-quick-actions,
+.planner-calendar-cell:focus-within .planner-day-quick-actions,
+.planner-week-day:hover .planner-day-quick-actions,
+.planner-week-day:focus-within .planner-day-quick-actions {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.planner-quick-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border: 1px solid rgba(61, 127, 191, 0.18);
+    background: linear-gradient(135deg, rgba(203, 233, 255, 0.88), rgba(226, 241, 255, 0.98));
+    color: #1c4d79;
+    border-radius: 999px;
+    padding: 0;
+    box-shadow: 0 10px 24px rgba(86, 142, 196, 0.14);
+}
+
+.planner-quick-trigger:hover,
+.planner-quick-trigger:focus-visible {
+    border-color: rgba(61, 127, 191, 0.32);
+    background: linear-gradient(135deg, rgba(190, 226, 255, 0.96), rgba(214, 238, 255, 1));
+}
+
+.planner-quick-trigger-voice {
+    background: linear-gradient(135deg, rgba(226, 244, 255, 0.94), rgba(237, 248, 255, 1));
+}
+
+.planner-quick-icon {
+    width: 1rem;
+    height: 1rem;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+}
+
 .planner-calendar-events,
 .planner-week-events {
     display: grid;
@@ -1085,16 +1349,15 @@ textarea {
     gap: 0.9rem;
 }
 
-.planner-week-head {
-    display: grid;
-    gap: 0.1rem;
-}
-
 .community-checkbox {
     display: flex;
     align-items: center;
     gap: 0.8rem;
     font-weight: 700;
+}
+
+.planner-ai-panel {
+    margin-bottom: 0.25rem;
 }
 
 .community-checkbox input {
@@ -1145,6 +1408,21 @@ textarea {
     gap: 0.75rem;
 }
 
+.reader-nav-combined {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.reader-nav-combined .chapter-jump-form {
+    flex: 1 1 28rem;
+}
+
+.reader-nav-combined .chapter-jump-card {
+    width: 100%;
+}
+
 .reader-mode-switch {
     display: flex;
     flex-wrap: wrap;
@@ -1193,7 +1471,7 @@ textarea {
 }
 
 .chapter-jump-controls select {
-    min-width: 130px;
+    min-width: 92px;
 }
 
 .chapter-step-button {
@@ -1409,13 +1687,12 @@ textarea {
     .two-column,
     .card-grid-2,
     .reader-select-row,
-    .community-layout,
     .auth-shell {
         grid-template-columns: 1fr;
     }
 
-    .community-manager-panel {
-        position: static;
+    .search-row-compact {
+        flex-wrap: wrap;
     }
 
     .profile-hero-card,
@@ -1465,8 +1742,24 @@ textarea {
     }
 
     .primary-nav a,
+    .more-nav summary,
     .nav-action {
         text-align: center;
+    }
+
+    .more-nav {
+        width: 100%;
+    }
+
+    .more-nav-menu {
+        position: static;
+        min-width: 0;
+        margin-top: 0.45rem;
+        box-shadow: none;
+    }
+
+    .more-nav-menu a {
+        justify-content: center;
     }
 
     .hero,

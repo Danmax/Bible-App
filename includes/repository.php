@@ -54,7 +54,7 @@ function fetch_friendships_for_user(int $userId): array
     $statement = db()->prepare(
         'SELECT friendships.id, friendships.created_at,
             CASE
-                WHEN friendships.user_one_id = :user_id THEN friendships.user_two_id
+                WHEN friendships.user_one_id = :user_id_case THEN friendships.user_two_id
                 ELSE friendships.user_one_id
             END AS friend_user_id,
             users.name AS friend_name,
@@ -63,14 +63,19 @@ function fetch_friendships_for_user(int $userId): array
             users.avatar_url AS friend_avatar_url
         FROM friendships
         INNER JOIN users ON users.id = CASE
-            WHEN friendships.user_one_id = :user_id THEN friendships.user_two_id
+            WHEN friendships.user_one_id = :user_id_join THEN friendships.user_two_id
             ELSE friendships.user_one_id
         END
-        WHERE friendships.user_one_id = :user_id
-            OR friendships.user_two_id = :user_id
+        WHERE friendships.user_one_id = :user_id_one
+            OR friendships.user_two_id = :user_id_two
         ORDER BY users.name ASC'
     );
-    $statement->execute(['user_id' => $userId]);
+    $statement->execute([
+        'user_id_case' => $userId,
+        'user_id_join' => $userId,
+        'user_id_one' => $userId,
+        'user_id_two' => $userId,
+    ]);
 
     return $statement->fetchAll();
 }
@@ -98,18 +103,18 @@ function fetch_pending_friend_invites_for_user(int $userId, string $email): arra
         WHERE friend_invites.status = :status
             AND friend_invites.expires_at >= NOW()
             AND (
-                friend_invites.recipient_user_id = :user_id
+                friend_invites.recipient_user_id = :recipient_user_id
                 OR (
                     friend_invites.recipient_user_id IS NULL
-                    AND friend_invites.recipient_email = :email
+                    AND friend_invites.recipient_email = :recipient_email
                 )
             )
         ORDER BY friend_invites.created_at DESC'
     );
     $statement->execute([
         'status' => 'pending',
-        'user_id' => $userId,
-        'email' => mb_strtolower(trim($email)),
+        'recipient_user_id' => $userId,
+        'recipient_email' => mb_strtolower(trim($email)),
     ]);
 
     return $statement->fetchAll();
@@ -939,6 +944,63 @@ function fetch_planner_schedule(int $userId, int $limit = 8): array
     return $statement->fetchAll();
 }
 
+function fetch_prayer_entries_for_user(int $userId, int $limit = 8): array
+{
+    $statement = db()->prepare(
+        'SELECT *
+        FROM prayer_entries
+        WHERE user_id = :user_id
+        ORDER BY
+            CASE WHEN status = "active" THEN 0 ELSE 1 END,
+            updated_at DESC,
+            id DESC
+        LIMIT ' . (int) $limit
+    );
+    $statement->execute(['user_id' => $userId]);
+
+    return $statement->fetchAll();
+}
+
+function create_prayer_entry_record(int $userId, string $title, ?string $details = null, string $status = 'active'): int
+{
+    $statement = db()->prepare(
+        'INSERT INTO prayer_entries (user_id, title, details, status)
+        VALUES (:user_id, :title, :details, :status)'
+    );
+    $statement->execute([
+        'user_id' => $userId,
+        'title' => trim($title),
+        'details' => normalize_optional_text($details),
+        'status' => $status,
+    ]);
+
+    return (int) db()->lastInsertId();
+}
+
+function update_prayer_entry_status(int $entryId, int $userId, string $status): void
+{
+    $statement = db()->prepare(
+        'UPDATE prayer_entries
+        SET status = :status
+        WHERE id = :id
+            AND user_id = :user_id'
+    );
+    $statement->execute([
+        'id' => $entryId,
+        'user_id' => $userId,
+        'status' => $status,
+    ]);
+}
+
+function delete_prayer_entry_record(int $entryId, int $userId): void
+{
+    $statement = db()->prepare('DELETE FROM prayer_entries WHERE id = :id AND user_id = :user_id');
+    $statement->execute([
+        'id' => $entryId,
+        'user_id' => $userId,
+    ]);
+}
+
 function summarize_yearly_goals(array $goals): array
 {
     $summary = [
@@ -1018,13 +1080,13 @@ function fetch_community_event_by_id(int $eventId, ?int $viewerUserId = null, bo
             ON rsvp_counts.community_event_id = community_events.id
         LEFT JOIN community_event_rsvps AS user_rsvp
             ON user_rsvp.community_event_id = community_events.id
-            AND user_rsvp.user_id = :viewer_user_id
+            AND user_rsvp.user_id = :viewer_user_id_join
         WHERE community_events.id = :id
             AND (
                 :can_manage_all = 1
                 OR (
-                    :viewer_user_id > 0
-                    AND community_events.created_by_user_id = :viewer_user_id
+                    :viewer_user_id_owner > 0
+                    AND community_events.created_by_user_id = :viewer_user_id_owner_match
                 )
                 OR (
                     community_events.status <> :draft_status
@@ -1036,8 +1098,8 @@ function fetch_community_event_by_id(int $eventId, ?int $viewerUserId = null, bo
                         )
                         OR (
                             community_events.visibility = :private_visibility
-                            AND :viewer_user_id > 0
-                            AND community_events.created_by_user_id = :viewer_user_id
+                            AND :viewer_user_id_private > 0
+                            AND community_events.created_by_user_id = :viewer_user_id_private_match
                         )
                     )
                 )
@@ -1052,7 +1114,11 @@ function fetch_community_event_by_id(int $eventId, ?int $viewerUserId = null, bo
         'members_visibility' => 'members',
         'private_visibility' => 'private',
         'viewer_is_logged_in' => $viewerIsLoggedIn,
-        'viewer_user_id' => $viewerId,
+        'viewer_user_id_join' => $viewerId,
+        'viewer_user_id_owner' => $viewerId,
+        'viewer_user_id_owner_match' => $viewerId,
+        'viewer_user_id_private' => $viewerId,
+        'viewer_user_id_private_match' => $viewerId,
     ]);
     $event = $statement->fetch();
 
@@ -1092,12 +1158,12 @@ function fetch_community_events(?int $categoryId = null, ?int $viewerUserId = nu
             ON rsvp_counts.community_event_id = community_events.id
         LEFT JOIN community_event_rsvps AS user_rsvp
             ON user_rsvp.community_event_id = community_events.id
-            AND user_rsvp.user_id = :viewer_user_id
+            AND user_rsvp.user_id = :viewer_user_id_join
         WHERE (
             :can_manage_all = 1
             OR (
-                :viewer_user_id > 0
-                AND community_events.created_by_user_id = :viewer_user_id
+                :viewer_user_id_owner > 0
+                AND community_events.created_by_user_id = :viewer_user_id_owner_match
             )
             OR (
                 community_events.status <> :draft_status
@@ -1109,8 +1175,8 @@ function fetch_community_events(?int $categoryId = null, ?int $viewerUserId = nu
                     )
                     OR (
                         community_events.visibility = :private_visibility
-                        AND :viewer_user_id > 0
-                        AND community_events.created_by_user_id = :viewer_user_id
+                        AND :viewer_user_id_private > 0
+                        AND community_events.created_by_user_id = :viewer_user_id_private_match
                     )
                 )
             )
@@ -1120,7 +1186,11 @@ function fetch_community_events(?int $categoryId = null, ?int $viewerUserId = nu
         'members_visibility' => 'members',
         'private_visibility' => 'private',
         'public_visibility' => 'public',
-        'viewer_user_id' => $viewerId,
+        'viewer_user_id_join' => $viewerId,
+        'viewer_user_id_owner' => $viewerId,
+        'viewer_user_id_owner_match' => $viewerId,
+        'viewer_user_id_private' => $viewerId,
+        'viewer_user_id_private_match' => $viewerId,
         'viewer_is_logged_in' => $viewerIsLoggedIn,
         'draft_status' => 'draft',
     ];
@@ -2573,7 +2643,6 @@ function external_translation_api_get(string $translation, string $path, array $
         $response = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $error = curl_error($ch);
-        curl_close($ch);
 
         if ($response === false || $status >= 400) {
             throw new RuntimeException(build_external_translation_error_message($translation, $error));
