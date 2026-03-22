@@ -6,7 +6,7 @@ load_env_file(dirname(__DIR__) . '/.env');
 load_env_file(dirname(__DIR__) . '/.env.local');
 
 if (!defined('APP_NAME')) {
-    define('APP_NAME', 'Word Trail Bible App');
+    define('APP_NAME', 'Good News Bible');
 }
 
 if (!defined('BASE_URL')) {
@@ -35,6 +35,18 @@ if (!defined('APP_MAIL_FROM_EMAIL')) {
 
 if (!defined('APP_MAIL_FROM_NAME')) {
     define('APP_MAIL_FROM_NAME', getenv('APP_MAIL_FROM_NAME') ?: APP_NAME);
+}
+
+if (!defined('APP_DEFAULT_TRANSLATION')) {
+    define('APP_DEFAULT_TRANSLATION', getenv('APP_DEFAULT_TRANSLATION') ?: 'MSB');
+}
+
+if (!defined('APP_SESSION_IDLE_TIMEOUT')) {
+    define('APP_SESSION_IDLE_TIMEOUT', getenv('APP_SESSION_IDLE_TIMEOUT') ?: '7200');
+}
+
+if (!defined('APP_SESSION_ABSOLUTE_TIMEOUT')) {
+    define('APP_SESSION_ABSOLUTE_TIMEOUT', getenv('APP_SESSION_ABSOLUTE_TIMEOUT') ?: '604800');
 }
 
 if (!defined('DB_HOST')) {

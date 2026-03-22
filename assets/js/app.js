@@ -165,6 +165,32 @@ const chapterReader = document.querySelector('[data-chapter-reader]');
 const bookmarkPopup = document.querySelector('[data-bookmark-popup]');
 const bookmarkPopupForm = document.querySelector('[data-bookmark-popup-form]');
 
+if (chapterReader) {
+    const scrollToTargetVerse = () => {
+        const hash = window.location.hash.trim();
+
+        if (!hash.startsWith('#verse-')) {
+            return;
+        }
+
+        const targetVerse = chapterReader.querySelector(hash);
+
+        if (!(targetVerse instanceof HTMLElement)) {
+            return;
+        }
+
+        window.requestAnimationFrame(() => {
+            targetVerse.scrollIntoView({
+                block: 'center',
+                behavior: 'smooth',
+            });
+        });
+    };
+
+    scrollToTargetVerse();
+    window.addEventListener('hashchange', scrollToTargetVerse);
+}
+
 if (chapterReader && bookmarkPopup && bookmarkPopupForm) {
     const popupModeLabel = bookmarkPopup.querySelector('[data-popup-mode-label]');
     const popupReference = bookmarkPopup.querySelector('[data-popup-reference]');
@@ -285,6 +311,12 @@ if (chapterReader && bookmarkPopup && bookmarkPopupForm) {
 
     chapterReader.querySelectorAll('[data-verse-card]').forEach((verseCard) => {
         verseCard.addEventListener('click', (event) => {
+            const target = event.target;
+
+            if (target instanceof Element && target.closest('a, button')) {
+                return;
+            }
+
             const selection = window.getSelection();
 
             if (selection && !selection.isCollapsed) {

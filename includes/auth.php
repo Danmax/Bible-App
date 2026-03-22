@@ -139,11 +139,15 @@ function log_in_user(array $user): void
         'city' => (string) ($user['city'] ?? ''),
         'avatar_url' => (string) ($user['avatar_url'] ?? ''),
     ];
+
+    register_authenticated_session((int) $user['id']);
 }
 
 function logout_user(): void
 {
+    revoke_authenticated_session();
     unset($_SESSION['user']);
+    unset($_SESSION['auth_session_token']);
     session_regenerate_id(true);
 }
 
@@ -232,3 +236,108 @@ function redirect(string $path): void
     header('Location: ' . app_url($path));
     exit;
 }
+
+function session_idle_timeout_seconds(): int
+{
+    return max(300, (int) APP_SESSION_IDLE_TIMEOUT);
+}
+
+function session_absolute_timeout_seconds(): int
+{
+    return max(session_idle_timeout_seconds(), (int) APP_SESSION_ABSOLUTE_TIMEOUT);
+}
+
+function register_authenticated_session(int $userId): void
+{
+    if (!user_sessions_available()) {
+        return;
+    }
+
+    $sessionToken = bin2hex(random_bytes(32));
+    $lastSeenAt = date('Y-m-d H:i:s');
+    $expiresAt = date('Y-m-d H:i:s', time() + session_idle_timeout_seconds());
+
+    upsert_user_session_record($userId, session_id(), $sessionToken, $lastSeenAt, $expiresAt);
+    $_SESSION['auth_session_token'] = $sessionToken;
+
+    record_audit_event($userId, 'session.started', $userId, [
+        'session_id_hash' => hash('sha256', session_id()),
+    ]);
+}
+
+function revoke_authenticated_session(): void
+{
+    if (!user_sessions_available()) {
+        return;
+    }
+
+    $userId = (int) ($_SESSION['user']['id'] ?? 0);
+
+    try {
+        revoke_user_session_record(session_id());
+
+        if ($userId > 0) {
+            record_audit_event($userId, 'session.revoked', $userId, [
+                'session_id_hash' => hash('sha256', session_id()),
+            ]);
+        }
+    } catch (Throwable $exception) {
+        return;
+    }
+}
+
+function ensure_authenticated_session_is_valid(): void
+{
+    if (!isset($_SESSION['user']) || !user_sessions_available()) {
+        return;
+    }
+
+    $userId = (int) ($_SESSION['user']['id'] ?? 0);
+
+    if ($userId <= 0) {
+        return;
+    }
+
+    $sessionToken = trim((string) ($_SESSION['auth_session_token'] ?? ''));
+
+    if ($sessionToken === '') {
+        register_authenticated_session($userId);
+
+        return;
+    }
+
+    $minimumCreatedAt = date('Y-m-d H:i:s', time() - session_absolute_timeout_seconds());
+
+    try {
+        $sessionRecord = fetch_active_user_session_record($userId, session_id(), $sessionToken, $minimumCreatedAt);
+    } catch (Throwable $exception) {
+        return;
+    }
+
+    if ($sessionRecord === null) {
+        unset($_SESSION['user']);
+        unset($_SESSION['auth_session_token']);
+        session_regenerate_id(true);
+        set_flash('Your session expired. Sign in again to continue.', 'warning');
+
+        return;
+    }
+
+    $lastSeenAt = strtotime((string) ($sessionRecord['last_seen_at'] ?? ''));
+
+    if ($lastSeenAt !== false && (time() - $lastSeenAt) < 300) {
+        return;
+    }
+
+    try {
+        touch_user_session_record(
+            (int) $sessionRecord['id'],
+            date('Y-m-d H:i:s'),
+            date('Y-m-d H:i:s', time() + session_idle_timeout_seconds())
+        );
+    } catch (Throwable $exception) {
+        return;
+    }
+}
+
+ensure_authenticated_session_is_valid();

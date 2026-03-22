@@ -37,7 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errorMessage = 'Password confirmation does not match.';
     } else {
         try {
-            reset_user_password_with_token($token, $password);
+            $updatedUserId = reset_user_password_with_token($token, $password);
+
+            if ($updatedUserId !== null && user_sessions_available()) {
+                revoke_all_user_sessions($updatedUserId);
+            }
+
             set_flash('Your password has been updated. Sign in with the new password.', 'success');
             redirect('login.php');
         } catch (Throwable $exception) {
@@ -52,38 +57,48 @@ $activePage = '';
 require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
-    <div class="container narrow">
-        <div class="panel">
-            <p class="eyebrow">Password Reset</p>
-            <h1>Create a new password</h1>
+    <div class="container">
+        <div class="auth-shell">
+            <aside class="auth-rail">
+                <div>
+                    <p class="eyebrow">Password Reset</p>
+                    <h2>Set a fresh password and secure your account again.</h2>
+                    <p>Once the password is updated, previous sessions can be cleared so the account starts from a clean state.</p>
+                </div>
+            </aside>
 
-            <?php if ($errorMessage): ?>
-                <div class="flash flash-warning"><?= e($errorMessage); ?></div>
-            <?php endif; ?>
+            <div class="auth-panel">
+                <p class="eyebrow">Password Reset</p>
+                <h1>Create a new password</h1>
 
-            <?php if ($tokenRecord === null): ?>
-                <p>This reset link is missing, invalid, or expired.</p>
-                <a class="button button-secondary" href="<?= e(app_url('forgot-password.php')); ?>">Request another link</a>
-            <?php else: ?>
-                <p>Reset password for <?= e($tokenRecord['email']); ?>.</p>
+                <?php if ($errorMessage): ?>
+                    <div class="flash flash-warning"><?= e($errorMessage); ?></div>
+                <?php endif; ?>
 
-                <form class="form-stack" method="post">
-                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                    <input type="hidden" name="token" value="<?= e($token); ?>">
+                <?php if ($tokenRecord === null): ?>
+                    <p>This reset link is missing, invalid, or expired.</p>
+                    <a class="button button-secondary" href="<?= e(app_url('forgot-password.php')); ?>">Request another link</a>
+                <?php else: ?>
+                    <p>Reset password for <?= e($tokenRecord['email']); ?>.</p>
 
-                    <label>
-                        <span>New Password</span>
-                        <input type="password" name="password" minlength="8" required>
-                    </label>
+                    <form class="form-stack" method="post">
+                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                        <input type="hidden" name="token" value="<?= e($token); ?>">
 
-                    <label>
-                        <span>Confirm Password</span>
-                        <input type="password" name="password_confirm" minlength="8" required>
-                    </label>
+                        <label>
+                            <span>New Password</span>
+                            <input type="password" name="password" minlength="8" required>
+                        </label>
 
-                    <button class="button button-primary" type="submit">Update Password</button>
-                </form>
-            <?php endif; ?>
+                        <label>
+                            <span>Confirm Password</span>
+                            <input type="password" name="password_confirm" minlength="8" required>
+                        </label>
+
+                        <button class="button button-primary" type="submit">Update Password</button>
+                    </form>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 </section>

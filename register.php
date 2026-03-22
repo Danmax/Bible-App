@@ -53,43 +53,59 @@ $activePage = '';
 require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
-    <div class="container narrow">
-        <div class="panel">
-            <p class="eyebrow">Create Your Account</p>
-            <h1>Start your study journey</h1>
-            <p>Register for bookmarks, verse search, personal notes, and profile tools.</p>
+    <div class="container">
+        <div class="auth-shell">
+            <aside class="auth-rail">
+                <div>
+                    <p class="eyebrow">Create Your Account</p>
+                    <h2>Build your personal study space.</h2>
+                    <p>Create an account to save verses, write notes, plan goals, and stay connected with your community.</p>
+                </div>
 
-            <?php if ($errorMessage): ?>
-                <div class="flash flash-warning"><?= e($errorMessage); ?></div>
-            <?php endif; ?>
+                <ul class="auth-feature-list">
+                    <li><span class="auth-feature-mark">A</span><span>Save passages and highlights from the reader.</span></li>
+                    <li><span class="auth-feature-mark">B</span><span>Write personal study notes and planner entries.</span></li>
+                    <li><span class="auth-feature-mark">C</span><span>Manage your profile, sessions, and community access.</span></li>
+                </ul>
+            </aside>
 
-            <form class="form-stack" method="post">
-                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+            <div class="auth-panel">
+                <p class="eyebrow">New Account</p>
+                <h1>Start your study journey</h1>
+                <p>Register for bookmarks, verse search, personal notes, and profile tools.</p>
 
-                <label>
-                    <span>Name</span>
-                    <input type="text" name="name" value="<?= e($form['name']); ?>" placeholder="Your full name" required>
-                </label>
+                <?php if ($errorMessage): ?>
+                    <div class="flash flash-warning"><?= e($errorMessage); ?></div>
+                <?php endif; ?>
 
-                <label>
-                    <span>Email</span>
-                    <input type="email" name="email" value="<?= e($form['email']); ?>" placeholder="you@example.com" required>
-                </label>
+                <form class="form-stack" method="post">
+                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
 
-                <label>
-                    <span>Password</span>
-                    <input type="password" name="password" placeholder="Create a password" minlength="8" required>
-                </label>
+                    <label>
+                        <span>Name</span>
+                        <input type="text" name="name" value="<?= e($form['name']); ?>" placeholder="Your full name" required>
+                    </label>
 
-                <label>
-                    <span>Confirm Password</span>
-                    <input type="password" name="password_confirm" placeholder="Repeat your password" minlength="8" required>
-                </label>
+                    <label>
+                        <span>Email</span>
+                        <input type="email" name="email" value="<?= e($form['email']); ?>" placeholder="you@example.com" required>
+                    </label>
 
-                <button class="button button-primary" type="submit">Create Account</button>
-            </form>
+                    <label>
+                        <span>Password</span>
+                        <input type="password" name="password" placeholder="Create a password" minlength="8" required>
+                    </label>
 
-            <p class="form-note">Passwords are stored with PHP `password_hash()` and checked with `password_verify()`.</p>
+                    <label>
+                        <span>Confirm Password</span>
+                        <input type="password" name="password_confirm" placeholder="Repeat your password" minlength="8" required>
+                    </label>
+
+                    <button class="button button-primary" type="submit">Create Account</button>
+                </form>
+
+                <p class="form-note">Passwords are stored with PHP `password_hash()` and checked with `password_verify()`.</p>
+            </div>
         </div>
     </div>
 </section>

@@ -8,7 +8,7 @@ declare(strict_types=1);
             <div class="container footer-grid">
                 <div>
                     <h3><?= e(APP_NAME); ?></h3>
-                    <p>Built for Scripture study, verse celebration, and a stronger community rhythm.</p>
+                    <p>Study The Word Bible, save what matters, and stay rooted in a stronger community rhythm.</p>
                 </div>
                 <div>
                     <h4>Core Areas</h4>

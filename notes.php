@@ -125,10 +125,28 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
     <div class="container">
-        <div class="section-heading">
-            <p class="eyebrow">Study Notes</p>
-            <h1>Capture what you are learning</h1>
-            <p>Write sermon reflections, verse observations, and personal study notes.</p>
+        <div class="section-heading section-heading-rich">
+            <div>
+                <p class="eyebrow">Study Notes</p>
+                <h1>Capture what you are learning</h1>
+                <p>Write sermon reflections, verse observations, and personal study notes.</p>
+            </div>
+
+            <div class="quick-stat-row">
+                <div class="quick-stat">
+                    <strong><?= e((string) count($notes)); ?></strong>
+                    <span>notes written</span>
+                </div>
+                <div class="quick-stat">
+                    <strong><?= e((string) count($noteableVerses)); ?></strong>
+                    <span>linkable verses</span>
+                </div>
+            </div>
+
+            <div class="hero-actions">
+                <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Open Bible</a>
+                <a class="button button-secondary" href="<?= e(app_url('bookmarks.php')); ?>">Open Saved Verses</a>
+            </div>
         </div>
 
         <?php if ($pageError): ?>
@@ -137,7 +155,12 @@ require_once __DIR__ . '/includes/header.php';
 
         <div class="two-column">
             <div class="panel">
-                <h2><?= $editingNote ? 'Edit note' : 'New note'; ?></h2>
+                <div class="panel-heading">
+                    <div>
+                        <h2><?= $editingNote ? 'Edit note' : 'New note'; ?></h2>
+                        <p class="muted-copy">Create a focused study note and optionally connect it to a saved verse.</p>
+                    </div>
+                </div>
 
                 <?php if ($selectedVerse): ?>
                     <div class="inline-message">
@@ -183,7 +206,12 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <div class="panel">
-                <h2>Your notes</h2>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Your notes</h2>
+                        <p class="muted-copy">Return to your recent reflections and continue building out your study archive.</p>
+                    </div>
+                </div>
 
                 <?php if ($notes === []): ?>
                     <p class="empty-state">No notes yet. Create one from the form or jump in from a saved verse.</p>

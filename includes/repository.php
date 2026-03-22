@@ -475,6 +475,10 @@ function create_password_reset_token(int $userId): string
         'expires_at' => date('Y-m-d H:i:s', strtotime('+1 hour')),
     ]);
 
+    record_audit_event(null, 'password_reset.requested', $userId, [
+        'reset_window_minutes' => 60,
+    ]);
+
     return $token;
 }
 
@@ -523,6 +527,10 @@ function reset_user_password_with_token(string $token, string $password): ?int
         throw $exception;
     }
 
+    record_audit_event(null, 'password_reset.completed', (int) $record['user_id'], [
+        'password_reset_token_id' => (int) $record['id'],
+    ]);
+
     return (int) $record['user_id'];
 }
 
@@ -543,6 +551,11 @@ function create_email_change_token(int $userId, string $newEmail): string
         'new_email' => $normalizedEmail,
         'token_hash' => hash('sha256', $token),
         'expires_at' => date('Y-m-d H:i:s', strtotime('+1 hour')),
+    ]);
+
+    record_audit_event($userId, 'email_change.requested', $userId, [
+        'new_email' => $normalizedEmail,
+        'approval_window_minutes' => 60,
     ]);
 
     return $token;
@@ -618,6 +631,11 @@ function confirm_email_change_with_token(string $token): ?array
         $pdo->rollBack();
         throw $exception;
     }
+
+    record_audit_event((int) $record['user_id'], 'email_change.confirmed', (int) $record['user_id'], [
+        'previous_email' => (string) $record['current_email'],
+        'new_email' => (string) $record['new_email'],
+    ]);
 
     return fetch_user_by_id((int) $record['user_id']);
 }
@@ -1148,6 +1166,198 @@ function fetch_manageable_community_events(int $userId, bool $canManageAll = fal
     return $statement->fetchAll();
 }
 
+function fetch_manageable_community_event_by_id(int $eventId, int $actorUserId, bool $canManageAll = false): ?array
+{
+    $statement = db()->prepare(
+        'SELECT *
+        FROM community_events
+        WHERE id = :id
+            AND (
+                :can_manage_all = 1
+                OR created_by_user_id = :actor_user_id
+            )
+        LIMIT 1'
+    );
+    $statement->execute([
+        'actor_user_id' => $actorUserId,
+        'can_manage_all' => $canManageAll ? 1 : 0,
+        'id' => $eventId,
+    ]);
+    $event = $statement->fetch();
+
+    return $event ?: null;
+}
+
+function upsert_user_session_record(
+    int $userId,
+    string $sessionId,
+    string $sessionToken,
+    string $lastSeenAt,
+    string $expiresAt
+): void {
+    $statement = db()->prepare(
+        'INSERT INTO user_sessions (
+            user_id,
+            session_id,
+            session_token_hash,
+            ip_address,
+            user_agent,
+            last_seen_at,
+            expires_at,
+            revoked_at
+        ) VALUES (
+            :user_id,
+            :session_id,
+            :session_token_hash,
+            :ip_address,
+            :user_agent,
+            :last_seen_at,
+            :expires_at,
+            NULL
+        )
+        ON DUPLICATE KEY UPDATE
+            user_id = VALUES(user_id),
+            session_token_hash = VALUES(session_token_hash),
+            ip_address = VALUES(ip_address),
+            user_agent = VALUES(user_agent),
+            last_seen_at = VALUES(last_seen_at),
+            expires_at = VALUES(expires_at),
+            revoked_at = NULL'
+    );
+    $statement->execute([
+        'expires_at' => $expiresAt,
+        'ip_address' => current_request_ip_address(),
+        'last_seen_at' => $lastSeenAt,
+        'session_id' => trim($sessionId),
+        'session_token_hash' => hash('sha256', $sessionToken),
+        'user_agent' => current_request_user_agent(),
+        'user_id' => $userId,
+    ]);
+}
+
+function fetch_active_user_session_record(
+    int $userId,
+    string $sessionId,
+    string $sessionToken,
+    string $minimumCreatedAt
+): ?array {
+    $statement = db()->prepare(
+        'SELECT *
+        FROM user_sessions
+        WHERE user_id = :user_id
+            AND session_id = :session_id
+            AND session_token_hash = :session_token_hash
+            AND revoked_at IS NULL
+            AND expires_at >= NOW()
+            AND created_at >= :minimum_created_at
+        LIMIT 1'
+    );
+    $statement->execute([
+        'minimum_created_at' => $minimumCreatedAt,
+        'session_id' => trim($sessionId),
+        'session_token_hash' => hash('sha256', $sessionToken),
+        'user_id' => $userId,
+    ]);
+    $session = $statement->fetch();
+
+    return $session ?: null;
+}
+
+function touch_user_session_record(int $sessionRecordId, string $lastSeenAt, string $expiresAt): void
+{
+    $statement = db()->prepare(
+        'UPDATE user_sessions
+        SET last_seen_at = :last_seen_at,
+            expires_at = :expires_at
+        WHERE id = :id'
+    );
+    $statement->execute([
+        'expires_at' => $expiresAt,
+        'id' => $sessionRecordId,
+        'last_seen_at' => $lastSeenAt,
+    ]);
+}
+
+function revoke_user_session_record(string $sessionId): void
+{
+    $statement = db()->prepare(
+        'UPDATE user_sessions
+        SET revoked_at = NOW()
+        WHERE session_id = :session_id
+            AND revoked_at IS NULL'
+    );
+    $statement->execute([
+        'session_id' => trim($sessionId),
+    ]);
+}
+
+function revoke_other_user_sessions(int $userId, string $currentSessionId): void
+{
+    $statement = db()->prepare(
+        'UPDATE user_sessions
+        SET revoked_at = NOW()
+        WHERE user_id = :user_id
+            AND session_id <> :current_session_id
+            AND revoked_at IS NULL'
+    );
+    $statement->execute([
+        'current_session_id' => trim($currentSessionId),
+        'user_id' => $userId,
+    ]);
+}
+
+function revoke_all_user_sessions(int $userId): void
+{
+    $statement = db()->prepare(
+        'UPDATE user_sessions
+        SET revoked_at = NOW()
+        WHERE user_id = :user_id
+            AND revoked_at IS NULL'
+    );
+    $statement->execute([
+        'user_id' => $userId,
+    ]);
+}
+
+function revoke_user_session_record_by_id(int $userId, int $sessionRecordId): bool
+{
+    $statement = db()->prepare(
+        'UPDATE user_sessions
+        SET revoked_at = NOW()
+        WHERE id = :id
+            AND user_id = :user_id
+            AND revoked_at IS NULL'
+    );
+    $statement->execute([
+        'id' => $sessionRecordId,
+        'user_id' => $userId,
+    ]);
+
+    return $statement->rowCount() > 0;
+}
+
+function fetch_user_session_records(int $userId, ?string $currentSessionId = null, int $limit = 12): array
+{
+    $statement = db()->prepare(
+        'SELECT *
+        FROM user_sessions
+        WHERE user_id = :user_id
+            AND revoked_at IS NULL
+            AND expires_at >= NOW()
+        ORDER BY
+            CASE WHEN session_id = :current_session_id THEN 0 ELSE 1 END ASC,
+            last_seen_at DESC,
+            created_at DESC
+        LIMIT ' . (int) $limit
+    );
+    $statement->execute([
+        'current_session_id' => trim((string) $currentSessionId),
+        'user_id' => $userId,
+    ]);
+
+    return $statement->fetchAll();
+}
+
 function create_community_event_record(int $userId, array $payload): int
 {
     $statement = db()->prepare(
@@ -1197,11 +1407,25 @@ function create_community_event_record(int $userId, array $payload): int
         'status' => trim((string) $payload['status']),
     ]);
 
-    return (int) db()->lastInsertId();
+    $eventId = (int) db()->lastInsertId();
+
+    record_audit_event($userId, 'community_event.created', $userId, [
+        'community_event_id' => $eventId,
+        'status' => trim((string) $payload['status']),
+        'visibility' => trim((string) $payload['visibility']),
+    ]);
+
+    return $eventId;
 }
 
-function update_community_event_record(int $eventId, array $payload): void
+function update_community_event_record(int $eventId, array $payload, int $actorUserId, bool $canManageAll = false): void
 {
+    $existingEvent = fetch_manageable_community_event_by_id($eventId, $actorUserId, $canManageAll);
+
+    if ($existingEvent === null) {
+        throw new RuntimeException('You are not allowed to update that event.');
+    }
+
     $statement = db()->prepare(
         'UPDATE community_events
         SET category_id = :category_id,
@@ -1233,12 +1457,30 @@ function update_community_event_record(int $eventId, array $payload): void
         'is_featured' => !empty($payload['is_featured']) ? 1 : 0,
         'status' => trim((string) $payload['status']),
     ]);
+
+    record_audit_event($actorUserId, 'community_event.updated', (int) ($existingEvent['created_by_user_id'] ?? 0) ?: null, [
+        'community_event_id' => $eventId,
+        'status' => trim((string) $payload['status']),
+        'visibility' => trim((string) $payload['visibility']),
+    ]);
 }
 
-function delete_community_event_record(int $eventId): void
+function delete_community_event_record(int $eventId, int $actorUserId, bool $canManageAll = false): void
 {
+    $existingEvent = fetch_manageable_community_event_by_id($eventId, $actorUserId, $canManageAll);
+
+    if ($existingEvent === null) {
+        throw new RuntimeException('You are not allowed to delete that event.');
+    }
+
     $statement = db()->prepare('DELETE FROM community_events WHERE id = :id');
     $statement->execute(['id' => $eventId]);
+
+    record_audit_event($actorUserId, 'community_event.deleted', (int) ($existingEvent['created_by_user_id'] ?? 0) ?: null, [
+        'community_event_id' => $eventId,
+        'status' => (string) ($existingEvent['status'] ?? ''),
+        'visibility' => (string) ($existingEvent['visibility'] ?? ''),
+    ]);
 }
 
 function upsert_community_event_rsvp(int $eventId, int $userId, string $response): void
@@ -1349,7 +1591,7 @@ function fetch_chapter_verses(int $bookId, int $chapterNumber, string $translati
 
 function supported_translations(): array
 {
-    return ['KJV', 'NIV', 'NKJV', 'NLT', 'RVR'];
+    return ['MSB', 'KJV', 'WEB', 'NIV', 'NKJV', 'NLT', 'RVR'];
 }
 
 function fetch_available_translations(): array
@@ -1390,6 +1632,99 @@ function friend_invites_use_hashed_tokens(): bool
     }
 
     return $usesHashedTokens;
+}
+
+function audit_logs_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW TABLES LIKE 'audit_logs'");
+        $available = $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
+function user_sessions_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW TABLES LIKE 'user_sessions'");
+        $available = $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
+function record_audit_event(?int $actorUserId, string $eventType, ?int $targetUserId = null, array $context = []): void
+{
+    if (!audit_logs_available()) {
+        return;
+    }
+
+    $contextJson = json_encode($context, JSON_UNESCAPED_SLASHES);
+
+    if (!is_string($contextJson)) {
+        $contextJson = '{}';
+    }
+
+    try {
+        $statement = db()->prepare(
+            'INSERT INTO audit_logs (
+                actor_user_id,
+                target_user_id,
+                event_type,
+                ip_address,
+                user_agent,
+                context_json
+            ) VALUES (
+                :actor_user_id,
+                :target_user_id,
+                :event_type,
+                :ip_address,
+                :user_agent,
+                :context_json
+            )'
+        );
+        $statement->execute([
+            'actor_user_id' => $actorUserId,
+            'context_json' => $contextJson,
+            'event_type' => trim($eventType),
+            'ip_address' => current_request_ip_address(),
+            'target_user_id' => $targetUserId,
+            'user_agent' => current_request_user_agent(),
+        ]);
+    } catch (Throwable $exception) {
+        return;
+    }
+}
+
+function current_request_ip_address(): ?string
+{
+    $ipAddress = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+
+    return $ipAddress !== '' ? $ipAddress : null;
+}
+
+function current_request_user_agent(): ?string
+{
+    $userAgent = trim((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+
+    return $userAgent !== '' ? mb_substr($userAgent, 0, 255) : null;
 }
 
 function uses_external_translation(string $translation): bool
@@ -1653,6 +1988,99 @@ function fetch_featured_verses(string $translation, int $limit = 3): array
     ]);
 
     return $statement->fetchAll();
+}
+
+function fetch_dynamic_scripture_series(string $translation, int $limit = 4): array
+{
+    $limit = max(1, $limit);
+
+    if (uses_external_translation($translation)) {
+        return array_slice(fetch_featured_verses($translation, $limit), 0, $limit);
+    }
+
+    $total = count_records(
+        'SELECT COUNT(*) FROM verses WHERE translation = :translation',
+        ['translation' => $translation]
+    );
+
+    if ($total <= 0) {
+        return [];
+    }
+
+    $targetCount = min($limit, $total);
+    $seed = (int) date('z') + 1;
+    $offsets = [];
+    $attempt = 0;
+
+    while (count($offsets) < $targetCount && $attempt < ($targetCount * 10)) {
+        $offset = (($seed * 97) + ($attempt * 389)) % $total;
+
+        if (!in_array($offset, $offsets, true)) {
+            $offsets[] = $offset;
+        }
+
+        $attempt++;
+    }
+
+    sort($offsets);
+    $series = [];
+
+    foreach ($offsets as $offset) {
+        $statement = db()->prepare(
+            'SELECT verses.*, books.name AS book_name, books.abbreviation
+            FROM verses
+            INNER JOIN books ON books.id = verses.book_id
+            WHERE verses.translation = :translation
+            ORDER BY books.id ASC, verses.chapter_number ASC, verses.verse_number ASC
+            LIMIT 1 OFFSET ' . (int) $offset
+        );
+        $statement->execute(['translation' => $translation]);
+        $verse = $statement->fetch();
+
+        if ($verse !== false) {
+            $series[] = $verse;
+        }
+    }
+
+    return $series;
+}
+
+function fetch_thematic_scripture_series(string $translation): array
+{
+    $themes = [
+        ['theme' => 'Hope', 'query' => 'Romans 15:13'],
+        ['theme' => 'Wisdom', 'query' => 'James 1:5'],
+        ['theme' => 'Peace', 'query' => 'Isaiah 26:3'],
+        ['theme' => 'Faith', 'query' => 'Hebrews 11:1'],
+    ];
+    $books = fetch_books();
+    $series = [];
+
+    foreach ($themes as $theme) {
+        $reference = parse_reference_query((string) $theme['query'], $books);
+
+        if ($reference === null) {
+            continue;
+        }
+
+        $results = uses_external_translation($translation)
+            ? fetch_external_translation_reference_verses($reference, $translation)
+            : fetch_reference_verses($reference, $translation);
+
+        $verse = $results['results'][0] ?? null;
+
+        if ($verse === null) {
+            continue;
+        }
+
+        $series[] = [
+            'theme' => (string) $theme['theme'],
+            'query' => (string) $theme['query'],
+            'verse' => $verse,
+        ];
+    }
+
+    return $series;
 }
 
 function fetch_verse_by_id(int $verseId): ?array

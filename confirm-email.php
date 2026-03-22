@@ -51,33 +51,43 @@ $activePage = '';
 require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
-    <div class="container narrow">
-        <div class="panel">
-            <p class="eyebrow">Email Approval</p>
-            <h1>Confirm your new email address</h1>
+    <div class="container">
+        <div class="auth-shell">
+            <aside class="auth-rail">
+                <div>
+                    <p class="eyebrow">Email Approval</p>
+                    <h2>Confirm account changes deliberately.</h2>
+                    <p>Email updates stay pending until the account owner approves the change.</p>
+                </div>
+            </aside>
 
-            <?php if ($errorMessage): ?>
-                <div class="flash flash-warning"><?= e($errorMessage); ?></div>
-            <?php endif; ?>
+            <div class="auth-panel">
+                <p class="eyebrow">Email Approval</p>
+                <h1>Confirm your new email address</h1>
 
-            <?php if ($tokenRecord === null): ?>
-                <p>This email approval link is missing, invalid, or expired.</p>
-                <a class="button button-secondary" href="<?= e(app_url('profile.php')); ?>">Back to profile</a>
-            <?php else: ?>
-                <p>
-                    Approve changing
-                    <strong><?= e((string) $tokenRecord['current_email']); ?></strong>
-                    to
-                    <strong><?= e((string) $tokenRecord['new_email']); ?></strong>.
-                </p>
+                <?php if ($errorMessage): ?>
+                    <div class="flash flash-warning"><?= e($errorMessage); ?></div>
+                <?php endif; ?>
 
-                <form class="form-stack" method="post">
-                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                    <input type="hidden" name="token" value="<?= e($token); ?>">
+                <?php if ($tokenRecord === null): ?>
+                    <p>This email approval link is missing, invalid, or expired.</p>
+                    <a class="button button-secondary" href="<?= e(app_url('profile.php')); ?>">Back to profile</a>
+                <?php else: ?>
+                    <p>
+                        Approve changing
+                        <strong><?= e((string) $tokenRecord['current_email']); ?></strong>
+                        to
+                        <strong><?= e((string) $tokenRecord['new_email']); ?></strong>.
+                    </p>
 
-                    <button class="button button-primary" type="submit">Approve Email Change</button>
-                </form>
-            <?php endif; ?>
+                    <form class="form-stack" method="post">
+                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                        <input type="hidden" name="token" value="<?= e($token); ?>">
+
+                        <button class="button button-primary" type="submit">Approve Email Change</button>
+                    </form>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 </section>

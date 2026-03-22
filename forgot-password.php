@@ -46,33 +46,48 @@ $activePage = '';
 require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
-    <div class="container narrow">
-        <div class="panel">
-            <p class="eyebrow">Password Reset</p>
-            <h1>Request a reset link</h1>
-            <p>Request a password reset. Direct reset-link previews are only available in local debug mode.</p>
-
-            <?php if ($errorMessage): ?>
-                <div class="flash flash-warning"><?= e($errorMessage); ?></div>
-            <?php endif; ?>
-
-            <form class="form-stack" method="post">
-                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-
-                <label>
-                    <span>Email</span>
-                    <input type="email" name="email" value="<?= e($email); ?>" placeholder="you@example.com" required>
-                </label>
-
-                <button class="button button-primary" type="submit">Create Reset Link</button>
-            </form>
-
-            <?php if ($resetLink && debug_links_enabled()): ?>
-                <div class="inline-message top-gap-sm">
-                    <strong>Debug reset link</strong>
-                    <p><a href="<?= e($resetLink); ?>"><?= e($resetLink); ?></a></p>
+    <div class="container">
+        <div class="auth-shell">
+            <aside class="auth-rail">
+                <div>
+                    <p class="eyebrow">Password Reset</p>
+                    <h2>Recover your account without losing your study progress.</h2>
+                    <p>Request a secure reset link and return to your saved verses, notes, and planner history.</p>
                 </div>
-            <?php endif; ?>
+
+                <ul class="auth-feature-list">
+                    <li><span class="auth-feature-mark">1</span><span>Reset links expire automatically for security.</span></li>
+                    <li><span class="auth-feature-mark">2</span><span>Existing sessions can be revoked after a password reset.</span></li>
+                </ul>
+            </aside>
+
+            <div class="auth-panel">
+                <p class="eyebrow">Password Reset</p>
+                <h1>Request a reset link</h1>
+                <p>Request a password reset. Direct reset-link previews are only available in local debug mode.</p>
+
+                <?php if ($errorMessage): ?>
+                    <div class="flash flash-warning"><?= e($errorMessage); ?></div>
+                <?php endif; ?>
+
+                <form class="form-stack" method="post">
+                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+
+                    <label>
+                        <span>Email</span>
+                        <input type="email" name="email" value="<?= e($email); ?>" placeholder="you@example.com" required>
+                    </label>
+
+                    <button class="button button-primary" type="submit">Create Reset Link</button>
+                </form>
+
+                <?php if ($resetLink && debug_links_enabled()): ?>
+                    <div class="inline-message top-gap-sm">
+                        <strong>Debug reset link</strong>
+                        <p><a href="<?= e($resetLink); ?>"><?= e($resetLink); ?></a></p>
+                    </div>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 </section>

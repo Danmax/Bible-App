@@ -13,7 +13,7 @@ $user = current_user();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e(page_title($pageTitle)); ?></title>
-    <meta name="description" content="A warm, mobile-first Bible study app with bookmarks, planner tools, and community events.">
+    <meta name="description" content="Good News Bible is a warm, mobile-first Bible study app with bookmarks, planner tools, and community events.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bree+Serif&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
@@ -24,10 +24,10 @@ $user = current_user();
         <header class="site-header">
             <div class="container header-row">
                 <a class="brand" href="<?= e(app_url('index.php')); ?>">
-                    <span class="brand-mark">WT</span>
+                    <span class="brand-mark">STWB</span>
                     <span>
                         <strong><?= e(APP_NAME); ?></strong>
-                        <small>Study, celebrate, and gather</small>
+                        <small>Study The Word Bible</small>
                     </span>
                 </a>
 

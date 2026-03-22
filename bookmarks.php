@@ -53,20 +53,29 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
     <div class="container">
-        <div class="section-heading">
-            <p class="eyebrow">Bookmarks</p>
-            <h1>Your saved passages</h1>
-            <p>Keep important verses with your own note and tag so you can find them later.</p>
+        <div class="section-heading section-heading-rich">
+            <div>
+                <p class="eyebrow">Bookmarks</p>
+                <h1>Your saved passages</h1>
+                <p>Keep important verses with your own note and tag so you can find them later.</p>
+            </div>
+
+            <div class="quick-stat-row">
+                <div class="quick-stat">
+                    <strong><?= e((string) count($bookmarks)); ?></strong>
+                    <span>saved verses</span>
+                </div>
+            </div>
+
+            <div class="hero-actions">
+                <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Find Scripture</a>
+                <a class="button button-secondary" href="<?= e(app_url('notes.php')); ?>">Open Notes</a>
+            </div>
         </div>
 
         <?php if ($pageError): ?>
             <div class="flash flash-warning"><?= e($pageError); ?></div>
         <?php endif; ?>
-
-        <div class="inline-actions">
-            <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Find Scripture</a>
-            <a class="button button-secondary" href="<?= e(app_url('notes.php')); ?>">Open Notes</a>
-        </div>
 
         <div class="card-grid card-grid-2 top-gap">
             <?php if ($bookmarks === []): ?>

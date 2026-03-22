@@ -15,7 +15,7 @@ require_once __DIR__ . '/includes/header.php';
             <p class="eyebrow">Warm, bold, mobile-first Bible app</p>
             <h1>Study the Word. Save the verses. Strengthen the community.</h1>
             <p class="hero-copy">
-                Word Trail blends Scripture study, personal planning, and church-centered events into one simple app built for phones first.
+                Good News Bible blends Scripture study, personal planning, and church-centered events into one simple app built for phones first.
             </p>
             <div class="hero-actions">
                 <a class="button button-primary" href="<?= e(app_url('register.php')); ?>">Start Free</a>
@@ -36,14 +36,14 @@ require_once __DIR__ . '/includes/header.php';
         <aside class="showcase-card">
             <div class="showcase-top">
                 <span class="pill">Featured Verse</span>
-                <span class="pill pill-dark">KJV</span>
+                <span class="pill pill-dark"><?= e(APP_DEFAULT_TRANSLATION); ?></span>
             </div>
             <blockquote>
                 "Trust in the Lord with all thine heart; and lean not unto thine own understanding."
             </blockquote>
             <p>Proverbs 3:5</p>
             <div class="showcase-actions">
-                <a class="mini-card" href="<?= e(app_url('bible.php?q=' . urlencode('Proverbs 3:5-6') . '&translation=KJV')); ?>">Open Verse</a>
+                <a class="mini-card" href="<?= e(app_url('bible.php?q=' . urlencode('Proverbs 3:5-6') . '&translation=' . urlencode(APP_DEFAULT_TRANSLATION))); ?>">Open Verse</a>
                 <a class="mini-card" href="<?= e(app_url('bookmarks.php')); ?>">Bookmarks</a>
                 <a class="mini-card" href="<?= e(app_url('notes.php')); ?>">Study Note</a>
             </div>

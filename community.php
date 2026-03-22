@@ -212,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('You are not allowed to delete that event.');
             }
 
-            delete_community_event_record($eventId);
+            delete_community_event_record($eventId, (int) $user['id'], $canManageAllEvents);
             set_flash('Event deleted.', 'success');
             redirect(community_redirect_url($postCategorySlug));
         }
@@ -233,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('You are not allowed to update that event.');
             }
 
-            update_community_event_record($eventId, $payload);
+            update_community_event_record($eventId, $payload, (int) $user['id'], $canManageAllEvents);
             set_flash('Community event updated.', 'success');
             redirect(community_redirect_url($postCategorySlug, $eventId));
         }

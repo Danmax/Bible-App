@@ -12,6 +12,7 @@ $user = refresh_current_user();
 $pageError = null;
 $emailChangeLink = null;
 $pendingEmailChange = null;
+$activeSessions = [];
 $profileEditMode = false;
 $passwordEditMode = false;
 
@@ -81,9 +82,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pageError = 'Password confirmation does not match.';
             } else {
                 update_user_password_record((int) $user['id'], $password);
+                if (user_sessions_available()) {
+                    revoke_other_user_sessions((int) $user['id'], session_id());
+                }
+                record_audit_event((int) $user['id'], 'password_change.completed', (int) $user['id'], [
+                    'source' => 'profile',
+                    'other_sessions_revoked' => user_sessions_available(),
+                ]);
                 set_flash('Password updated.', 'success');
                 redirect('profile.php');
             }
+        }
+
+        if ($action === 'revoke-other-sessions') {
+            if (!user_sessions_available()) {
+                throw new RuntimeException('Session controls are not available yet.');
+            }
+
+            revoke_other_user_sessions((int) $user['id'], session_id());
+            record_audit_event((int) $user['id'], 'session.revoke_others', (int) $user['id'], [
+                'source' => 'profile',
+            ]);
+            set_flash('Other devices have been signed out.', 'success');
+            redirect('profile.php');
+        }
+
+        if ($action === 'revoke-session') {
+            if (!user_sessions_available()) {
+                throw new RuntimeException('Session controls are not available yet.');
+            }
+
+            $sessionRecordId = (int) ($_POST['session_record_id'] ?? 0);
+
+            if ($sessionRecordId <= 0) {
+                throw new RuntimeException('Select a valid session.');
+            }
+
+            $revoked = revoke_user_session_record_by_id((int) $user['id'], $sessionRecordId);
+
+            if (!$revoked) {
+                throw new RuntimeException('That session could not be revoked.');
+            }
+
+            record_audit_event((int) $user['id'], 'session.revoked_by_user', (int) $user['id'], [
+                'source' => 'profile',
+                'session_record_id' => $sessionRecordId,
+            ]);
+            set_flash('Selected device signed out.', 'success');
+            redirect('profile.php');
         }
     } catch (PDOException $exception) {
         $pageError = $exception->getCode() === '23000'
@@ -108,6 +154,16 @@ if ($pendingEmailChange === null) {
     } catch (Throwable $exception) {
         if ($pageError === null) {
             $pageError = 'Profile changes could not be loaded because the database is unavailable.';
+        }
+    }
+}
+
+if (user_sessions_available()) {
+    try {
+        $activeSessions = fetch_user_session_records((int) $user['id'], session_id());
+    } catch (Throwable $exception) {
+        if ($pageError === null) {
+            $pageError = 'Active sessions could not be loaded because the database is unavailable.';
         }
     }
 }
@@ -260,6 +316,75 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
                 </form>
+            </section>
+
+            <section class="account-action-card top-gap">
+                <div class="panel-heading">
+                    <div>
+                        <h3>Active sessions</h3>
+                        <p class="muted-copy">Review the devices signed in to your account and revoke any session you do not recognize.</p>
+                    </div>
+
+                    <?php if (user_sessions_available() && count($activeSessions) > 1): ?>
+                        <form method="post">
+                            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                            <input type="hidden" name="action" value="revoke-other-sessions">
+                            <button class="button button-secondary" type="submit">Sign Out Other Devices</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (!user_sessions_available()): ?>
+                    <div class="inline-message top-gap-sm">
+                        <strong>Session controls pending</strong>
+                        <p>Run the user session migration to enable device-level session management.</p>
+                    </div>
+                <?php elseif ($activeSessions === []): ?>
+                    <p class="muted-copy top-gap-sm">No active session records were found.</p>
+                <?php else: ?>
+                    <div class="session-list top-gap-sm">
+                        <?php foreach ($activeSessions as $session): ?>
+                            <?php $isCurrentSession = (string) ($session['session_id'] ?? '') === session_id(); ?>
+                            <article class="session-card">
+                                <div class="session-card-body">
+                                    <div class="session-card-top">
+                                        <div>
+                                            <strong><?= $isCurrentSession ? 'Current device' : 'Signed-in device'; ?></strong>
+                                            <p class="muted-copy"><?= e((string) ($session['user_agent'] ?: 'Browser details unavailable')); ?></p>
+                                        </div>
+                                        <?php if ($isCurrentSession): ?>
+                                            <span class="profile-badge session-badge">Current</span>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div class="session-meta-grid">
+                                        <div class="profile-meta-card">
+                                            <span>Last active</span>
+                                            <strong><?= e(format_event_datetime((string) $session['last_seen_at'])); ?></strong>
+                                        </div>
+                                        <div class="profile-meta-card">
+                                            <span>Expires</span>
+                                            <strong><?= e(format_event_datetime((string) $session['expires_at'])); ?></strong>
+                                        </div>
+                                        <div class="profile-meta-card">
+                                            <span>IP address</span>
+                                            <strong><?= e((string) ($session['ip_address'] ?: 'Unknown')); ?></strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <?php if (!$isCurrentSession): ?>
+                                    <form method="post" class="session-card-action">
+                                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                                        <input type="hidden" name="action" value="revoke-session">
+                                        <input type="hidden" name="session_record_id" value="<?= e((string) $session['id']); ?>">
+                                        <button class="button button-secondary" type="submit">Sign Out</button>
+                                    </form>
+                                <?php endif; ?>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </section>
         </div>
     </div>
