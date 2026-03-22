@@ -42,6 +42,46 @@ if (yearNode) {
     yearNode.textContent = String(new Date().getFullYear());
 }
 
+const profileForm = document.querySelector('[data-profile-form]');
+
+if (profileForm) {
+    const editButton = profileForm.querySelector('[data-profile-edit-toggle]');
+    const cancelButton = profileForm.querySelector('[data-profile-edit-cancel]');
+    const saveButton = profileForm.querySelector('[data-profile-save]');
+    const profileFields = profileForm.querySelector('[data-profile-fields]');
+    const editableFields = profileForm.querySelectorAll('input[name="name"], input[name="email"], input[name="city"], input[name="avatar_url"]');
+
+    const setProfileEditMode = (isEditing) => {
+        if (profileFields) {
+            profileFields.hidden = !isEditing;
+        }
+
+        editableFields.forEach((field) => {
+            field.disabled = !isEditing;
+        });
+
+        if (editButton) {
+            editButton.hidden = isEditing;
+        }
+
+        if (cancelButton) {
+            cancelButton.hidden = !isEditing;
+        }
+
+        if (saveButton) {
+            saveButton.hidden = !isEditing;
+        }
+    };
+
+    editButton?.addEventListener('click', () => {
+        setProfileEditMode(true);
+    });
+
+    cancelButton?.addEventListener('click', () => {
+        window.location.reload();
+    });
+}
+
 const readerNav = document.querySelector('[data-reader-nav]');
 
 if (readerNav) {

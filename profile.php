@@ -6,24 +6,13 @@ require_once __DIR__ . '/includes/auth.php';
 
 require_login();
 
-function profile_initials(string $name): string
-{
-    $parts = preg_split('/\s+/', trim($name)) ?: [];
-    $initials = '';
-
-    foreach (array_slice($parts, 0, 2) as $part) {
-        $initials .= mb_strtoupper(mb_substr($part, 0, 1));
-    }
-
-    return $initials !== '' ? $initials : 'WT';
-}
-
 $pageTitle = 'Profile';
 $activePage = 'profile';
 $user = refresh_current_user();
 $pageError = null;
 $emailChangeLink = null;
 $pendingEmailChange = null;
+$profileEditMode = $_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'profile';
 
 if ($user === null) {
     set_flash('Sign in again to continue.', 'warning');
@@ -113,8 +102,8 @@ require_once __DIR__ . '/includes/header.php';
     <div class="container narrow">
         <div class="section-heading">
             <p class="eyebrow">Profile</p>
-            <h1><?= e($user['name'] ?? 'Member'); ?></h1>
-            <p>Manage your basic account details and password.</p>
+            <h1>Your profile</h1>
+            <p>Manage your account details, email approval, avatar, and password.</p>
         </div>
 
         <?php if ($pageError): ?>
@@ -137,16 +126,12 @@ require_once __DIR__ . '/includes/header.php';
 
             <div class="profile-row">
                 <div>
-                    <strong>Email</strong>
-                    <p><?= e($user['email'] ?? ''); ?></p>
-                </div>
-                <div>
                     <strong>Role</strong>
                     <p><?= e($user['role'] ?? 'member'); ?></p>
                 </div>
                 <div>
-                    <strong>City</strong>
-                    <p><?= e($user['city'] ?: 'Not set'); ?></p>
+                    <strong>Email changes</strong>
+                    <p>Require approval from a confirmation link</p>
                 </div>
             </div>
 
@@ -158,31 +143,37 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form class="form-stack top-gap" method="post">
+            <form class="top-gap" method="post" data-profile-form>
                 <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                 <input type="hidden" name="action" value="profile">
 
-                <label>
-                    <span>Name</span>
-                    <input type="text" name="name" value="<?= e($user['name'] ?? ''); ?>" required>
-                </label>
+                <div class="inline-actions">
+                    <button class="button button-secondary" type="button" data-profile-edit-toggle <?= $profileEditMode ? 'hidden' : ''; ?>>Edit Profile</button>
+                    <button class="button button-secondary" type="button" data-profile-edit-cancel <?= $profileEditMode ? '' : 'hidden'; ?>>Cancel</button>
+                    <button class="button button-primary" type="submit" data-profile-save <?= $profileEditMode ? '' : 'hidden'; ?>>Save Profile</button>
+                </div>
 
-                <label>
-                    <span>Email</span>
-                    <input type="email" name="email" value="<?= e($user['email'] ?? ''); ?>" required>
-                </label>
+                <div class="form-stack top-gap-sm" data-profile-fields <?= $profileEditMode ? '' : 'hidden'; ?>>
+                    <label>
+                        <span>Name</span>
+                        <input type="text" name="name" value="<?= e($user['name'] ?? ''); ?>" required <?= $profileEditMode ? '' : 'disabled'; ?>>
+                    </label>
 
-                <label>
-                    <span>City</span>
-                    <input type="text" name="city" value="<?= e($user['city'] ?? ''); ?>" placeholder="Charlotte">
-                </label>
+                    <label>
+                        <span>Email</span>
+                        <input type="email" name="email" value="<?= e($user['email'] ?? ''); ?>" required <?= $profileEditMode ? '' : 'disabled'; ?>>
+                    </label>
 
-                <label>
-                    <span>Avatar Image URL</span>
-                    <input type="url" name="avatar_url" value="<?= e($user['avatar_url'] ?? ''); ?>" placeholder="https://example.com/avatar.jpg">
-                </label>
+                    <label>
+                        <span>City</span>
+                        <input type="text" name="city" value="<?= e($user['city'] ?? ''); ?>" placeholder="Charlotte" <?= $profileEditMode ? '' : 'disabled'; ?>>
+                    </label>
 
-                <button class="button button-primary" type="submit">Save Profile</button>
+                    <label>
+                        <span>Avatar Image URL</span>
+                        <input type="url" name="avatar_url" value="<?= e($user['avatar_url'] ?? ''); ?>" placeholder="https://example.com/avatar.jpg" <?= $profileEditMode ? '' : 'disabled'; ?>>
+                    </label>
+                </div>
             </form>
 
             <?php if ($emailChangeLink): ?>

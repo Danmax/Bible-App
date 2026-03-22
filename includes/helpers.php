@@ -84,6 +84,18 @@ function current_year(): string
     return date('Y');
 }
 
+function profile_initials(string $name): string
+{
+    $parts = preg_split('/\s+/', trim($name)) ?: [];
+    $initials = '';
+
+    foreach (array_slice($parts, 0, 2) as $part) {
+        $initials .= mb_strtoupper(mb_substr($part, 0, 1));
+    }
+
+    return $initials !== '' ? $initials : 'WT';
+}
+
 function highlight_class(?string $color): string
 {
     $allowed = [

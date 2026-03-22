@@ -8,7 +8,24 @@ require_login();
 
 function planner_redirect_url(int $year, ?int $editGoalId = null, ?int $editEventId = null): string
 {
-    $params = ['year' => $year];
+    return planner_build_url($year, 'month', null, $editGoalId, $editEventId);
+}
+
+function planner_build_url(
+    int $year,
+    string $view = 'month',
+    ?string $date = null,
+    ?int $editGoalId = null,
+    ?int $editEventId = null
+): string {
+    $params = [
+        'year' => $year,
+        'view' => $view,
+    ];
+
+    if ($date !== null && $date !== '') {
+        $params['date'] = $date;
+    }
 
     if ($editGoalId !== null) {
         $params['edit_goal'] = $editGoalId;
@@ -19,6 +36,69 @@ function planner_redirect_url(int $year, ?int $editGoalId = null, ?int $editEven
     }
 
     return app_url('planner.php?' . http_build_query($params));
+}
+
+function planner_normalize_view(?string $value): string
+{
+    $view = strtolower(trim((string) $value));
+
+    return in_array($view, ['month', 'week'], true) ? $view : 'month';
+}
+
+function planner_normalize_date(?string $value): string
+{
+    $trimmed = trim((string) $value);
+    $timestamp = strtotime($trimmed === '' ? 'today' : $trimmed);
+
+    if ($timestamp === false) {
+        $timestamp = time();
+    }
+
+    return date('Y-m-d', $timestamp);
+}
+
+function planner_calendar_range(string $view, string $date): array
+{
+    $timestamp = strtotime($date) ?: time();
+
+    if ($view === 'week') {
+        $dayOfWeek = (int) date('N', $timestamp);
+        $startTimestamp = strtotime('-' . ($dayOfWeek - 1) . ' days', $timestamp);
+        $endTimestamp = strtotime('+7 days', $startTimestamp);
+
+        return [
+            'start' => date('Y-m-d 00:00:00', $startTimestamp),
+            'end' => date('Y-m-d 00:00:00', $endTimestamp),
+            'label' => date('M j', $startTimestamp) . ' - ' . date('M j, Y', strtotime('-1 day', $endTimestamp)),
+            'previous_date' => date('Y-m-d', strtotime('-7 days', $startTimestamp)),
+            'next_date' => date('Y-m-d', strtotime('+7 days', $startTimestamp)),
+        ];
+    }
+
+    $monthStart = strtotime(date('Y-m-01', $timestamp));
+    $calendarStart = strtotime('-' . ((int) date('N', $monthStart) - 1) . ' days', $monthStart);
+    $calendarEndExclusive = strtotime('+42 days', $calendarStart);
+
+    return [
+        'start' => date('Y-m-d 00:00:00', $calendarStart),
+        'end' => date('Y-m-d 00:00:00', $calendarEndExclusive),
+        'label' => date('F Y', $monthStart),
+        'previous_date' => date('Y-m-d', strtotime('-1 month', $monthStart)),
+        'next_date' => date('Y-m-d', strtotime('+1 month', $monthStart)),
+    ];
+}
+
+function planner_group_events_by_day(array $events): array
+{
+    $grouped = [];
+
+    foreach ($events as $event) {
+        $day = date('Y-m-d', strtotime((string) $event['event_date']));
+        $grouped[$day] ??= [];
+        $grouped[$day][] = $event;
+    }
+
+    return $grouped;
 }
 
 function planner_format_datetime_input(?string $date): string
@@ -159,6 +239,8 @@ $activePage = 'planner';
 $user = refresh_current_user();
 $activeYear = filter_input(INPUT_GET, 'year', FILTER_VALIDATE_INT);
 $activeYear = $activeYear !== false && $activeYear !== null ? $activeYear : (int) date('Y');
+$calendarView = planner_normalize_view($_GET['view'] ?? 'month');
+$calendarDate = planner_normalize_date($_GET['date'] ?? date('Y-m-d'));
 $editingGoalId = filter_input(INPUT_GET, 'edit_goal', FILTER_VALIDATE_INT);
 $editingEventId = filter_input(INPUT_GET, 'edit_event', FILTER_VALIDATE_INT);
 $pageError = null;
@@ -170,6 +252,9 @@ $editingGoal = null;
 $editingEvent = null;
 $goalFormData = planner_goal_form_defaults($activeYear);
 $eventFormData = planner_event_form_defaults();
+$calendarRange = planner_calendar_range($calendarView, $calendarDate);
+$calendarEvents = [];
+$calendarEventsByDay = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -183,14 +268,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $goalId = (int) ($_POST['goal_id'] ?? 0);
             delete_yearly_goal_record($goalId, (int) $user['id']);
             set_flash('Goal removed from your planner.', 'success');
-            redirect(planner_redirect_url($activeYear));
+            redirect(planner_build_url($activeYear, $calendarView, $calendarDate));
         }
 
         if ($action === 'delete-event') {
             $eventId = (int) ($_POST['event_id'] ?? 0);
             delete_planner_event_record($eventId, (int) $user['id']);
             set_flash('Planner event removed.', 'success');
-            redirect(planner_redirect_url($activeYear));
+            redirect(planner_build_url($activeYear, $calendarView, $calendarDate));
         }
 
         if ($action === 'create-goal' || $action === 'update-goal') {
@@ -200,7 +285,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($action === 'create-goal') {
                     $goalId = create_yearly_goal_record((int) $user['id'], $payload);
                     set_flash('Planner goal created.', 'success');
-                    redirect(planner_redirect_url((int) $payload['year'], $goalId, $editingEventId ?: null));
+                    redirect(planner_build_url((int) $payload['year'], $calendarView, $calendarDate, $goalId, $editingEventId ?: null));
                 }
 
                 $goalId = (int) ($_POST['goal_id'] ?? 0);
@@ -211,7 +296,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 update_yearly_goal_record($goalId, (int) $user['id'], $payload);
                 set_flash('Planner goal updated.', 'success');
-                redirect(planner_redirect_url((int) $payload['year'], $goalId, $editingEventId ?: null));
+                redirect(planner_build_url((int) $payload['year'], $calendarView, $calendarDate, $goalId, $editingEventId ?: null));
             }
 
             $editingGoalId = (int) ($_POST['goal_id'] ?? $editingGoalId ?? 0);
@@ -222,7 +307,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($action === 'create-event') {
                     $eventId = create_planner_event_record((int) $user['id'], $payload);
                     set_flash('Planner event created.', 'success');
-                    redirect(planner_redirect_url($activeYear, $editingGoalId ?: null, $eventId));
+                    redirect(planner_build_url($activeYear, $calendarView, $calendarDate, $editingGoalId ?: null, $eventId));
                 }
 
                 $eventId = (int) ($_POST['event_id'] ?? 0);
@@ -233,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 update_planner_event_record($eventId, (int) $user['id'], $payload);
                 set_flash('Planner event updated.', 'success');
-                redirect(planner_redirect_url($activeYear, $editingGoalId ?: null, $eventId));
+                redirect(planner_build_url($activeYear, $calendarView, $calendarDate, $editingGoalId ?: null, $eventId));
             }
 
             $editingEventId = (int) ($_POST['event_id'] ?? $editingEventId ?? 0);
@@ -250,6 +335,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 try {
     $goals = fetch_yearly_goals_for_user((int) $user['id'], $activeYear);
     $schedule = fetch_planner_schedule((int) $user['id'], 10);
+    $calendarEvents = fetch_planner_events_between((int) $user['id'], $calendarRange['start'], $calendarRange['end']);
+    $calendarEventsByDay = planner_group_events_by_day($calendarEvents);
 
     if ($editingGoalId) {
         $editingGoal = fetch_yearly_goal_by_id((int) $editingGoalId, (int) $user['id']);
@@ -289,7 +376,7 @@ require_once __DIR__ . '/includes/header.php';
 
         <div class="filter-row">
             <?php foreach ($yearOptions as $yearOption): ?>
-                <a class="filter-chip <?= $yearOption === $activeYear ? 'is-active' : ''; ?>" href="<?= e(planner_redirect_url($yearOption)); ?>">
+                <a class="filter-chip <?= $yearOption === $activeYear ? 'is-active' : ''; ?>" href="<?= e(planner_build_url($yearOption, $calendarView, $calendarDate)); ?>">
                     <?= e((string) $yearOption); ?>
                 </a>
             <?php endforeach; ?>
@@ -312,6 +399,96 @@ require_once __DIR__ . '/includes/header.php';
                 <p class="muted-copy"><?= e((string) $summary['completed']); ?> goal<?= $summary['completed'] === 1 ? '' : 's'; ?> completed</p>
             </article>
         </div>
+
+        <section class="panel top-gap">
+            <div class="panel-heading">
+                <div>
+                    <h2>Planner calendar</h2>
+                    <p class="muted-copy">Switch between monthly and weekly views of your personal planner events.</p>
+                </div>
+                <span class="mini-card"><?= e($calendarRange['label']); ?></span>
+            </div>
+
+            <div class="filter-row top-gap-sm">
+                <a class="filter-chip <?= $calendarView === 'month' ? 'is-active' : ''; ?>" href="<?= e(planner_build_url($activeYear, 'month', $calendarDate, $editingGoalId ?: null, $editingEventId ?: null)); ?>">Month</a>
+                <a class="filter-chip <?= $calendarView === 'week' ? 'is-active' : ''; ?>" href="<?= e(planner_build_url($activeYear, 'week', $calendarDate, $editingGoalId ?: null, $editingEventId ?: null)); ?>">Week</a>
+                <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarRange['previous_date'], $editingGoalId ?: null, $editingEventId ?: null)); ?>">Previous</a>
+                <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, date('Y-m-d'), $editingGoalId ?: null, $editingEventId ?: null)); ?>">Today</a>
+                <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarRange['next_date'], $editingGoalId ?: null, $editingEventId ?: null)); ?>">Next</a>
+            </div>
+
+            <?php if ($calendarView === 'month'): ?>
+                <div class="planner-month-grid top-gap-sm">
+                    <?php foreach (['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as $weekdayLabel): ?>
+                        <div class="planner-calendar-head"><?= e($weekdayLabel); ?></div>
+                    <?php endforeach; ?>
+
+                    <?php
+                    $monthLoopDate = date('Y-m-d', strtotime($calendarRange['start']));
+                    for ($index = 0; $index < 42; $index++):
+                        $dayKey = $monthLoopDate;
+                        $isCurrentMonth = date('Y-m', strtotime($dayKey)) === date('Y-m', strtotime($calendarDate));
+                        $isToday = $dayKey === date('Y-m-d');
+                        $dayEvents = $calendarEventsByDay[$dayKey] ?? [];
+                    ?>
+                        <div class="planner-calendar-cell <?= $isCurrentMonth ? '' : 'is-muted'; ?> <?= $isToday ? 'is-today' : ''; ?>">
+                            <div class="planner-calendar-day"><?= e(date('j', strtotime($dayKey))); ?></div>
+                            <div class="planner-calendar-events">
+                                <?php if ($dayEvents === []): ?>
+                                    <span class="planner-calendar-empty">No events</span>
+                                <?php else: ?>
+                                    <?php foreach (array_slice($dayEvents, 0, 3) as $event): ?>
+                                        <a class="planner-calendar-event" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarDate, $editingGoalId ?: null, (int) $event['id'])); ?>">
+                                            <strong><?= e(date('g:i A', strtotime((string) $event['event_date']))); ?></strong>
+                                            <span><?= e((string) $event['title']); ?></span>
+                                        </a>
+                                    <?php endforeach; ?>
+                                    <?php if (count($dayEvents) > 3): ?>
+                                        <span class="planner-calendar-more">+<?= e((string) (count($dayEvents) - 3)); ?> more</span>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php
+                        $monthLoopDate = date('Y-m-d', strtotime($monthLoopDate . ' +1 day'));
+                    endfor;
+                    ?>
+                </div>
+            <?php else: ?>
+                <div class="planner-week-grid top-gap-sm">
+                    <?php
+                    $weekLoopDate = date('Y-m-d', strtotime($calendarRange['start']));
+                    for ($index = 0; $index < 7; $index++):
+                        $dayKey = $weekLoopDate;
+                        $isToday = $dayKey === date('Y-m-d');
+                        $dayEvents = $calendarEventsByDay[$dayKey] ?? [];
+                    ?>
+                        <div class="planner-week-day <?= $isToday ? 'is-today' : ''; ?>">
+                            <div class="planner-week-head">
+                                <strong><?= e(date('D', strtotime($dayKey))); ?></strong>
+                                <span><?= e(date('M j', strtotime($dayKey))); ?></span>
+                            </div>
+
+                            <div class="planner-week-events">
+                                <?php if ($dayEvents === []): ?>
+                                    <span class="planner-calendar-empty">No events planned</span>
+                                <?php else: ?>
+                                    <?php foreach ($dayEvents as $event): ?>
+                                        <a class="planner-calendar-event" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarDate, $editingGoalId ?: null, (int) $event['id'])); ?>">
+                                            <strong><?= e(date('g:i A', strtotime((string) $event['event_date']))); ?></strong>
+                                            <span><?= e((string) $event['title']); ?></span>
+                                        </a>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php
+                        $weekLoopDate = date('Y-m-d', strtotime($weekLoopDate . ' +1 day'));
+                    endfor;
+                    ?>
+                </div>
+            <?php endif; ?>
+        </section>
 
         <div class="community-layout top-gap">
             <div class="stack-list">
@@ -362,7 +539,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <?php endif; ?>
 
                                     <div class="inline-actions top-gap-sm">
-                                        <a class="button button-secondary" href="<?= e(planner_redirect_url($activeYear, (int) $goal['id'], $editingEventId ?: null)); ?>">Edit Goal</a>
+                                        <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarDate, (int) $goal['id'], $editingEventId ?: null)); ?>">Edit Goal</a>
                                         <form method="post">
                                             <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                                             <input type="hidden" name="action" value="delete-goal">
@@ -410,7 +587,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <?php endif; ?>
 
                                     <div class="inline-actions top-gap-sm">
-                                        <a class="button button-secondary" href="<?= e(planner_redirect_url($activeYear, $editingGoalId ?: null, (int) $event['id'])); ?>">Edit Event</a>
+                                        <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarDate, $editingGoalId ?: null, (int) $event['id'])); ?>">Edit Event</a>
                                         <form method="post">
                                             <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                                             <input type="hidden" name="action" value="delete-event">
@@ -434,7 +611,7 @@ require_once __DIR__ . '/includes/header.php';
                             <p class="muted-copy">Set the target, record current progress, and keep the year measurable.</p>
                         </div>
                         <?php if ($editingGoal): ?>
-                            <a class="button button-secondary" href="<?= e(planner_redirect_url($activeYear, null, $editingEventId ?: null)); ?>">New Goal</a>
+                            <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarDate, null, $editingEventId ?: null)); ?>">New Goal</a>
                         <?php endif; ?>
                     </div>
 
@@ -502,7 +679,7 @@ require_once __DIR__ . '/includes/header.php';
                             <p class="muted-copy">Capture reminders, study sessions, and family plans on your personal schedule.</p>
                         </div>
                         <?php if ($editingEvent): ?>
-                            <a class="button button-secondary" href="<?= e(planner_redirect_url($activeYear, $editingGoalId ?: null, null)); ?>">New Event</a>
+                            <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarDate, $editingGoalId ?: null, null)); ?>">New Event</a>
                         <?php endif; ?>
                     </div>
 
