@@ -4,6 +4,28 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/includes/auth.php';
 
+require_login();
+
+if (!current_user_has_role(['admin'])) {
+    http_response_code(403);
+    $pageTitle = 'Forbidden';
+    $activePage = '';
+    require_once dirname(__DIR__) . '/includes/header.php';
+    ?>
+    <section class="section">
+        <div class="container">
+            <div class="section-heading">
+                <p class="eyebrow">Restricted</p>
+                <h1>Admin access required</h1>
+                <p>You do not have permission to view this area.</p>
+            </div>
+        </div>
+    </section>
+    <?php
+    require_once dirname(__DIR__) . '/includes/footer.php';
+    exit;
+}
+
 $pageTitle = 'Admin';
 $activePage = '';
 

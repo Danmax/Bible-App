@@ -22,6 +22,7 @@ if ($token !== '') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
+    enforce_rate_limit(rate_limit_key('reset-password', $token), 5, 900);
 
     $password = trim($_POST['password'] ?? '');
     $passwordConfirm = trim($_POST['password_confirm'] ?? '');

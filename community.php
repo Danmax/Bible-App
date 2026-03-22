@@ -181,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'rsvp') {
             $eventId = (int) ($_POST['event_id'] ?? 0);
             $response = (string) ($_POST['response'] ?? '');
-            $event = fetch_community_event_by_id($eventId, (int) $user['id']);
+            $event = fetch_community_event_by_id($eventId, (int) $user['id'], $canManageAllEvents);
 
             if ($event === null || $event['status'] === 'draft') {
                 throw new RuntimeException('That event is no longer available.');
@@ -206,7 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'delete-event') {
             $eventId = (int) ($_POST['event_id'] ?? 0);
-            $event = fetch_community_event_by_id($eventId, (int) $user['id']);
+            $event = fetch_community_event_by_id($eventId, (int) $user['id'], $canManageAllEvents);
 
             if (!can_manage_community_event($event, $user)) {
                 throw new RuntimeException('You are not allowed to delete that event.');
@@ -227,7 +227,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $eventId = (int) ($_POST['event_id'] ?? 0);
-            $event = fetch_community_event_by_id($eventId, (int) $user['id']);
+            $event = fetch_community_event_by_id($eventId, (int) $user['id'], $canManageAllEvents);
 
             if (!can_manage_community_event($event, $user)) {
                 throw new RuntimeException('You are not allowed to update that event.');
@@ -253,14 +253,14 @@ if ($activeCategorySlug !== 'all' && $activeCategoryId === null && $categories !
 }
 
 try {
-    $events = fetch_community_events($activeCategorySlug === 'all' ? null : $activeCategoryId, $user['id'] ?? null);
+    $events = fetch_community_events($activeCategorySlug === 'all' ? null : $activeCategoryId, $user['id'] ?? null, $canManageAllEvents);
 
     if ($user !== null) {
         $manageableEvents = fetch_manageable_community_events((int) $user['id'], $canManageAllEvents);
     }
 
     if ($editingEventId) {
-        $editingEvent = fetch_community_event_by_id((int) $editingEventId, $user['id'] ?? null);
+        $editingEvent = fetch_community_event_by_id((int) $editingEventId, $user['id'] ?? null, $canManageAllEvents);
 
         if ($editingEvent !== null && !can_manage_community_event($editingEvent, $user)) {
             $editingEvent = null;

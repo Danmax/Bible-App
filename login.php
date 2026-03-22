@@ -16,16 +16,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $email = trim($_POST['email'] ?? '');
     $password = trim($_POST['password'] ?? '');
+    $rateLimitKey = rate_limit_key('login', mb_strtolower($email));
 
     if ($email === '' || $password === '') {
         $errorMessage = 'Enter both email and password.';
     } else {
         try {
+            enforce_rate_limit($rateLimitKey, 8, 900);
             $user = find_user_for_login($email, $password);
 
             if ($user === null) {
                 $errorMessage = 'We could not match that email and password.';
             } else {
+                clear_rate_limit($rateLimitKey);
                 session_regenerate_id(true);
                 log_in_user($user);
                 set_flash('You are signed in.', 'success');

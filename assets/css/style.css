@@ -548,11 +548,6 @@ textarea {
     border-color: rgba(107, 62, 38, 0.28);
 }
 
-.favorites-strip {
-    display: grid;
-    gap: 0.75rem;
-}
-
 .community-layout {
     display: grid;
     grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
@@ -710,7 +705,7 @@ textarea {
 
 .profile-meta-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.9rem;
 }
 
@@ -740,6 +735,11 @@ textarea {
 
 .profile-actions {
     align-items: center;
+}
+
+.profile-action-footer {
+    justify-content: flex-end;
+    padding-top: 0.35rem;
 }
 
 .account-action-card {
@@ -876,28 +876,6 @@ textarea {
 .community-checkbox input {
     width: auto;
     margin: 0;
-}
-
-.translation-switch-row {
-    display: grid;
-    gap: 0.6rem;
-}
-
-.result-translation-row {
-    display: grid;
-    gap: 0.5rem;
-    margin: 0.9rem 0;
-}
-
-.favorite-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-height: 2.4rem;
-    padding: 0.5rem 0.9rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.76);
 }
 
 .bible-control-panel {

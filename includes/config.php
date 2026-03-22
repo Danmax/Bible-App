@@ -13,6 +13,30 @@ if (!defined('BASE_URL')) {
     define('BASE_URL', getenv('APP_BASE_URL') ?: '');
 }
 
+if (!defined('APP_ENV')) {
+    define('APP_ENV', getenv('APP_ENV') ?: '');
+}
+
+if (!defined('APP_PRIMARY_EMAIL')) {
+    define('APP_PRIMARY_EMAIL', getenv('APP_PRIMARY_EMAIL') ?: 'bible@frowear.com');
+}
+
+if (!defined('APP_SUPPORT_EMAIL')) {
+    define('APP_SUPPORT_EMAIL', getenv('APP_SUPPORT_EMAIL') ?: APP_PRIMARY_EMAIL);
+}
+
+if (!defined('APP_INFO_EMAIL')) {
+    define('APP_INFO_EMAIL', getenv('APP_INFO_EMAIL') ?: 'goodNews@frowear.com');
+}
+
+if (!defined('APP_MAIL_FROM_EMAIL')) {
+    define('APP_MAIL_FROM_EMAIL', getenv('APP_MAIL_FROM_EMAIL') ?: APP_PRIMARY_EMAIL);
+}
+
+if (!defined('APP_MAIL_FROM_NAME')) {
+    define('APP_MAIL_FROM_NAME', getenv('APP_MAIL_FROM_NAME') ?: APP_NAME);
+}
+
 if (!defined('DB_HOST')) {
     define('DB_HOST', getenv('DB_HOST') ?: 'hostinger_database_host');
 }

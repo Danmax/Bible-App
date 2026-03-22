@@ -73,36 +73,28 @@ if (profileForm && passwordForm) {
         });
     };
 
+    const setButtonState = (button, isVisible) => {
+        if (!button) {
+            return;
+        }
+
+        button.hidden = !isVisible;
+        button.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+        button.style.display = isVisible ? '' : 'none';
+    };
+
     const renderProfileState = () => {
         setSectionState(profileFields, profileEditableFields, profileEditing);
-
-        if (profileEditButton) {
-            profileEditButton.hidden = profileEditing || passwordEditing;
-        }
-
-        if (profileCancelButton) {
-            profileCancelButton.hidden = !profileEditing;
-        }
-
-        if (profileSaveButton) {
-            profileSaveButton.hidden = !profileEditing;
-        }
+        setButtonState(profileEditButton, !profileEditing && !passwordEditing);
+        setButtonState(profileCancelButton, profileEditing);
+        setButtonState(profileSaveButton, profileEditing);
     };
 
     const renderPasswordState = () => {
         setSectionState(passwordFields, passwordEditableFields, passwordEditing);
-
-        if (passwordEditButton) {
-            passwordEditButton.hidden = passwordEditing || profileEditing;
-        }
-
-        if (passwordCancelButton) {
-            passwordCancelButton.hidden = !passwordEditing;
-        }
-
-        if (passwordSaveButton) {
-            passwordSaveButton.hidden = !passwordEditing;
-        }
+        setButtonState(passwordEditButton, !passwordEditing && !profileEditing);
+        setButtonState(passwordCancelButton, passwordEditing);
+        setButtonState(passwordSaveButton, passwordEditing);
     };
 
     const renderAccountModes = () => {

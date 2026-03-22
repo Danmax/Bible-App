@@ -51,9 +51,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $pageError = 'That email address is already in use.';
                     } else {
                         $token = create_email_change_token((int) $user['id'], $email);
-                        $emailChangeLink = app_url('confirm-email.php', true) . '?token=' . urlencode($token);
+                        if (debug_links_enabled()) {
+                            $emailChangeLink = app_url('confirm-email.php', true) . '?token=' . urlencode($token);
+                        }
                         $pendingEmailChange = fetch_pending_email_change_request((int) $user['id']);
-                        set_flash('Profile updated. Confirm the new email from the approval link below before it becomes active.', 'success');
+                        set_flash(
+                            debug_links_enabled()
+                                ? 'Profile updated. Confirm the new email from the approval link below before it becomes active.'
+                                : 'Profile updated. Confirm the new email from your inbox before it becomes active.',
+                            'success'
+                        );
                     }
                 } else {
                     set_flash('Profile updated.', 'success');
@@ -147,10 +154,6 @@ require_once __DIR__ . '/includes/header.php';
                             <span>Email</span>
                             <strong><?= e((string) ($user['email'] ?? '')); ?></strong>
                         </div>
-                        <div class="profile-meta-card">
-                            <span>Email changes</span>
-                            <strong>Approval required</strong>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -176,9 +179,7 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="action" value="profile">
 
                     <div class="inline-actions profile-actions">
-                        <button class="button button-secondary" type="button" data-profile-edit-toggle <?= $profileEditMode ? 'hidden' : ''; ?>>Edit Profile</button>
-                        <button class="button button-secondary" type="button" data-profile-edit-cancel <?= $profileEditMode ? '' : 'hidden'; ?>>Cancel</button>
-                        <button class="button button-primary" type="submit" data-profile-save <?= $profileEditMode ? '' : 'hidden'; ?>>Save Profile</button>
+                        <button class="button button-secondary" type="button" data-profile-edit-toggle <?= $profileEditMode ? '' : 'aria-hidden="false"'; ?> <?= $profileEditMode ? 'hidden style="display: none;" aria-hidden="true"' : ''; ?>>Edit Profile</button>
                     </div>
 
                     <div
@@ -205,14 +206,19 @@ require_once __DIR__ . '/includes/header.php';
                             <span>Avatar Image URL</span>
                             <input type="url" name="avatar_url" value="<?= e($user['avatar_url'] ?? ''); ?>" placeholder="https://example.com/avatar.jpg" <?= $profileEditMode ? '' : 'disabled'; ?>>
                         </label>
+
+                        <div class="inline-actions profile-actions profile-action-footer">
+                            <button class="button button-secondary" type="button" data-profile-edit-cancel <?= $profileEditMode ? '' : 'hidden style="display: none;" aria-hidden="true"'; ?>>Cancel</button>
+                            <button class="button button-primary" type="submit" data-profile-save <?= $profileEditMode ? '' : 'hidden style="display: none;" aria-hidden="true"'; ?>>Save Profile</button>
+                        </div>
                     </div>
                 </form>
             </section>
 
-            <?php if ($emailChangeLink): ?>
+            <?php if ($emailChangeLink && debug_links_enabled()): ?>
                 <div class="inline-message top-gap-sm">
-                    <strong>Email approval link</strong>
-                    <p>This build still exposes the approval link directly until outbound email delivery is added.</p>
+                    <strong>Debug email approval link</strong>
+                    <p>This preview is only shown when debug links are enabled.</p>
                     <p><a href="<?= e($emailChangeLink); ?>"><?= e($emailChangeLink); ?></a></p>
                 </div>
             <?php endif; ?>
@@ -230,9 +236,7 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="action" value="password">
 
                     <div class="inline-actions profile-actions">
-                        <button class="button button-secondary" type="button" data-password-edit-toggle <?= $passwordEditMode ? 'hidden' : ''; ?>>Change Password</button>
-                        <button class="button button-secondary" type="button" data-password-edit-cancel <?= $passwordEditMode ? '' : 'hidden'; ?>>Cancel</button>
-                        <button class="button button-primary" type="submit" data-password-save <?= $passwordEditMode ? '' : 'hidden'; ?>>Update Password</button>
+                        <button class="button button-secondary" type="button" data-password-edit-toggle <?= $passwordEditMode ? '' : 'aria-hidden="false"'; ?> <?= $passwordEditMode ? 'hidden style="display: none;" aria-hidden="true"' : ''; ?>>Change Password</button>
                     </div>
 
                     <div
@@ -249,6 +253,11 @@ require_once __DIR__ . '/includes/header.php';
                             <span>Confirm Password</span>
                             <input type="password" name="password_confirm" minlength="8" required <?= $passwordEditMode ? '' : 'disabled'; ?>>
                         </label>
+
+                        <div class="inline-actions profile-actions profile-action-footer">
+                            <button class="button button-secondary" type="button" data-password-edit-cancel <?= $passwordEditMode ? '' : 'hidden style="display: none;" aria-hidden="true"'; ?>>Cancel</button>
+                            <button class="button button-primary" type="submit" data-password-save <?= $passwordEditMode ? '' : 'hidden style="display: none;" aria-hidden="true"'; ?>>Update Password</button>
+                        </div>
                     </div>
                 </form>
             </section>

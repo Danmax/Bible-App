@@ -135,21 +135,35 @@ function fetch_friend_invite_by_id(int $inviteId): ?array
 
 function fetch_friend_invite_by_token(string $token): ?array
 {
+    $trimmedToken = trim($token);
+
+    if ($trimmedToken === '') {
+        return null;
+    }
+
+    $usesHashedTokens = friend_invites_use_hashed_tokens();
     $statement = db()->prepare(
         'SELECT friend_invites.*, sender.name AS sender_name, sender.email AS sender_email,
             recipient.name AS recipient_name
         FROM friend_invites
         INNER JOIN users AS sender ON sender.id = friend_invites.sender_user_id
         LEFT JOIN users AS recipient ON recipient.id = friend_invites.recipient_user_id
-        WHERE friend_invites.invite_token = :token
+        WHERE ' . ($usesHashedTokens
+            ? 'friend_invites.invite_token_hash = :token_hash'
+            : 'friend_invites.invite_token = :token') . '
             AND friend_invites.status = :status
             AND friend_invites.expires_at >= NOW()
         LIMIT 1'
     );
-    $statement->execute([
-        'token' => trim($token),
-        'status' => 'pending',
-    ]);
+    $params = ['status' => 'pending'];
+
+    if ($usesHashedTokens) {
+        $params['token_hash'] = hash('sha256', $trimmedToken);
+    } else {
+        $params['token'] = $trimmedToken;
+    }
+
+    $statement->execute($params);
 
     $invite = $statement->fetch();
 
@@ -200,37 +214,46 @@ function create_friend_invite_record(int $senderUserId, string $recipientEmail):
     }
 
     $token = bin2hex(random_bytes(24));
-    $statement = db()->prepare(
-        'INSERT INTO friend_invites (
+    $usesHashedTokens = friend_invites_use_hashed_tokens();
+    $sql = 'INSERT INTO friend_invites (
             sender_user_id,
             recipient_user_id,
-            recipient_email,
-            invite_token,
+            recipient_email, ' .
+            ($usesHashedTokens ? 'invite_token_hash' : 'invite_token') . ',
             status,
             expires_at
         ) VALUES (
             :sender_user_id,
             :recipient_user_id,
-            :recipient_email,
-            :invite_token,
+            :recipient_email, ' .
+            ($usesHashedTokens ? ':invite_token_hash' : ':invite_token') . ',
             :status,
             :expires_at
-        )'
-    );
-    $statement->execute([
+        )';
+    $statement = db()->prepare($sql);
+    $params = [
         'sender_user_id' => $senderUserId,
         'recipient_user_id' => $recipient['id'] ?? null,
         'recipient_email' => $normalizedEmail,
-        'invite_token' => $token,
         'status' => 'pending',
         'expires_at' => date('Y-m-d H:i:s', strtotime('+7 days')),
-    ]);
+    ];
+
+    if ($usesHashedTokens) {
+        $params['invite_token_hash'] = hash('sha256', $token);
+    } else {
+        $params['invite_token'] = $token;
+    }
+
+    $statement->execute($params);
 
     $invite = fetch_friend_invite_by_id((int) db()->lastInsertId());
 
     if ($invite === null) {
         throw new RuntimeException('The friend invite could not be created.');
     }
+
+    $invite['share_token'] = $token;
 
     return $invite;
 }
@@ -943,9 +966,10 @@ function fetch_event_categories(): array
     )->fetchAll();
 }
 
-function fetch_community_event_by_id(int $eventId, ?int $viewerUserId = null): ?array
+function fetch_community_event_by_id(int $eventId, ?int $viewerUserId = null, bool $canManageAll = false): ?array
 {
     $viewerId = $viewerUserId ?? 0;
+    $viewerIsLoggedIn = $viewerId > 0 ? 1 : 0;
     $statement = db()->prepare(
         'SELECT community_events.*,
             community_event_categories.slug AS category_slug,
@@ -978,10 +1002,38 @@ function fetch_community_event_by_id(int $eventId, ?int $viewerUserId = null): ?
             ON user_rsvp.community_event_id = community_events.id
             AND user_rsvp.user_id = :viewer_user_id
         WHERE community_events.id = :id
+            AND (
+                :can_manage_all = 1
+                OR (
+                    :viewer_user_id > 0
+                    AND community_events.created_by_user_id = :viewer_user_id
+                )
+                OR (
+                    community_events.status <> :draft_status
+                    AND (
+                        community_events.visibility = :public_visibility
+                        OR (
+                            community_events.visibility = :members_visibility
+                            AND :viewer_is_logged_in = 1
+                        )
+                        OR (
+                            community_events.visibility = :private_visibility
+                            AND :viewer_user_id > 0
+                            AND community_events.created_by_user_id = :viewer_user_id
+                        )
+                    )
+                )
+            )
         LIMIT 1'
     );
     $statement->execute([
         'id' => $eventId,
+        'can_manage_all' => $canManageAll ? 1 : 0,
+        'draft_status' => 'draft',
+        'public_visibility' => 'public',
+        'members_visibility' => 'members',
+        'private_visibility' => 'private',
+        'viewer_is_logged_in' => $viewerIsLoggedIn,
         'viewer_user_id' => $viewerId,
     ]);
     $event = $statement->fetch();
@@ -989,9 +1041,10 @@ function fetch_community_event_by_id(int $eventId, ?int $viewerUserId = null): ?
     return $event ?: null;
 }
 
-function fetch_community_events(?int $categoryId = null, ?int $viewerUserId = null): array
+function fetch_community_events(?int $categoryId = null, ?int $viewerUserId = null, bool $canManageAll = false): array
 {
     $viewerId = $viewerUserId ?? 0;
+    $viewerIsLoggedIn = $viewerId > 0 ? 1 : 0;
     $sql = 'SELECT community_events.*,
             community_event_categories.slug AS category_slug,
             community_event_categories.label AS category_label,
@@ -1022,9 +1075,35 @@ function fetch_community_events(?int $categoryId = null, ?int $viewerUserId = nu
         LEFT JOIN community_event_rsvps AS user_rsvp
             ON user_rsvp.community_event_id = community_events.id
             AND user_rsvp.user_id = :viewer_user_id
-        WHERE community_events.status <> :draft_status';
+        WHERE (
+            :can_manage_all = 1
+            OR (
+                :viewer_user_id > 0
+                AND community_events.created_by_user_id = :viewer_user_id
+            )
+            OR (
+                community_events.status <> :draft_status
+                AND (
+                    community_events.visibility = :public_visibility
+                    OR (
+                        community_events.visibility = :members_visibility
+                        AND :viewer_is_logged_in = 1
+                    )
+                    OR (
+                        community_events.visibility = :private_visibility
+                        AND :viewer_user_id > 0
+                        AND community_events.created_by_user_id = :viewer_user_id
+                    )
+                )
+            )
+        )';
     $params = [
+        'can_manage_all' => $canManageAll ? 1 : 0,
+        'members_visibility' => 'members',
+        'private_visibility' => 'private',
+        'public_visibility' => 'public',
         'viewer_user_id' => $viewerId,
+        'viewer_is_logged_in' => $viewerIsLoggedIn,
         'draft_status' => 'draft',
     ];
 
@@ -1276,12 +1355,41 @@ function supported_translations(): array
 function fetch_available_translations(): array
 {
     $statement = db()->query('SELECT DISTINCT translation FROM verses ORDER BY translation ASC');
-    $translations = array_map(
+    $storedTranslations = array_map(
         static fn(array $row): string => (string) $row['translation'],
         $statement->fetchAll()
     );
 
-    return array_values(array_unique(array_merge(supported_translations(), $translations)));
+    $translations = array_values(array_unique(array_merge(supported_translations(), $storedTranslations)));
+
+    return array_values(array_filter(
+        $translations,
+        static function (string $translation) use ($storedTranslations): bool {
+            if (in_array($translation, $storedTranslations, true)) {
+                return true;
+            }
+
+            return uses_external_translation($translation) && external_translation_available($translation);
+        }
+    ));
+}
+
+function friend_invites_use_hashed_tokens(): bool
+{
+    static $usesHashedTokens = null;
+
+    if ($usesHashedTokens !== null) {
+        return $usesHashedTokens;
+    }
+
+    try {
+        $statement = db()->query("SHOW COLUMNS FROM friend_invites LIKE 'invite_token_hash'");
+        $usesHashedTokens = $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $usesHashedTokens = false;
+    }
+
+    return $usesHashedTokens;
 }
 
 function uses_external_translation(string $translation): bool

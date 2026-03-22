@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS friend_invites (
     sender_user_id BIGINT UNSIGNED NOT NULL,
     recipient_user_id BIGINT UNSIGNED NULL,
     recipient_email VARCHAR(190) NOT NULL,
-    invite_token CHAR(48) NOT NULL UNIQUE,
+    invite_token VARCHAR(48) NULL,
+    invite_token_hash CHAR(64) NOT NULL UNIQUE,
     status VARCHAR(30) NOT NULL DEFAULT 'pending',
     responded_at DATETIME NULL DEFAULT NULL,
     expires_at DATETIME NOT NULL,
@@ -213,3 +214,6 @@ ALTER TABLE bookmarks
     ADD COLUMN IF NOT EXISTS highlight_color VARCHAR(20) NULL AFTER selected_text,
     ADD COLUMN IF NOT EXISTS selection_start INT UNSIGNED NULL AFTER highlight_color,
     ADD COLUMN IF NOT EXISTS selection_end INT UNSIGNED NULL AFTER selection_start;
+
+ALTER TABLE friend_invites
+    ADD COLUMN IF NOT EXISTS invite_token_hash CHAR(64) NULL AFTER recipient_email;

@@ -15,11 +15,69 @@ function app_url(string $path = '', bool $absolute = false): string
 
     $baseUrl = normalized_base_url(BASE_URL);
 
-    if ($baseUrl === '') {
+    if ($baseUrl === '' && is_local_environment()) {
         $baseUrl = current_request_base_url();
     }
 
     return $baseUrl === '' ? $relativePath : $baseUrl . $relativePath;
+}
+
+function app_environment(): string
+{
+    $configured = strtolower(trim((string) APP_ENV));
+
+    if ($configured !== '') {
+        return $configured;
+    }
+
+    $host = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
+
+    if ($host === '' || str_contains($host, 'localhost') || str_contains($host, '127.0.0.1')) {
+        return 'local';
+    }
+
+    return 'production';
+}
+
+function is_local_environment(): bool
+{
+    return in_array(app_environment(), ['local', 'development', 'dev', 'test'], true);
+}
+
+function debug_links_enabled(): bool
+{
+    $configured = strtolower(trim((string) (getenv('APP_DEBUG_LINKS') ?: '')));
+
+    if ($configured !== '') {
+        return in_array($configured, ['1', 'true', 'yes', 'on'], true);
+    }
+
+    return is_local_environment();
+}
+
+function app_primary_email(): string
+{
+    return trim((string) APP_PRIMARY_EMAIL);
+}
+
+function app_support_email(): string
+{
+    return trim((string) APP_SUPPORT_EMAIL);
+}
+
+function app_info_email(): string
+{
+    return trim((string) APP_INFO_EMAIL);
+}
+
+function app_mail_from_email(): string
+{
+    return trim((string) APP_MAIL_FROM_EMAIL);
+}
+
+function app_mail_from_name(): string
+{
+    return trim((string) APP_MAIL_FROM_NAME);
 }
 
 function normalized_base_url(?string $value): string

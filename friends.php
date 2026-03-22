@@ -28,9 +28,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         if ($action === 'send-invite') {
+            enforce_rate_limit(rate_limit_key('friend-invite', (string) ($user['id'] ?? 0)), 5, 900);
             $email = trim((string) ($_POST['recipient_email'] ?? ''));
             $invite = create_friend_invite_record((int) $user['id'], $email);
-            $inviteLink = app_url('accept-friend.php', true) . '?token=' . urlencode((string) $invite['invite_token']);
+            $inviteLink = app_url('accept-friend.php', true) . '?token=' . urlencode((string) ($invite['share_token'] ?? ''));
             set_flash('Friend invite created.', 'success');
         } elseif ($action === 'accept-invite') {
             $inviteId = (int) ($_POST['invite_id'] ?? 0);
@@ -185,7 +186,6 @@ require_once __DIR__ . '/includes/header.php';
                         <p class="empty-state">No sent invites yet.</p>
                     <?php else: ?>
                         <?php foreach ($sentInvites as $invite): ?>
-                            <?php $shareLink = app_url('accept-friend.php', true) . '?token=' . urlencode((string) $invite['invite_token']); ?>
                             <article class="list-card list-card-block">
                                 <div class="planner-item-body">
                                     <div class="planner-item-header">
@@ -197,8 +197,8 @@ require_once __DIR__ . '/includes/header.php';
                                     </div>
                                     <?php if ((string) $invite['status'] === 'pending'): ?>
                                         <div class="inline-message">
-                                            <strong>Invite link</strong>
-                                            <p><a href="<?= e($shareLink); ?>"><?= e($shareLink); ?></a></p>
+                                            <strong>Invite status</strong>
+                                            <p>Pending invite recorded. For security, the share link is only shown when the invite is first created.</p>
                                         </div>
                                         <div class="inline-actions top-gap-sm">
                                             <form method="post">

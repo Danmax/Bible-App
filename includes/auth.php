@@ -6,8 +6,20 @@ require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/repository.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
+    $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+    $isSecure = ($https !== '' && $https !== 'off');
+
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => $isSecure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
+
+send_security_headers();
 
 function set_flash(string $message, string $type = 'info'): void
 {
@@ -47,6 +59,74 @@ function verify_csrf(): void
         http_response_code(422);
         exit('Invalid form token.');
     }
+}
+
+function send_security_headers(): void
+{
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+    header('Cross-Origin-Opener-Policy: same-origin');
+    header('Cross-Origin-Resource-Policy: same-origin');
+    header(
+        "Content-Security-Policy: default-src 'self'; " .
+        "img-src 'self' https: data:; " .
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " .
+        "font-src 'self' https://fonts.gstatic.com data:; " .
+        "script-src 'self'; " .
+        "connect-src 'self' https://api.nlt.to; " .
+        "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    );
+
+    $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+
+    if ($https !== '' && $https !== 'off') {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+    }
+}
+
+function rate_limit_key(string $action, ?string $identity = null): string
+{
+    $parts = [
+        trim($action),
+        trim((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown')),
+    ];
+
+    if ($identity !== null && $identity !== '') {
+        $parts[] = trim($identity);
+    }
+
+    return implode('|', $parts);
+}
+
+function enforce_rate_limit(string $key, int $maxAttempts, int $windowSeconds): void
+{
+    $now = time();
+    $state = $_SESSION['rate_limits'][$key] ?? [
+        'count' => 0,
+        'window_started_at' => $now,
+    ];
+
+    if (($now - (int) $state['window_started_at']) >= $windowSeconds) {
+        $state = [
+            'count' => 0,
+            'window_started_at' => $now,
+        ];
+    }
+
+    if ((int) $state['count'] >= $maxAttempts) {
+        $retryAfter = max(1, $windowSeconds - ($now - (int) $state['window_started_at']));
+        throw new RuntimeException('Too many attempts. Wait ' . $retryAfter . ' seconds and try again.');
+    }
+
+    $state['count'] = (int) $state['count'] + 1;
+    $_SESSION['rate_limits'][$key] = $state;
+}
+
+function clear_rate_limit(string $key): void
+{
+    unset($_SESSION['rate_limits'][$key]);
 }
 
 function log_in_user(array $user): void

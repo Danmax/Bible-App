@@ -24,7 +24,6 @@ $bookChapters = [];
 $chapterVerseSet = [];
 $browseVerses = [];
 $chapterBookmarks = [];
-$favoriteBookmarks = [];
 $translationAvailability = [];
 $displayMode = 'catalog';
 
@@ -157,18 +156,9 @@ try {
             : 'Choose a book, chapter, and optional verse from the dropdowns above.';
     }
 
-    if (is_logged_in()) {
-        $favoriteBookmarks = fetch_favorite_bookmarks((int) $user['id']);
-    }
 } catch (Throwable $exception) {
     $pageError = 'Scripture content could not be loaded because the database is unavailable.';
 }
-
-$quickLinks = [
-    ['label' => 'Genesis 1', 'query' => 'Genesis 1'],
-    ['label' => 'Psalm 23', 'query' => 'Psalms 23'],
-    ['label' => 'John 3:16', 'query' => 'John 3:16'],
-];
 
 $verseOptions = [];
 if ($chapterVerseSet !== []) {
@@ -186,8 +176,8 @@ require_once __DIR__ . '/includes/header.php';
     <div class="container">
         <div class="section-heading">
             <p class="eyebrow">Bible Reader</p>
-            <h1>Read chapters, highlight text, and save favorites</h1>
-            <p>Dropdowns load the reader automatically, and bookmarks appear right below the search tools.</p>
+            <h1>Sword of the Spirit</h1>
+            <p>Search and read the scriptures.</p>
         </div>
 
         <?php if ($pageError): ?>
@@ -208,39 +198,6 @@ require_once __DIR__ . '/includes/header.php';
                     <button class="button button-primary" type="submit">Search</button>
                 </div>
             </form>
-
-            <div class="inline-actions top-gap-sm">
-                <?php foreach ($quickLinks as $quickLink): ?>
-                    <a class="filter-chip" href="<?= e(app_url('bible.php?q=' . urlencode($quickLink['query']) . '&translation=' . urlencode($selectedTranslation))); ?>">
-                        <?= e($quickLink['label']); ?>
-                    </a>
-                <?php endforeach; ?>
-            </div>
-
-            <?php if ($query !== ''): ?>
-                <div class="translation-switch-row top-gap-sm">
-                    <strong>Versions</strong>
-                    <div class="inline-actions">
-                        <?php foreach ($translations as $translation): ?>
-                            <?php
-                            $switchClasses = ['filter-chip'];
-                            if ($selectedTranslation === $translation) {
-                                $switchClasses[] = 'is-active';
-                            }
-                            if (!($translationAvailability[$translation] ?? false)) {
-                                $switchClasses[] = 'is-muted';
-                            }
-                            ?>
-                            <a class="<?= e(implode(' ', $switchClasses)); ?>" href="<?= e(app_url('bible.php?q=' . urlencode($query) . '&translation=' . urlencode($translation))); ?>">
-                                <?= e($translation); ?>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php if (!$selectedTranslationHasData): ?>
-                        <p class="muted-copy">No verse data is loaded yet for <?= e($selectedTranslation); ?>. KJV is currently the only populated translation.</p>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
 
             <form class="form-stack top-gap" method="get" data-reader-nav>
                 <div class="reader-select-row">
@@ -285,19 +242,6 @@ require_once __DIR__ . '/includes/header.php';
                     <button class="button button-secondary reader-go" type="submit">Go</button>
                 </div>
             </form>
-
-            <?php if (is_logged_in() && $favoriteBookmarks !== []): ?>
-                <div class="favorites-strip top-gap-sm">
-                    <strong>Favorites</strong>
-                    <div class="inline-actions">
-                        <?php foreach ($favoriteBookmarks as $favoriteBookmark): ?>
-                            <a class="favorite-chip <?= e(highlight_class((string) ($favoriteBookmark['highlight_color'] ?? 'neon-yellow'))); ?>" href="<?= e(app_url('bible.php?translation=' . urlencode((string) $favoriteBookmark['translation']) . '&book_id=' . $favoriteBookmark['book_id'] . '&chapter=' . $favoriteBookmark['chapter_number'] . '&verse=' . $favoriteBookmark['verse_number'])); ?>">
-                                <?= e(!empty($favoriteBookmark['selected_text']) ? truncate_text((string) $favoriteBookmark['selected_text'], 32) : format_verse_reference($favoriteBookmark)); ?>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-            <?php endif; ?>
         </div>
 
         <div class="panel scripture-panel top-gap">
