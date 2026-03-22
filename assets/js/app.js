@@ -43,43 +43,94 @@ if (yearNode) {
 }
 
 const profileForm = document.querySelector('[data-profile-form]');
+const passwordForm = document.querySelector('[data-password-form]');
 
-if (profileForm) {
-    const editButton = profileForm.querySelector('[data-profile-edit-toggle]');
-    const cancelButton = profileForm.querySelector('[data-profile-edit-cancel]');
-    const saveButton = profileForm.querySelector('[data-profile-save]');
+if (profileForm && passwordForm) {
+    const profileEditButton = profileForm.querySelector('[data-profile-edit-toggle]');
+    const profileCancelButton = profileForm.querySelector('[data-profile-edit-cancel]');
+    const profileSaveButton = profileForm.querySelector('[data-profile-save]');
     const profileFields = profileForm.querySelector('[data-profile-fields]');
-    const editableFields = profileForm.querySelectorAll('input[name="name"], input[name="email"], input[name="city"], input[name="avatar_url"]');
+    const profileEditableFields = profileForm.querySelectorAll('input[name="name"], input[name="email"], input[name="city"], input[name="avatar_url"]');
 
-    const setProfileEditMode = (isEditing) => {
-        if (profileFields) {
-            profileFields.hidden = !isEditing;
+    const passwordEditButton = passwordForm.querySelector('[data-password-edit-toggle]');
+    const passwordCancelButton = passwordForm.querySelector('[data-password-edit-cancel]');
+    const passwordSaveButton = passwordForm.querySelector('[data-password-save]');
+    const passwordFields = passwordForm.querySelector('[data-password-fields]');
+    const passwordEditableFields = passwordForm.querySelectorAll('input[name="password"], input[name="password_confirm"]');
+
+    let profileEditing = profileFields ? !profileFields.hidden : false;
+    let passwordEditing = passwordFields ? !passwordFields.hidden : false;
+
+    const setSectionState = (fields, editableFields, isEditing) => {
+        if (fields) {
+            fields.hidden = !isEditing;
+            fields.setAttribute('aria-hidden', isEditing ? 'false' : 'true');
+            fields.style.display = isEditing ? '' : 'none';
         }
 
         editableFields.forEach((field) => {
             field.disabled = !isEditing;
         });
+    };
 
-        if (editButton) {
-            editButton.hidden = isEditing;
+    const renderProfileState = () => {
+        setSectionState(profileFields, profileEditableFields, profileEditing);
+
+        if (profileEditButton) {
+            profileEditButton.hidden = profileEditing || passwordEditing;
         }
 
-        if (cancelButton) {
-            cancelButton.hidden = !isEditing;
+        if (profileCancelButton) {
+            profileCancelButton.hidden = !profileEditing;
         }
 
-        if (saveButton) {
-            saveButton.hidden = !isEditing;
+        if (profileSaveButton) {
+            profileSaveButton.hidden = !profileEditing;
         }
     };
 
-    editButton?.addEventListener('click', () => {
-        setProfileEditMode(true);
+    const renderPasswordState = () => {
+        setSectionState(passwordFields, passwordEditableFields, passwordEditing);
+
+        if (passwordEditButton) {
+            passwordEditButton.hidden = passwordEditing || profileEditing;
+        }
+
+        if (passwordCancelButton) {
+            passwordCancelButton.hidden = !passwordEditing;
+        }
+
+        if (passwordSaveButton) {
+            passwordSaveButton.hidden = !passwordEditing;
+        }
+    };
+
+    const renderAccountModes = () => {
+        renderProfileState();
+        renderPasswordState();
+    };
+
+    profileEditButton?.addEventListener('click', () => {
+        profileEditing = true;
+        passwordEditing = false;
+        renderAccountModes();
     });
 
-    cancelButton?.addEventListener('click', () => {
+    profileCancelButton?.addEventListener('click', () => {
         window.location.reload();
     });
+
+    passwordEditButton?.addEventListener('click', () => {
+        passwordEditing = true;
+        profileEditing = false;
+        renderAccountModes();
+    });
+
+    passwordCancelButton?.addEventListener('click', () => {
+        window.location.reload();
+    });
+
+    renderAccountModes();
 }
 
 const readerNav = document.querySelector('[data-reader-nav]');

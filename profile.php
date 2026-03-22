@@ -12,7 +12,8 @@ $user = refresh_current_user();
 $pageError = null;
 $emailChangeLink = null;
 $pendingEmailChange = null;
-$profileEditMode = $_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'profile';
+$profileEditMode = false;
+$passwordEditMode = false;
 
 if ($user === null) {
     set_flash('Sign in again to continue.', 'warning');
@@ -86,6 +87,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'profile' && $pageError !== null) {
+    $profileEditMode = true;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string) ($_POST['action'] ?? '') === 'password' && $pageError !== null) {
+    $passwordEditMode = true;
+}
+
 if ($pendingEmailChange === null) {
     try {
         $pendingEmailChange = fetch_pending_email_change_request((int) $user['id']);
@@ -110,28 +119,39 @@ require_once __DIR__ . '/includes/header.php';
             <div class="flash flash-warning"><?= e($pageError); ?></div>
         <?php endif; ?>
 
-        <div class="panel">
-            <div class="profile-hero">
-                <?php if (!empty($user['avatar_url'])): ?>
-                    <img class="profile-avatar" src="<?= e((string) $user['avatar_url']); ?>" alt="<?= e((string) ($user['name'] ?? 'Member')); ?> avatar">
-                <?php else: ?>
-                    <div class="profile-avatar profile-avatar-fallback"><?= e(profile_initials((string) ($user['name'] ?? 'Member'))); ?></div>
-                <?php endif; ?>
-
-                <div>
-                    <h2><?= e($user['name'] ?? 'Member'); ?></h2>
-                    <p class="muted-copy"><?= e($user['city'] ?: 'City not set yet'); ?></p>
+        <div class="panel profile-panel">
+            <div class="profile-hero-card">
+                <div class="profile-hero-media">
+                    <div class="profile-avatar-frame">
+                        <?php if (!empty($user['avatar_url'])): ?>
+                            <img class="profile-avatar profile-avatar-large" src="<?= e((string) $user['avatar_url']); ?>" alt="<?= e((string) ($user['name'] ?? 'Member')); ?> avatar">
+                        <?php else: ?>
+                            <div class="profile-avatar profile-avatar-large profile-avatar-fallback"><?= e(profile_initials((string) ($user['name'] ?? 'Member'))); ?></div>
+                        <?php endif; ?>
+                    </div>
                 </div>
-            </div>
 
-            <div class="profile-row">
-                <div>
-                    <strong>Role</strong>
-                    <p><?= e($user['role'] ?? 'member'); ?></p>
-                </div>
-                <div>
-                    <strong>Email changes</strong>
-                    <p>Require approval from a confirmation link</p>
+                <div class="profile-hero-copy">
+                    <span class="profile-badge">Member Profile</span>
+                    <div class="profile-hero-heading">
+                        <h2><?= e($user['name'] ?? 'Member'); ?></h2>
+                        <p class="muted-copy"><?= e($user['city'] ?: 'City not set yet'); ?></p>
+                    </div>
+
+                    <div class="profile-meta-grid">
+                        <div class="profile-meta-card">
+                            <span>Role</span>
+                            <strong><?= e(ucfirst((string) ($user['role'] ?? 'member'))); ?></strong>
+                        </div>
+                        <div class="profile-meta-card">
+                            <span>Email</span>
+                            <strong><?= e((string) ($user['email'] ?? '')); ?></strong>
+                        </div>
+                        <div class="profile-meta-card">
+                            <span>Email changes</span>
+                            <strong>Approval required</strong>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -143,38 +163,51 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form class="top-gap" method="post" data-profile-form>
-                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                <input type="hidden" name="action" value="profile">
-
-                <div class="inline-actions">
-                    <button class="button button-secondary" type="button" data-profile-edit-toggle <?= $profileEditMode ? 'hidden' : ''; ?>>Edit Profile</button>
-                    <button class="button button-secondary" type="button" data-profile-edit-cancel <?= $profileEditMode ? '' : 'hidden'; ?>>Cancel</button>
-                    <button class="button button-primary" type="submit" data-profile-save <?= $profileEditMode ? '' : 'hidden'; ?>>Save Profile</button>
+            <section class="account-action-card top-gap">
+                <div class="panel-heading">
+                    <div>
+                        <h3>Edit profile</h3>
+                        <p class="muted-copy">Update your name, city, avatar, and request an email change.</p>
+                    </div>
                 </div>
 
-                <div class="form-stack top-gap-sm" data-profile-fields <?= $profileEditMode ? '' : 'hidden'; ?>>
-                    <label>
-                        <span>Name</span>
-                        <input type="text" name="name" value="<?= e($user['name'] ?? ''); ?>" required <?= $profileEditMode ? '' : 'disabled'; ?>>
-                    </label>
+                <form method="post" data-profile-form>
+                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                    <input type="hidden" name="action" value="profile">
 
-                    <label>
-                        <span>Email</span>
-                        <input type="email" name="email" value="<?= e($user['email'] ?? ''); ?>" required <?= $profileEditMode ? '' : 'disabled'; ?>>
-                    </label>
+                    <div class="inline-actions profile-actions">
+                        <button class="button button-secondary" type="button" data-profile-edit-toggle <?= $profileEditMode ? 'hidden' : ''; ?>>Edit Profile</button>
+                        <button class="button button-secondary" type="button" data-profile-edit-cancel <?= $profileEditMode ? '' : 'hidden'; ?>>Cancel</button>
+                        <button class="button button-primary" type="submit" data-profile-save <?= $profileEditMode ? '' : 'hidden'; ?>>Save Profile</button>
+                    </div>
 
-                    <label>
-                        <span>City</span>
-                        <input type="text" name="city" value="<?= e($user['city'] ?? ''); ?>" placeholder="Charlotte" <?= $profileEditMode ? '' : 'disabled'; ?>>
-                    </label>
+                    <div
+                        class="form-stack top-gap-sm"
+                        data-profile-fields
+                        <?= $profileEditMode ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>
+                    >
+                        <label>
+                            <span>Name</span>
+                            <input type="text" name="name" value="<?= e($user['name'] ?? ''); ?>" required <?= $profileEditMode ? '' : 'disabled'; ?>>
+                        </label>
 
-                    <label>
-                        <span>Avatar Image URL</span>
-                        <input type="url" name="avatar_url" value="<?= e($user['avatar_url'] ?? ''); ?>" placeholder="https://example.com/avatar.jpg" <?= $profileEditMode ? '' : 'disabled'; ?>>
-                    </label>
-                </div>
-            </form>
+                        <label>
+                            <span>Email</span>
+                            <input type="email" name="email" value="<?= e($user['email'] ?? ''); ?>" required <?= $profileEditMode ? '' : 'disabled'; ?>>
+                        </label>
+
+                        <label>
+                            <span>City</span>
+                            <input type="text" name="city" value="<?= e($user['city'] ?? ''); ?>" placeholder="Charlotte" <?= $profileEditMode ? '' : 'disabled'; ?>>
+                        </label>
+
+                        <label>
+                            <span>Avatar Image URL</span>
+                            <input type="url" name="avatar_url" value="<?= e($user['avatar_url'] ?? ''); ?>" placeholder="https://example.com/avatar.jpg" <?= $profileEditMode ? '' : 'disabled'; ?>>
+                        </label>
+                    </div>
+                </form>
+            </section>
 
             <?php if ($emailChangeLink): ?>
                 <div class="inline-message top-gap-sm">
@@ -184,22 +217,41 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form class="form-stack top-gap" method="post">
-                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                <input type="hidden" name="action" value="password">
+            <section class="account-action-card top-gap">
+                <div class="panel-heading">
+                    <div>
+                        <h3>Change password</h3>
+                        <p class="muted-copy">Open the password form only when you need to update your sign-in credentials.</p>
+                    </div>
+                </div>
 
-                <label>
-                    <span>New Password</span>
-                    <input type="password" name="password" minlength="8" required>
-                </label>
+                <form method="post" data-password-form>
+                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                    <input type="hidden" name="action" value="password">
 
-                <label>
-                    <span>Confirm Password</span>
-                    <input type="password" name="password_confirm" minlength="8" required>
-                </label>
+                    <div class="inline-actions profile-actions">
+                        <button class="button button-secondary" type="button" data-password-edit-toggle <?= $passwordEditMode ? 'hidden' : ''; ?>>Change Password</button>
+                        <button class="button button-secondary" type="button" data-password-edit-cancel <?= $passwordEditMode ? '' : 'hidden'; ?>>Cancel</button>
+                        <button class="button button-primary" type="submit" data-password-save <?= $passwordEditMode ? '' : 'hidden'; ?>>Update Password</button>
+                    </div>
 
-                <button class="button button-secondary" type="submit">Update Password</button>
-            </form>
+                    <div
+                        class="form-stack top-gap-sm"
+                        data-password-fields
+                        <?= $passwordEditMode ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>
+                    >
+                        <label>
+                            <span>New Password</span>
+                            <input type="password" name="password" minlength="8" required <?= $passwordEditMode ? '' : 'disabled'; ?>>
+                        </label>
+
+                        <label>
+                            <span>Confirm Password</span>
+                            <input type="password" name="password_confirm" minlength="8" required <?= $passwordEditMode ? '' : 'disabled'; ?>>
+                        </label>
+                    </div>
+                </form>
+            </section>
         </div>
     </div>
 </section>
