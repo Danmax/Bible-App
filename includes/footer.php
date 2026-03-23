@@ -27,6 +27,6 @@ declare(strict_types=1);
         </footer>
     </div>
 
-    <script src="<?= e(app_url('assets/js/app.js')); ?>"></script>
+    <script src="<?= e(asset_url('assets/js/app.js')); ?>"></script>
 </body>
 </html>

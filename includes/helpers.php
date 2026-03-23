@@ -127,6 +127,25 @@ function current_request_base_url(): string
     return $scheme . '://' . $host;
 }
 
+function asset_url(string $path): string
+{
+    $relativePath = ltrim($path, '/');
+    $url = app_url($relativePath);
+    $filePath = dirname(__DIR__) . '/' . $relativePath;
+
+    if (!is_file($filePath)) {
+        return $url;
+    }
+
+    $version = filemtime($filePath);
+
+    if ($version === false) {
+        return $url;
+    }
+
+    return $url . '?v=' . $version;
+}
+
 function e(?string $value): string
 {
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');

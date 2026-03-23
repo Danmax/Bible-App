@@ -17,28 +17,22 @@ $user = current_user();
     <meta name="application-name" content="<?= e(APP_NAME); ?>">
     <meta name="apple-mobile-web-app-title" content="<?= e(APP_NAME); ?>">
     <meta name="theme-color" content="#d7a035">
-    <link rel="icon" type="image/x-icon" href="<?= e(app_url('assets/icons/favicon.ico')); ?>">
-    <link rel="icon" type="image/png" sizes="32x32" href="<?= e(app_url('assets/icons/favicon-32x32.png')); ?>">
-    <link rel="icon" type="image/png" sizes="16x16" href="<?= e(app_url('assets/icons/favicon-16x16.png')); ?>">
-    <link rel="apple-touch-icon" sizes="180x180" href="<?= e(app_url('assets/icons/apple-touch-icon.png')); ?>">
-    <link rel="manifest" href="<?= e(app_url('assets/icons/site.webmanifest')); ?>">
+    <link rel="icon" type="image/x-icon" href="<?= e(asset_url('assets/icons/favicon.ico')); ?>">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= e(asset_url('assets/icons/favicon-32x32.png')); ?>">
+    <link rel="icon" type="image/png" sizes="16x16" href="<?= e(asset_url('assets/icons/favicon-16x16.png')); ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= e(asset_url('assets/icons/apple-touch-icon.png')); ?>">
+    <link rel="manifest" href="<?= e(asset_url('assets/icons/site.webmanifest')); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bree+Serif&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= e(app_url('assets/css/style.css')); ?>">
+    <link rel="stylesheet" href="<?= e(asset_url('assets/css/style.css')); ?>">
 </head>
 <body>
     <div class="page-shell">
         <header class="site-header">
             <div class="container header-row">
                 <a class="brand" href="<?= e(app_url('index.php')); ?>">
-                    <img
-                        class="brand-logo"
-                        src="<?= e(app_url('assets/icons/app-icon-192.png')); ?>"
-                        alt="<?= e(APP_NAME); ?> logo"
-                        width="56"
-                        height="56"
-                    >
+                    <span class="brand-mark">STWB</span>
                     <span>
                         <strong><?= e(APP_NAME); ?></strong>
                         <small>Study The Word Bible</small>
