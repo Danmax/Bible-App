@@ -1,75 +1,59 @@
 # Good News Bible
 
-Good News Bible is a PHP + MySQL Bible study application built for shared hosting and mobile-first use. The app includes a Bible reader, bookmarks, notes, planner tools, community events, prayer requests, profile management, and hardened local authentication.
+Good News Bible is a PHP + MySQL Bible study app focused on reading, prayer, notes, planning, and community. It is built for straightforward PHP hosting, mobile use, and gradual feature growth without a heavy framework.
 
-## Stack
+## Overview
 
-- PHP 8+
+- Bible reader with quick reference search like `John 3:16` and `Daniel 6:20-24`
+- Verse view and paragraph view reader modes
+- Compact chapter and verse navigation with previous/next stepping
+- Bookmarks, highlights, verse notes, and voice note support
+- Good News hub for devotionals, events, plans, feed, celebrations, and prayer
+- Prayer request workflow with voice input and AI draft support
+- Planner with calendar views, modal event creation, and goal tracking
+- Community events with AI-assisted drafting and calendar `.ics` export
+- Local authentication with profile management, password reset, and active sessions
+- Friends, saved verses, dashboard, and notes surfaces
+
+## Tech Stack
+
+- PHP 8.4+ recommended
 - MySQL
 - Vanilla JavaScript
-- HTML + CSS
-
-## Current Highlights
-
-- Bible reader with quick reference search such as `John 3:16` or `Daniel 6:20-24`
-- Verse view and paragraph view modes
-- Previous/next verse navigation with in-page verse targeting and compact chapter/verse jump controls
-- Voice-enabled Bible search and spoken bookmark notes
-- Bookmarks, highlights, and notes tied to verses
-- Dynamic themed scripture series on the Bible landing state
-- Good News hub with section links for news, events, devotionals, SOAP, plans, feed, celebrations, and prayer
-- Dedicated prayer request page with voice input and AI-assisted drafting
-- Planner calendar with modal quick-add, voice event drafting, and voice goal drafting
-- Community events with AI-assisted event drafting and calendar `.ics` downloads
-- Profile editing, password change flow, and active session management
-- Friends, dashboard, saved study, and notes surfaces with collapsible action panels
-- Security hardening for auth, rate limiting, session tracking, and audit logging
+- HTML and CSS
 
 ## Supported Bible Translations
-
-The app currently supports local translations including:
 
 - `MSB`
 - `KJV`
 - `WEB`
 - `NLT`
 
-`MSB` is configured as the default translation.
+Default translation: `MSB`
 
-## Project Structure
+## Key Pages
 
-```text
-.
-├── assets/
-├── includes/
-├── scripts/
-├── sql/
-├── index.php
-├── bible.php
-├── community.php
-├── planner.php
-├── dashboard.php
-├── bookmarks.php
-├── good-news.php
-├── notes.php
-├── prayer.php
-├── profile.php
-├── login.php
-├── register.php
-├── forgot-password.php
-├── reset-password.php
-└── friends.php
-```
+- `index.php`: landing page
+- `bible.php`: Bible reader
+- `good-news.php`: Good News hub
+- `community.php`: events and community feed
+- `planner.php`: planner and calendar
+- `prayer.php`: prayer requests
+- `dashboard.php`: signed-in overview
+- `bookmarks.php`: saved verses
+- `notes.php`: notes
+- `friends.php`: friend invites and connections
+- `profile.php`: profile, password, and sessions
 
 ## Local Setup
 
 1. Create a MySQL database.
 2. Import `sql/schema.sql`.
-3. Create a local env file from `.env.example`.
-4. Set database credentials and app settings.
-5. Start PHP locally from the repo root.
+3. Copy `.env.example` to `.env.local`.
+4. Fill in database and app settings.
+5. Start the PHP server from the repo root.
 
-Example local env:
+Example `.env.local`:
 
 ```env
 APP_BASE_URL=http://127.0.0.1:8003
@@ -81,52 +65,36 @@ DB_USER=root
 DB_PASS=
 ```
 
-Example local server:
+Run locally:
 
 ```bash
 php -S 127.0.0.1:8003
 ```
 
-Then open:
+Open:
 
 ```text
 http://127.0.0.1:8003
 ```
 
-## Migrations
+## Environment Notes
 
-If you are updating an existing database, run the applicable SQL files in `sql/` after `schema.sql`.
+Important app settings include:
 
-Recent migrations include:
-
-- `sql/add_phase2_authorization_audit.sql`
-- `sql/add_phase3_user_sessions.sql`
-
-## Bible Import Scripts
-
-The app includes import tools for loading additional Bible text into the `verses` table.
-
-Available scripts:
-
-- `scripts/import_translation_vpl.php`
-- `scripts/import_translation_reference_text.php`
-
-Examples:
-
-```bash
-php scripts/import_translation_vpl.php WEB /path/to/translation.vpl
-php scripts/import_translation_reference_text.php MSB /path/to/msb.txt
-```
-
-Shared helpers live in:
-
-```text
-scripts/import_translation_helpers.php
-```
+- `APP_BASE_URL`
+- `APP_ENV`
+- `APP_DEBUG_LINKS`
+- `APP_DEFAULT_TRANSLATION`
+- `OPENAI_API_KEY`
+- `OPENAI_EVENT_MODEL`
+- `DB_HOST`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASS`
 
 ## AI And Voice Features
 
-The app includes optional OpenAI-assisted drafting and browser speech input for:
+Optional OpenAI-assisted drafting and browser speech input are used for:
 
 - community event drafts
 - planner event drafts
@@ -136,27 +104,17 @@ The app includes optional OpenAI-assisted drafting and browser speech input for:
 - notes
 - bookmark notes
 
-Set `OPENAI_API_KEY` in `.env.local` to enable model-backed drafting. Voice input depends on browser speech-recognition support.
-
-## Security Notes
-
-- Passwords are hashed with PHP password hashing helpers.
-- Sensitive auth flows are rate-limited.
-- Session records can be stored and revoked server-side.
-- Audit logging is available for sensitive account and community actions.
-- Production should use a fixed `APP_BASE_URL`.
+Set `OPENAI_API_KEY` in `.env.local` to enable model-based drafting. Voice input depends on browser speech-recognition support.
 
 ## Email Delivery
 
-The app now supports SMTP delivery for:
+The app includes SMTP delivery support for:
 
 - password reset emails
-- email-change confirmation emails
+- email change confirmation emails
 - friend invite emails
 
-For a Google Workspace account that does not allow app passwords, use Google Workspace SMTP relay instead of authenticated Gmail SMTP. If relay setup is still pending, the app can continue using local debug links during development.
-
-Recommended `.env.local` settings:
+Recommended Google Workspace relay configuration:
 
 ```env
 APP_MAIL_FROM_EMAIL=goodnews@frowear.com
@@ -169,27 +127,69 @@ SMTP_ENCRYPTION=tls
 SMTP_TIMEOUT=15
 ```
 
-In Google Admin, configure the relay to allow mail from your app server IP and permit sending as `goodnews@frowear.com`.
+If relay setup is not ready yet, local debug links can still be used during development with `APP_DEBUG_LINKS=true`.
 
-If SMTP is not configured, the app keeps working and local debug links remain available when `APP_DEBUG_LINKS=true`.
+## Security
+
+- Passwords are stored with PHP password hashing
+- CSRF protection is enforced on form posts
+- Sensitive auth flows are rate-limited
+- Session records can be tracked and revoked server-side
+- Audit logging exists for sensitive account and community actions
+- Production should use a fixed `APP_BASE_URL`
+
+## Migrations
+
+If you are updating an existing database, run the applicable SQL files in `sql/` after `schema.sql`.
+
+Recent migrations:
+
+- `sql/add_phase2_authorization_audit.sql`
+- `sql/add_phase3_user_sessions.sql`
+
+## Bible Import Scripts
+
+The app includes import tools for adding Bible text into the `verses` table.
+
+Available scripts:
+
+- `scripts/import_translation_vpl.php`
+- `scripts/import_translation_reference_text.php`
+- `scripts/import_translation_helpers.php`
+
+Examples:
+
+```bash
+php scripts/import_translation_vpl.php WEB /path/to/translation.vpl
+php scripts/import_translation_reference_text.php MSB /path/to/msb.txt
+```
+
+## Assets
+
+App icons and favicon assets live in `assets/icons/`. The icon set can be regenerated with:
+
+```bash
+php scripts/generate_app_icons.php
+```
 
 ## Deployment
 
-This project is designed to deploy directly to standard PHP hosting such as Hostinger.
+This project is designed to deploy directly to standard PHP hosting.
+
+Recommended production target: `PHP 8.4`
 
 See:
 
 - `DEPLOY_HOSTINGER.md`
 
-## Status
+## Current Direction
 
-This repository is under active iteration. Current work has focused on:
+Current work has focused on:
 
-- app rebrand to Good News Bible / STWB
-- Bible reader UX improvements
+- Good News Bible / STWB branding
+- Bible reader UX and mobile controls
 - Good News and prayer surfaces
-- planner and community AI/voice workflows
-- profile/settings UX cleanup
-- auth hardening and session controls
-- calendar export for events
-- translation import support for WEB and MSB
+- planner and community AI workflows
+- profile and session controls
+- event calendar export
+- translation support for WEB and MSB
