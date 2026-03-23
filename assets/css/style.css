@@ -84,6 +84,15 @@ main {
     gap: 0.9rem;
 }
 
+.brand-logo {
+    width: 3.5rem;
+    height: 3.5rem;
+    flex: 0 0 auto;
+    display: block;
+    border-radius: 20px;
+    box-shadow: 0 10px 24px rgba(92, 57, 25, 0.18);
+}
+
 .brand strong {
     display: block;
     font-family: "Bree Serif", serif;
@@ -137,6 +146,10 @@ main {
 
 .more-nav {
     position: relative;
+}
+
+.more-nav-mobile {
+    display: none;
 }
 
 .more-nav summary {
@@ -1722,6 +1735,12 @@ textarea {
         display: inline-flex;
     }
 
+    .brand-logo {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 16px;
+    }
+
     .primary-nav {
         position: absolute;
         top: calc(100% + 0.5rem);
@@ -1748,18 +1767,18 @@ textarea {
     }
 
     .more-nav {
+        display: none;
+    }
+
+    .more-nav-mobile {
+        display: flex;
         width: 100%;
+        flex-direction: column;
+        gap: 0.5rem;
     }
 
-    .more-nav-menu {
-        position: static;
-        min-width: 0;
-        margin-top: 0.45rem;
-        box-shadow: none;
-    }
-
-    .more-nav-menu a {
-        justify-content: center;
+    .more-nav-mobile a {
+        text-align: center;
     }
 
     .hero,

@@ -14,6 +14,14 @@ $user = current_user();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e(page_title($pageTitle)); ?></title>
     <meta name="description" content="Good News Bible is a warm, mobile-first Bible study app with bookmarks, planner tools, and community events.">
+    <meta name="application-name" content="<?= e(APP_NAME); ?>">
+    <meta name="apple-mobile-web-app-title" content="<?= e(APP_NAME); ?>">
+    <meta name="theme-color" content="#d7a035">
+    <link rel="icon" type="image/x-icon" href="<?= e(app_url('assets/icons/favicon.ico')); ?>">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= e(app_url('assets/icons/favicon-32x32.png')); ?>">
+    <link rel="icon" type="image/png" sizes="16x16" href="<?= e(app_url('assets/icons/favicon-16x16.png')); ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= e(app_url('assets/icons/apple-touch-icon.png')); ?>">
+    <link rel="manifest" href="<?= e(app_url('assets/icons/site.webmanifest')); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bree+Serif&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
@@ -24,7 +32,13 @@ $user = current_user();
         <header class="site-header">
             <div class="container header-row">
                 <a class="brand" href="<?= e(app_url('index.php')); ?>">
-                    <span class="brand-mark">STWB</span>
+                    <img
+                        class="brand-logo"
+                        src="<?= e(app_url('assets/icons/app-icon-192.png')); ?>"
+                        alt="<?= e(APP_NAME); ?> logo"
+                        width="56"
+                        height="56"
+                    >
                     <span>
                         <strong><?= e(APP_NAME); ?></strong>
                         <small>Study The Word Bible</small>
@@ -43,25 +57,97 @@ $user = current_user();
                     <?php
                     $morePages = ['planner', 'dashboard', 'friends', 'bookmarks', 'notes', 'prayer', 'profile'];
                     $moreIsActive = in_array($activePage, $morePages, true);
+                    $moreLinks = [
+                        [
+                            'label' => 'Planner',
+                            'href' => app_url('planner.php'),
+                            'active' => $activePage === 'planner',
+                            'class' => '',
+                        ],
+                    ];
+
+                    if (is_logged_in()) {
+                        $moreLinks[] = [
+                            'label' => 'Dashboard',
+                            'href' => app_url('dashboard.php'),
+                            'active' => $activePage === 'dashboard',
+                            'class' => '',
+                        ];
+                        $moreLinks[] = [
+                            'label' => 'Friends',
+                            'href' => app_url('friends.php'),
+                            'active' => $activePage === 'friends',
+                            'class' => '',
+                        ];
+                        $moreLinks[] = [
+                            'label' => 'Saved',
+                            'href' => app_url('bookmarks.php'),
+                            'active' => $activePage === 'bookmarks',
+                            'class' => '',
+                        ];
+                        $moreLinks[] = [
+                            'label' => 'Notes',
+                            'href' => app_url('notes.php'),
+                            'active' => $activePage === 'notes',
+                            'class' => '',
+                        ];
+                        $moreLinks[] = [
+                            'label' => 'Prayer',
+                            'href' => app_url('prayer.php'),
+                            'active' => $activePage === 'prayer',
+                            'class' => '',
+                        ];
+                        $moreLinks[] = [
+                            'label' => 'Profile',
+                            'href' => app_url('profile.php'),
+                            'active' => $activePage === 'profile',
+                            'class' => '',
+                        ];
+                        $moreLinks[] = [
+                            'label' => 'Logout',
+                            'href' => app_url('logout.php'),
+                            'active' => false,
+                            'class' => 'nav-action',
+                        ];
+                    } else {
+                        $moreLinks[] = [
+                            'label' => 'Login',
+                            'href' => app_url('login.php'),
+                            'active' => false,
+                            'class' => '',
+                        ];
+                        $moreLinks[] = [
+                            'label' => 'Create Account',
+                            'href' => app_url('register.php'),
+                            'active' => false,
+                            'class' => 'nav-action',
+                        ];
+                    }
                     ?>
                     <details class="more-nav">
                         <summary class="<?= $moreIsActive ? 'is-active' : ''; ?>">More</summary>
                         <div class="more-nav-menu">
-                            <a class="<?= $activePage === 'planner' ? 'is-active' : ''; ?>" href="<?= e(app_url('planner.php')); ?>">Planner</a>
-                            <?php if (is_logged_in()): ?>
-                                <a class="<?= $activePage === 'dashboard' ? 'is-active' : ''; ?>" href="<?= e(app_url('dashboard.php')); ?>">Dashboard</a>
-                                <a class="<?= $activePage === 'friends' ? 'is-active' : ''; ?>" href="<?= e(app_url('friends.php')); ?>">Friends</a>
-                                <a class="<?= $activePage === 'bookmarks' ? 'is-active' : ''; ?>" href="<?= e(app_url('bookmarks.php')); ?>">Saved</a>
-                                <a class="<?= $activePage === 'notes' ? 'is-active' : ''; ?>" href="<?= e(app_url('notes.php')); ?>">Notes</a>
-                                <a class="<?= $activePage === 'prayer' ? 'is-active' : ''; ?>" href="<?= e(app_url('prayer.php')); ?>">Prayer</a>
-                                <a class="<?= $activePage === 'profile' ? 'is-active' : ''; ?>" href="<?= e(app_url('profile.php')); ?>">Profile</a>
-                                <a class="nav-action" href="<?= e(app_url('logout.php')); ?>">Logout</a>
-                            <?php else: ?>
-                                <a href="<?= e(app_url('login.php')); ?>">Login</a>
-                                <a class="nav-action" href="<?= e(app_url('register.php')); ?>">Create Account</a>
-                            <?php endif; ?>
+                            <?php foreach ($moreLinks as $link): ?>
+                                <a
+                                    class="<?= e(trim(($link['active'] ? 'is-active ' : '') . $link['class'])); ?>"
+                                    href="<?= e($link['href']); ?>"
+                                >
+                                    <?= e($link['label']); ?>
+                                </a>
+                            <?php endforeach; ?>
                         </div>
                     </details>
+
+                    <div class="more-nav-mobile" aria-label="More">
+                        <?php foreach ($moreLinks as $link): ?>
+                            <a
+                                class="<?= e(trim(($link['active'] ? 'is-active ' : '') . $link['class'])); ?>"
+                                href="<?= e($link['href']); ?>"
+                            >
+                                <?= e($link['label']); ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
                 </nav>
             </div>
         </header>
