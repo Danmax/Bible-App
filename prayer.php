@@ -18,6 +18,7 @@ $prayerForm = [
     'details' => '',
     'status' => 'active',
 ];
+$prayerAiEnabled = openai_event_drafts_enabled();
 
 if ($user === null) {
     set_flash('Sign in again to continue.', 'warning');
@@ -128,7 +129,7 @@ require_once __DIR__ . '/includes/header.php';
                         <h2>New prayer request</h2>
                         <p class="muted-copy">Use voice and the model to draft a request, then save it for ongoing prayer.</p>
                     </div>
-                    <span class="mini-card"><?= e(strtoupper(openai_event_model())); ?></span>
+                    <span class="mini-card"><?= e($prayerAiEnabled ? strtoupper(openai_event_model()) : 'AI OFF'); ?></span>
                 </div>
 
                 <?php if ($prayerError): ?>
@@ -153,12 +154,16 @@ require_once __DIR__ . '/includes/header.php';
                     </label>
 
                     <div class="inline-actions">
-                        <button class="button button-secondary" type="button" data-ai-voice-start>Start Voice</button>
+                        <button class="button button-secondary" type="button" data-ai-voice-start <?= $prayerAiEnabled ? '' : 'disabled'; ?>>Start Voice</button>
                         <button class="button button-secondary" type="button" data-ai-voice-stop hidden>Stop</button>
-                        <button class="button button-primary" type="button" data-ai-generate>Create Draft</button>
+                        <button class="button button-primary" type="button" data-ai-generate <?= $prayerAiEnabled ? '' : 'disabled'; ?>>Create Draft</button>
                     </div>
 
-                    <p class="muted-copy" data-ai-status>Ready to draft a prayer request.</p>
+                    <p class="muted-copy" data-ai-status>
+                        <?= $prayerAiEnabled
+                            ? 'Ready to draft a prayer request.'
+                            : 'Add OPENAI_API_KEY to enable prayer drafting.'; ?>
+                    </p>
                 </div>
 
                 <form class="form-stack compact-form" method="post" data-ai-event-form>

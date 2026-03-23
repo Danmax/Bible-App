@@ -97,6 +97,7 @@ $devotionals = good_news_devotionals();
 $prayerFocuses = good_news_prayer_focuses();
 $celebrations = good_news_celebrations();
 $currentYear = (int) date('Y');
+$prayerPageUrl = app_url($user !== null ? 'prayer.php' : 'login.php');
 try {
     $upcomingEvents = fetch_upcoming_events(4);
 
@@ -168,10 +169,10 @@ require_once __DIR__ . '/includes/header.php';
                 <h3>SOAP</h3>
                 <p>Scripture, observation, application, and prayer in one repeatable flow.</p>
             </a>
-            <a class="dashboard-card good-news-tile good-news-tile-link" href="<?= e(app_url('prayer.php')); ?>">
+            <a class="dashboard-card good-news-tile good-news-tile-link" href="<?= e($prayerPageUrl); ?>">
                 <span class="feature-icon">PR</span>
                 <h3>Prayer Request</h3>
-                <p>Keep current burdens visible and move requests into prayer quickly.</p>
+                <p><?= e($user !== null ? 'Keep current burdens visible and move requests into prayer quickly.' : 'Sign in to save prayer requests, drafts, and answered updates.'); ?></p>
             </a>
             <a class="dashboard-card good-news-tile good-news-tile-link" href="#good-news-plans">
                 <span class="feature-icon">PL</span>
@@ -305,7 +306,7 @@ require_once __DIR__ . '/includes/header.php';
                         <h2>Prayer request</h2>
                         <p class="muted-copy">Open the full prayer request page to save burdens, speak drafts, and track answered prayer.</p>
                     </div>
-                    <a class="button button-secondary" href="<?= e(app_url($user !== null ? 'prayer.php' : 'login.php')); ?>"><?= $user !== null ? 'Open Prayer' : 'Sign In'; ?></a>
+                    <a class="button button-secondary" href="<?= e($prayerPageUrl); ?>"><?= $user !== null ? 'Open Prayer' : 'Sign In'; ?></a>
                 </div>
 
                 <?php if ($user !== null): ?>

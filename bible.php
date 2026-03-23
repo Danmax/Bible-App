@@ -390,7 +390,7 @@ require_once __DIR__ . '/includes/header.php';
                     <span>books loaded</span>
                 </div>
                 <div class="quick-stat">
-                    <strong><?= e($selectedBook ? (string) $selectedChapter : '0'); ?></strong>
+                    <strong><?= e($selectedBook ? (string) $selectedChapter : 'Browse'); ?></strong>
                     <span>current chapter</span>
                 </div>
             </div>

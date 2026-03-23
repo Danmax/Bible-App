@@ -95,10 +95,59 @@ const modalCloseParamMap = {
     event: ['edit_event'],
     note: ['edit', 'verse_id'],
 };
+const modalOpenerMap = new WeakMap();
 
 const syncModalBodyLock = () => {
     const hasOpenModal = Array.from(document.querySelectorAll('[data-panel-modal]')).some((panel) => !panel.hidden);
     document.body.classList.toggle('modal-open', hasOpenModal);
+};
+
+const getFocusableModalElements = (panel) => {
+    if (!(panel instanceof HTMLElement)) {
+        return [];
+    }
+
+    return Array.from(panel.querySelectorAll(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter((element) => element instanceof HTMLElement && !element.hidden && element.offsetParent !== null);
+};
+
+const focusModalPanel = (panel) => {
+    if (!(panel instanceof HTMLElement)) {
+        return;
+    }
+
+    window.requestAnimationFrame(() => {
+        const focusableElements = getFocusableModalElements(panel);
+        const firstFocusableElement = focusableElements[0];
+
+        if (firstFocusableElement instanceof HTMLElement) {
+            firstFocusableElement.focus();
+            return;
+        }
+
+        panel.setAttribute('tabindex', '-1');
+        panel.focus();
+    });
+};
+
+const rememberModalOpener = (panel, opener) => {
+    if (panel instanceof HTMLElement && opener instanceof HTMLElement) {
+        modalOpenerMap.set(panel, opener);
+    }
+};
+
+const restoreModalFocus = (panel) => {
+    if (!(panel instanceof HTMLElement)) {
+        return;
+    }
+
+    const opener = modalOpenerMap.get(panel);
+
+    if (opener instanceof HTMLElement) {
+        opener.focus();
+        modalOpenerMap.delete(panel);
+    }
 };
 
 const syncCloseParamsFromUrl = (panelName) => {
@@ -138,6 +187,15 @@ panelGroups.forEach((panelGroup) => {
         panel.hidden = !shouldOpen;
         panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
         panel.style.display = shouldOpen ? (panel.hasAttribute('data-panel-modal') ? 'flex' : '') : 'none';
+
+        if (panel.hasAttribute('data-panel-modal')) {
+            if (shouldOpen) {
+                focusModalPanel(panel);
+            } else {
+                restoreModalFocus(panel);
+            }
+        }
+
         syncModalBodyLock();
     };
 
@@ -204,9 +262,14 @@ panelGroups.forEach((panelGroup) => {
             }
 
             const shouldOpen = panel.hidden;
+
+            if (shouldOpen && panel.hasAttribute('data-panel-modal')) {
+                rememberModalOpener(panel, button);
+            }
+
             setPanelState(panelName, shouldOpen);
 
-            if (shouldOpen) {
+            if (shouldOpen && !panel.hasAttribute('data-panel-modal')) {
                 panel.scrollIntoView({
                     block: 'start',
                     behavior: 'smooth',
@@ -258,12 +321,43 @@ document.querySelectorAll('[data-panel-modal]').forEach((modalPanel) => {
             syncCloseParamsFromUrl(panelName);
         }
 
+        restoreModalFocus(modalPanel);
         syncModalBodyLock();
     });
 });
 
 document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') {
+        if (event.key !== 'Tab') {
+            return;
+        }
+
+        const openModals = Array.from(document.querySelectorAll('[data-panel-modal]')).filter((panel) => !panel.hidden);
+        const lastOpenModal = openModals[openModals.length - 1];
+
+        if (!(lastOpenModal instanceof HTMLElement)) {
+            return;
+        }
+
+        const focusableElements = getFocusableModalElements(lastOpenModal);
+
+        if (focusableElements.length === 0) {
+            event.preventDefault();
+            return;
+        }
+
+        const firstFocusableElement = focusableElements[0];
+        const lastFocusableElement = focusableElements[focusableElements.length - 1];
+        const activeElement = document.activeElement;
+
+        if (event.shiftKey && activeElement === firstFocusableElement) {
+            event.preventDefault();
+            lastFocusableElement.focus();
+        } else if (!event.shiftKey && activeElement === lastFocusableElement) {
+            event.preventDefault();
+            firstFocusableElement.focus();
+        }
+
         return;
     }
 
@@ -291,6 +385,7 @@ document.addEventListener('keydown', (event) => {
         syncCloseParamsFromUrl(panelName);
     }
 
+    restoreModalFocus(lastOpenModal);
     syncModalBodyLock();
 });
 
@@ -499,9 +594,11 @@ plannerQuickTriggers.forEach((button) => {
         const mode = button.getAttribute('data-planner-quick-mode') || 'manual';
 
         if (eventPanel instanceof HTMLElement) {
+            rememberModalOpener(eventPanel, button);
             eventPanel.hidden = false;
             eventPanel.setAttribute('aria-hidden', 'false');
             eventPanel.style.display = eventPanel.hasAttribute('data-panel-modal') ? 'flex' : '';
+            focusModalPanel(eventPanel);
         }
 
         if (eventToggle instanceof HTMLButtonElement) {
