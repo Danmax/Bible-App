@@ -389,6 +389,185 @@ document.addEventListener('keydown', (event) => {
     syncModalBodyLock();
 });
 
+const createVoiceRecorder = ({
+    triggerButton,
+    stopButton,
+    statusNode,
+    csrfInput,
+    onTranscript,
+    listeningMessage,
+    successMessage,
+    unsupportedMessage,
+}) => {
+    const MediaRecorderApi = window.MediaRecorder;
+    const mediaDevices = navigator.mediaDevices;
+    const canRecord = Boolean(MediaRecorderApi && mediaDevices && typeof mediaDevices.getUserMedia === 'function');
+    let mediaRecorder = null;
+    let mediaStream = null;
+    let audioChunks = [];
+
+    const setStatus = (message) => {
+        if (statusNode instanceof HTMLElement) {
+            statusNode.textContent = message;
+        }
+    };
+
+    const stopMediaTracks = () => {
+        if (mediaStream instanceof MediaStream) {
+            mediaStream.getTracks().forEach((track) => track.stop());
+        }
+
+        mediaStream = null;
+    };
+
+    const setRecordingState = (isRecording) => {
+        if (triggerButton instanceof HTMLButtonElement) {
+            triggerButton.hidden = isRecording;
+            triggerButton.disabled = !canRecord;
+        }
+
+        if (stopButton instanceof HTMLButtonElement) {
+            stopButton.hidden = !isRecording;
+        }
+    };
+
+    const pickRecordingMimeType = () => {
+        const candidates = [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/mp4',
+            'audio/mpeg',
+        ];
+
+        for (const candidate of candidates) {
+            if (typeof MediaRecorderApi?.isTypeSupported === 'function' && MediaRecorderApi.isTypeSupported(candidate)) {
+                return candidate;
+            }
+        }
+
+        return '';
+    };
+
+    const uploadRecording = async () => {
+        if (!(csrfInput instanceof HTMLInputElement) || audioChunks.length === 0) {
+            throw new Error('Record audio first, then try again.');
+        }
+
+        const mimeType = mediaRecorder?.mimeType || pickRecordingMimeType() || 'audio/webm';
+        const extension = mimeType.includes('mp4')
+            ? 'mp4'
+            : (mimeType.includes('mpeg') ? 'mp3' : 'webm');
+        const formData = new FormData();
+        const audioBlob = new Blob(audioChunks, { type: mimeType });
+
+        formData.set('csrf_token', csrfInput.value);
+        formData.set('audio', audioBlob, `voice-recording.${extension}`);
+
+        const response = await fetch('voice-transcribe.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        const rawText = await response.text();
+        let payload = null;
+
+        try {
+            payload = rawText ? JSON.parse(rawText) : {};
+        } catch (parseError) {
+            throw new Error(rawText.trim() || 'The voice transcription response was not valid JSON.');
+        }
+
+        if (!response.ok) {
+            throw new Error(payload.error || 'The voice transcription could not be completed.');
+        }
+
+        const transcript = String(payload.text || '').trim();
+
+        if (transcript === '') {
+            throw new Error('The voice transcription was empty.');
+        }
+
+        onTranscript(transcript, payload);
+        setStatus(successMessage(payload));
+    };
+
+    if (!(triggerButton instanceof HTMLButtonElement)) {
+        return {
+            isSupported: false,
+            setUnsupported: () => {},
+        };
+    }
+
+    if (!canRecord) {
+        triggerButton.disabled = true;
+        setStatus(unsupportedMessage);
+
+        return {
+            isSupported: false,
+            setUnsupported: () => setStatus(unsupportedMessage),
+        };
+    }
+
+    triggerButton.addEventListener('click', async () => {
+        try {
+            audioChunks = [];
+            mediaStream = await mediaDevices.getUserMedia({ audio: true });
+
+            const preferredMimeType = pickRecordingMimeType();
+            mediaRecorder = preferredMimeType !== ''
+                ? new MediaRecorderApi(mediaStream, { mimeType: preferredMimeType })
+                : new MediaRecorderApi(mediaStream);
+
+            mediaRecorder.addEventListener('dataavailable', (event) => {
+                if (event.data && event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            });
+
+            mediaRecorder.addEventListener('stop', async () => {
+                setRecordingState(false);
+                stopMediaTracks();
+                setStatus('Transcribing audio...');
+
+                try {
+                    await uploadRecording();
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : 'The voice transcription could not be completed.';
+                    setStatus(message);
+                } finally {
+                    audioChunks = [];
+                    mediaRecorder = null;
+                }
+            });
+
+            setRecordingState(true);
+            setStatus(listeningMessage);
+            mediaRecorder.start();
+        } catch (error) {
+            stopMediaTracks();
+            const message = error instanceof Error ? error.message : 'Microphone access was not granted.';
+            setStatus(message);
+            setRecordingState(false);
+        }
+    });
+
+    stopButton?.addEventListener('click', () => {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+    });
+
+    setRecordingState(false);
+
+    return {
+        isSupported: true,
+        setUnsupported: () => setStatus(unsupportedMessage),
+    };
+};
+
 const aiEventBuilders = document.querySelectorAll('[data-ai-event-builder]');
 
 aiEventBuilders.forEach((aiEventBuilder) => {
@@ -422,7 +601,11 @@ aiEventBuilders.forEach((aiEventBuilder) => {
         }
 
         if (voiceStartButton instanceof HTMLButtonElement) {
-            voiceStartButton.disabled = isGenerating || !SpeechRecognitionApi;
+            voiceStartButton.disabled = isGenerating;
+        }
+
+        if (voiceStopButton instanceof HTMLButtonElement) {
+            voiceStopButton.disabled = isGenerating;
         }
     };
 
@@ -510,6 +693,24 @@ aiEventBuilders.forEach((aiEventBuilder) => {
         }
     });
 
+    const voiceRecorder = createVoiceRecorder({
+        triggerButton: voiceStartButton instanceof HTMLButtonElement ? voiceStartButton : null,
+        stopButton: voiceStopButton instanceof HTMLButtonElement ? voiceStopButton : null,
+        statusNode,
+        csrfInput: csrfInput instanceof HTMLInputElement ? csrfInput : null,
+        onTranscript: (transcript) => {
+            if (!(promptField instanceof HTMLTextAreaElement)) {
+                return;
+            }
+
+            const promptBase = promptField.value.trim();
+            promptField.value = [promptBase, transcript].filter(Boolean).join(promptBase && transcript ? ' ' : '');
+        },
+        listeningMessage: 'Listening... speak your event details.',
+        successMessage: (payload) => `Voice input captured with ${payload.model || 'OpenAI'}. You can edit the prompt or create a draft.`,
+        unsupportedMessage: 'Voice input is not supported in this browser. You can still type a prompt and create a draft.',
+    });
+
     if (SpeechRecognitionApi && promptField instanceof HTMLTextAreaElement) {
         recognition = new SpeechRecognitionApi();
         recognition.lang = 'en-US';
@@ -558,15 +759,19 @@ aiEventBuilders.forEach((aiEventBuilder) => {
         });
 
         voiceStartButton?.addEventListener('click', () => {
-            recognition?.start();
+            try {
+                recognition?.start();
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'Voice input could not start.';
+                setStatus(message);
+            }
         });
 
         voiceStopButton?.addEventListener('click', () => {
             recognition?.stop();
         });
-    } else if (voiceStartButton instanceof HTMLButtonElement) {
-        voiceStartButton.disabled = true;
-        setStatus('Voice input is not supported in this browser. You can still type a prompt and create a draft.');
+    } else if (!voiceRecorder.isSupported) {
+        voiceRecorder.setUnsupported();
     }
 });
 
@@ -719,9 +924,27 @@ voiceSearchGroups.forEach((group) => {
         return;
     }
 
+    const searchForm = group.closest('form');
+    const csrfInput = searchForm?.querySelector('input[name="csrf_token"]');
+    const voiceRecorder = createVoiceRecorder({
+        triggerButton: startButton,
+        stopButton: stopButton instanceof HTMLButtonElement ? stopButton : null,
+        statusNode,
+        csrfInput: csrfInput instanceof HTMLInputElement ? csrfInput : null,
+        onTranscript: (transcript) => {
+            const transcriptBase = input.value.trim();
+            input.value = [transcriptBase, transcript].filter(Boolean).join(transcriptBase && transcript ? ' ' : '');
+        },
+        listeningMessage: 'Listening... say a verse reference or keyword.',
+        successMessage: (payload) => `Voice search captured with ${payload.model || 'OpenAI'}. Press Search when ready.`,
+        unsupportedMessage: 'Voice search is not supported in this browser.',
+    });
+
     if (!SpeechRecognitionApi) {
-        startButton.disabled = true;
-        setStatus('Voice search is not supported in this browser.');
+        if (!voiceRecorder.isSupported) {
+            voiceRecorder.setUnsupported();
+        }
+
         return;
     }
 
@@ -768,7 +991,12 @@ voiceSearchGroups.forEach((group) => {
 
     startButton.addEventListener('click', () => {
         input.focus();
-        recognition?.start();
+        try {
+            recognition?.start();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Voice search could not start.';
+            setStatus(message);
+        }
     });
 
     stopButton?.addEventListener('click', () => {
@@ -797,9 +1025,27 @@ voiceComposeGroups.forEach((group) => {
         return;
     }
 
+    const composeForm = group.closest('form');
+    const csrfInput = composeForm?.querySelector('input[name="csrf_token"]');
+    const voiceRecorder = createVoiceRecorder({
+        triggerButton: startButton,
+        stopButton: stopButton instanceof HTMLButtonElement ? stopButton : null,
+        statusNode,
+        csrfInput: csrfInput instanceof HTMLInputElement ? csrfInput : null,
+        onTranscript: (transcript) => {
+            const transcriptBase = textarea.value.trim();
+            textarea.value = [transcriptBase, transcript].filter(Boolean).join(transcriptBase && transcript ? '\n\n' : '');
+        },
+        listeningMessage: 'Listening... speak your note.',
+        successMessage: (payload) => `Voice note captured with ${payload.model || 'OpenAI'}. Keep editing or save when ready.`,
+        unsupportedMessage: 'Voice notes are not supported in this browser.',
+    });
+
     if (!SpeechRecognitionApi) {
-        startButton.disabled = true;
-        setStatus('Voice notes are not supported in this browser.');
+        if (!voiceRecorder.isSupported) {
+            voiceRecorder.setUnsupported();
+        }
+
         return;
     }
 
@@ -846,7 +1092,12 @@ voiceComposeGroups.forEach((group) => {
 
     startButton.addEventListener('click', () => {
         textarea.focus();
-        recognition?.start();
+        try {
+            recognition?.start();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Voice note could not start.';
+            setStatus(message);
+        }
     });
 
     stopButton?.addEventListener('click', () => {

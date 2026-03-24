@@ -444,3 +444,71 @@ function openai_extract_response_text(array $response): string
 
     return trim(implode("\n", $parts));
 }
+
+function openai_transcribe_audio_upload(string $filePath, string $filename, string $mimeType = 'audio/webm'): string
+{
+    if (!openai_event_drafts_enabled()) {
+        throw new RuntimeException('OpenAI transcription is not configured yet.');
+    }
+
+    if (!function_exists('curl_init')) {
+        throw new RuntimeException('Audio transcription requires cURL support on the server.');
+    }
+
+    if (!is_file($filePath) || !is_readable($filePath)) {
+        throw new RuntimeException('The uploaded audio file could not be read.');
+    }
+
+    $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    $safeMimeType = trim($mimeType) !== '' ? $mimeType : 'application/octet-stream';
+    $safeFilename = trim($filename) !== '' ? $filename : 'recording' . ($extension !== '' ? '.' . $extension : '.webm');
+
+    $payload = [
+        'model' => 'gpt-4o-mini-transcribe',
+        'file' => new CURLFile($filePath, $safeMimeType, $safeFilename),
+    ];
+
+    $ch = curl_init('https://api.openai.com/v1/audio/transcriptions');
+
+    if ($ch === false) {
+        throw new RuntimeException('Unable to initialize the OpenAI transcription request.');
+    }
+
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . trim((string) OPENAI_API_KEY),
+        ],
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_TIMEOUT => 60,
+    ]);
+
+    $rawBody = curl_exec($ch);
+    $statusCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if (!is_string($rawBody)) {
+        throw new RuntimeException($curlError !== '' ? $curlError : 'The OpenAI transcription request failed.');
+    }
+
+    $decoded = json_decode($rawBody, true);
+
+    if (!is_array($decoded)) {
+        throw new RuntimeException('OpenAI returned an unreadable transcription response.');
+    }
+
+    if ($statusCode >= 400) {
+        $message = trim((string) ($decoded['error']['message'] ?? 'OpenAI returned a transcription error.'));
+        throw new RuntimeException($message !== '' ? $message : 'OpenAI returned a transcription error.');
+    }
+
+    $text = trim((string) ($decoded['text'] ?? ''));
+
+    if ($text === '') {
+        throw new RuntimeException('The audio transcription was empty.');
+    }
+
+    return $text;
+}
