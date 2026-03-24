@@ -1638,6 +1638,21 @@ textarea {
     gap: 0.75rem;
 }
 
+.reader-nav-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 2.8rem;
+    min-width: 2.8rem;
+    padding-inline: 0.95rem;
+}
+
+.reader-nav-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
 .reader-nav-combined {
     display: flex;
     flex-wrap: wrap;
@@ -1680,9 +1695,21 @@ textarea {
     border: 1px solid rgba(107, 62, 38, 0.08);
 }
 
+.chapter-jump-header {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
 .chapter-jump-title {
     margin: 0;
     white-space: nowrap;
+}
+
+.chapter-book-link {
+    min-height: 2.5rem;
+    padding-inline: 0.85rem;
 }
 
 .chapter-jump-controls {
@@ -1707,6 +1734,10 @@ textarea {
 .chapter-step-button {
     min-width: 0;
     padding-inline: 0.9rem;
+}
+
+.chapter-go-button {
+    font-size: 1rem;
 }
 
 .scripture-series-card {
@@ -2038,6 +2069,83 @@ textarea {
         right: 1rem;
         left: 1rem;
         width: auto;
+    }
+
+    .reader-nav-bar {
+        gap: 0.7rem;
+        padding: 0.8rem;
+    }
+
+    .reader-nav-actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.55rem;
+        width: 100%;
+    }
+
+    .reader-nav-button {
+        min-height: 3rem;
+        padding-inline: 0.5rem;
+        border-radius: 16px;
+    }
+
+    .reader-nav-label {
+        font-size: 0.82rem;
+    }
+
+    .reader-nav-combined {
+        gap: 0.7rem;
+    }
+
+    .reader-nav-combined .chapter-jump-form {
+        flex-basis: 100%;
+    }
+
+    .chapter-jump-card {
+        gap: 0.75rem;
+        padding: 0.75rem;
+        border-radius: 18px;
+    }
+
+    .chapter-jump-header {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .chapter-jump-title {
+        max-width: calc(100% - 4.75rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .chapter-book-link {
+        min-height: 2.75rem;
+        min-width: 3.4rem;
+        padding-inline: 0.8rem;
+    }
+
+    .chapter-jump-controls {
+        display: grid;
+        grid-template-columns: 2.8rem minmax(0, 1fr) minmax(0, 1fr) 2.8rem 2.8rem;
+        gap: 0.45rem;
+        align-items: center;
+    }
+
+    .chapter-jump-label {
+        width: 100%;
+    }
+
+    .chapter-jump-controls select {
+        min-width: 0;
+        width: 100%;
+        min-height: 3rem;
+    }
+
+    .chapter-step-button {
+        min-height: 3rem;
+        padding-inline: 0;
+        font-size: 1.05rem;
+        border-radius: 16px;
     }
 
     .panel-modal {

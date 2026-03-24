@@ -108,6 +108,7 @@ $nextChapterUrl = null;
 $previousVerseUrl = null;
 $nextVerseUrl = null;
 $wholeChapterUrl = null;
+$bookOverviewUrl = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -317,6 +318,14 @@ if ($selectedBook && $bookChapters !== [] && $selectedChapter > 0) {
             ]);
         }
     }
+}
+
+if ($selectedBook) {
+    $bookOverviewUrl = bible_reader_url([
+        'translation' => $selectedTranslation,
+        'book_id' => $selectedBookId,
+        'reader_mode' => $readerMode,
+    ]);
 }
 
 if ($selectedBook && $selectedChapter > 0 && $selectedVerseNumber > 0 && $chapterVerseSet !== []) {
@@ -530,13 +539,22 @@ require_once __DIR__ . '/includes/header.php';
                         <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $selectedChapter > 0): ?>
                             <div class="reader-nav-actions">
                                 <?php if ($previousVerseUrl): ?>
-                                    <a class="button button-secondary" href="<?= e($previousVerseUrl); ?>">Prev Verse</a>
+                                    <a class="button button-secondary reader-nav-button" href="<?= e($previousVerseUrl); ?>" aria-label="Previous verse">
+                                        <span class="reader-nav-icon" aria-hidden="true">&#8249;</span>
+                                        <span class="reader-nav-label">Verse</span>
+                                    </a>
                                 <?php endif; ?>
                                 <?php if ($wholeChapterUrl): ?>
-                                    <a class="button button-secondary" href="<?= e($wholeChapterUrl); ?>">Whole Chapter</a>
+                                    <a class="button button-secondary reader-nav-button" href="<?= e($wholeChapterUrl); ?>" aria-label="Whole chapter">
+                                        <span class="reader-nav-icon" aria-hidden="true">&#9638;</span>
+                                        <span class="reader-nav-label">Chapter</span>
+                                    </a>
                                 <?php endif; ?>
                                 <?php if ($nextVerseUrl): ?>
-                                    <a class="button button-secondary" href="<?= e($nextVerseUrl); ?>">Next Verse</a>
+                                    <a class="button button-secondary reader-nav-button" href="<?= e($nextVerseUrl); ?>" aria-label="Next verse">
+                                        <span class="reader-nav-label">Verse</span>
+                                        <span class="reader-nav-icon" aria-hidden="true">&#8250;</span>
+                                    </a>
                                 <?php endif; ?>
                             </div>
                         <?php endif; ?>
@@ -546,10 +564,15 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="hidden" name="book_id" value="<?= e((string) $selectedBookId); ?>">
                             <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
                             <div class="chapter-jump-card">
-                                <strong class="chapter-jump-title"><?= e((string) $selectedBook['name']); ?></strong>
+                                <div class="chapter-jump-header">
+                                    <strong class="chapter-jump-title"><?= e((string) $selectedBook['name']); ?></strong>
+                                    <?php if ($bookOverviewUrl): ?>
+                                        <a class="mini-card chapter-book-link" href="<?= e($bookOverviewUrl); ?>" aria-label="Open <?= e((string) $selectedBook['name']); ?> overview">Book</a>
+                                    <?php endif; ?>
+                                </div>
                                 <div class="chapter-jump-controls">
                                     <?php if ($previousChapterUrl): ?>
-                                        <a class="button button-secondary chapter-step-button" href="<?= e($previousChapterUrl); ?>" aria-label="Previous chapter">&lt;&lt;</a>
+                                        <a class="button button-secondary chapter-step-button" href="<?= e($previousChapterUrl); ?>" aria-label="Previous chapter">&#8249;</a>
                                     <?php endif; ?>
                                     <label class="chapter-jump-label">
                                         <select name="chapter">
@@ -570,9 +593,9 @@ require_once __DIR__ . '/includes/header.php';
                                             <?php endforeach; ?>
                                         </select>
                                     </label>
-                                    <button class="button button-secondary chapter-step-button" type="submit">Go</button>
+                                    <button class="button button-secondary chapter-step-button chapter-go-button" type="submit" aria-label="Go to selected chapter and verse">&#10148;</button>
                                     <?php if ($nextChapterUrl): ?>
-                                        <a class="button button-secondary chapter-step-button" href="<?= e($nextChapterUrl); ?>" aria-label="Next chapter">&gt;&gt;</a>
+                                        <a class="button button-secondary chapter-step-button" href="<?= e($nextChapterUrl); ?>" aria-label="Next chapter">&#8250;</a>
                                     <?php endif; ?>
                                 </div>
                             </div>
