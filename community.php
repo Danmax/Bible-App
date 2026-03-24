@@ -305,110 +305,109 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <?php if ($user !== null): ?>
-            <div class="community-action-bar top-gap" data-community-panels>
-                <button
-                    class="button button-primary"
-                    type="button"
-                    data-community-panel-toggle="compose"
-                    aria-expanded="<?= $showComposePanel ? 'true' : 'false'; ?>"
-                >
-                    <?= $editingEvent ? 'Edit Event' : 'Create Event'; ?>
-                </button>
-                <button
-                    class="button button-secondary"
-                    type="button"
-                    data-community-panel-toggle="manage"
-                    aria-expanded="false"
-                >
-                    Manage Events
-                </button>
-            </div>
-        <?php endif; ?>
-
-        <?php if ($user !== null): ?>
-            <div
-                class="panel community-manager-panel top-gap-sm"
-                data-community-panel="compose"
-                <?= $showComposePanel ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>
-            >
-                <div class="panel-heading">
-                    <div>
-                        <h2><?= $editingEvent ? 'Edit event' : 'Create event'; ?></h2>
-                        <p class="muted-copy">
-                            Build the shared community calendar from here.
-                        </p>
-                    </div>
-                    <button class="button button-secondary" type="button" data-community-panel-close="compose">Close</button>
+            <div data-community-panels>
+                <div class="community-action-bar top-gap">
+                    <button
+                        class="button button-primary"
+                        type="button"
+                        data-community-panel-toggle="compose"
+                        aria-expanded="<?= $showComposePanel ? 'true' : 'false'; ?>"
+                    >
+                        <?= $editingEvent ? 'Edit Event' : 'Create Event'; ?>
+                    </button>
+                    <button
+                        class="button button-secondary"
+                        type="button"
+                        data-community-panel-toggle="manage"
+                        aria-expanded="false"
+                    >
+                        Manage Events
+                    </button>
                 </div>
 
-                <?php if ($formError): ?>
-                    <div class="flash flash-warning"><?= e($formError); ?></div>
-                <?php endif; ?>
                 <div
-                    class="community-ai-panel"
-                    data-ai-event-builder
-                    data-ai-endpoint="<?= e(app_url('community-ai-event.php')); ?>"
+                    class="panel community-manager-panel top-gap-sm"
+                    data-community-panel="compose"
+                    <?= $showComposePanel ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>
                 >
                     <div class="panel-heading">
                         <div>
-                            <h3>AI Event Draft</h3>
-                            <p class="muted-copy">Speak or type a prompt, then review the generated event draft before saving.</p>
+                            <h2><?= $editingEvent ? 'Edit event' : 'Create event'; ?></h2>
+                            <p class="muted-copy">
+                                Build the shared community calendar from here.
+                            </p>
                         </div>
-                        <span class="pill pill-dark"><?= e(strtoupper(openai_event_model())); ?></span>
+                        <button class="button button-secondary" type="button" data-community-panel-close="compose">Close</button>
                     </div>
 
-                    <label>
-                        Prompt
-                        <textarea
-                            name="ai_prompt"
-                            rows="4"
-                            placeholder="Example: Create a community prayer night next Thursday at 7 PM in the fellowship hall with public visibility."
-                            data-ai-prompt
-                        ></textarea>
-                    </label>
-
-                    <div class="inline-actions top-gap-sm">
-                        <button class="button button-secondary" type="button" data-ai-voice-start <?= openai_event_drafts_enabled() ? '' : 'disabled'; ?>>Voice to Text</button>
-                        <button class="button button-secondary" type="button" data-ai-voice-stop hidden>Stop</button>
-                        <button class="button button-primary" type="button" data-ai-generate <?= openai_event_drafts_enabled() ? '' : 'disabled'; ?>>Create Draft</button>
-                    </div>
-
-                    <p class="muted-copy" data-ai-status>
-                        <?= openai_event_drafts_enabled()
-                            ? 'AI drafting fills the form only. Review and edit the result before publishing.'
-                            : 'Add OPENAI_API_KEY to enable AI event drafting.'; ?>
-                    </p>
-                </div>
-
-                <form
-                    class="form-stack top-gap"
-                    method="post"
-                    action="<?= e(app_url('community.php' . ($editingEvent ? '?edit=' . (int) $editingEvent['id'] : ''))); ?>"
-                    data-community-event-form
-                >
-                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                    <input type="hidden" name="action" value="<?= e($editingEvent ? 'update-event' : 'create-event'); ?>">
-                    <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
-                    <?php if ($editingEvent): ?>
-                        <input type="hidden" name="event_id" value="<?= e((string) $editingEvent['id']); ?>">
+                    <?php if ($formError): ?>
+                        <div class="flash flash-warning"><?= e($formError); ?></div>
                     <?php endif; ?>
+                    <div
+                        class="community-ai-panel"
+                        data-ai-event-builder
+                        data-ai-endpoint="<?= e(app_url('community-ai-event.php')); ?>"
+                    >
+                        <div class="panel-heading">
+                            <div>
+                                <h3>AI Event Draft</h3>
+                                <p class="muted-copy">Speak or type a prompt, then review the generated event draft before saving.</p>
+                            </div>
+                            <span class="pill pill-dark"><?= e(strtoupper(openai_event_model())); ?></span>
+                        </div>
 
-                    <label>
-                        Title
-                        <input name="title" required value="<?= e($formData['title']); ?>" data-ai-field="title">
-                    </label>
+                        <label>
+                            Prompt
+                            <textarea
+                                name="ai_prompt"
+                                rows="4"
+                                placeholder="Example: Create a community prayer night next Thursday at 7 PM in the fellowship hall with public visibility."
+                                data-ai-prompt
+                            ></textarea>
+                        </label>
 
-                    <label>
-                        Category
-                        <select name="category_id" data-ai-field="category_id">
-                            <option value="">Select category</option>
-                            <?php foreach ($categories as $category): ?>
-                                <option value="<?= e((string) $category['id']); ?>" <?= $formData['category_id'] === (string) $category['id'] ? 'selected' : ''; ?>>
-                                    <?= e((string) $category['label']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
+                        <div class="inline-actions top-gap-sm">
+                            <button class="button button-secondary" type="button" data-ai-voice-start <?= openai_event_drafts_enabled() ? '' : 'disabled'; ?>>Voice to Text</button>
+                            <button class="button button-secondary" type="button" data-ai-voice-stop hidden>Stop</button>
+                            <button class="button button-primary" type="button" data-ai-generate <?= openai_event_drafts_enabled() ? '' : 'disabled'; ?>>Create Draft</button>
+                        </div>
+
+                        <p class="muted-copy" data-ai-status>
+                            <?= openai_event_drafts_enabled()
+                                ? 'AI drafting fills the form only. Review and edit the result before publishing.'
+                                : 'Add OPENAI_API_KEY to enable AI event drafting.'; ?>
+                        </p>
+                    </div>
+
+                    <form
+                        class="form-stack top-gap"
+                        method="post"
+                        action="<?= e(app_url('community.php' . ($editingEvent ? '?edit=' . (int) $editingEvent['id'] : ''))); ?>"
+                        data-community-event-form
+                    >
+                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                        <input type="hidden" name="action" value="<?= e($editingEvent ? 'update-event' : 'create-event'); ?>">
+                        <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
+                        <?php if ($editingEvent): ?>
+                            <input type="hidden" name="event_id" value="<?= e((string) $editingEvent['id']); ?>">
+                        <?php endif; ?>
+
+                        <label>
+                            Title
+                            <input name="title" required value="<?= e($formData['title']); ?>" data-ai-field="title">
+                        </label>
+
+                        <label>
+                            Category
+                            <select name="category_id" data-ai-field="category_id">
+                                <option value="">Select category</option>
+                                <?php foreach ($categories as $category): ?>
+                                    <option value="<?= e((string) $category['id']); ?>" <?= $formData['category_id'] === (string) $category['id'] ? 'selected' : ''; ?>>
+                                        <?= e((string) $category['label']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
 
                     <label>
                         Event Type
