@@ -401,11 +401,14 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
 
         <div class="panel bible-control-panel">
-            <form class="form-stack bible-search-form" method="get">
+            <form class="form-stack bible-search-form" method="get" data-translation-switch-form>
                 <div class="search-row search-row-compact" data-voice-search>
                     <input type="search" name="q" value="<?= e($query); ?>" placeholder="Quick search: John 3:28 or grace" data-voice-search-input>
+                    <input type="hidden" name="book_id" value="<?= e($selectedBookId > 0 ? (string) $selectedBookId : ''); ?>">
+                    <input type="hidden" name="chapter" value="<?= e($selectedChapter > 0 ? (string) $selectedChapter : ''); ?>">
+                    <input type="hidden" name="verse" value="<?= e($selectedVerseNumber > 0 ? (string) $selectedVerseNumber : ''); ?>">
                     <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
-                    <select name="translation" aria-label="Translation">
+                    <select name="translation" aria-label="Translation" data-translation-switch>
                         <?php foreach ($translations as $translation): ?>
                             <option value="<?= e($translation); ?>" <?= $selectedTranslation === $translation ? 'selected' : ''; ?>>
                                 <?= e($translation); ?>

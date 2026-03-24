@@ -1038,6 +1038,48 @@ document.querySelectorAll('.chapter-jump-form').forEach((form) => {
     });
 });
 
+document.querySelectorAll('[data-translation-switch-form]').forEach((form) => {
+    if (!(form instanceof HTMLFormElement)) {
+        return;
+    }
+
+    const translationSelect = form.querySelector('[data-translation-switch]');
+
+    if (!(translationSelect instanceof HTMLSelectElement)) {
+        return;
+    }
+
+    translationSelect.addEventListener('change', () => {
+        const verseField = form.querySelector('[name="verse"]');
+        const verseValue = verseField instanceof HTMLInputElement || verseField instanceof HTMLSelectElement
+            ? verseField.value.trim()
+            : '';
+
+        if (verseValue !== '') {
+            const url = new URL(form.getAttribute('action') || window.location.href, window.location.origin);
+            const formData = new FormData(form);
+
+            url.search = '';
+
+            formData.forEach((value, key) => {
+                const normalizedValue = String(value).trim();
+
+                if (normalizedValue !== '') {
+                    url.searchParams.set(key, normalizedValue);
+                }
+            });
+
+            url.hash = `verse-${verseValue}`;
+            window.sessionStorage.setItem('reader-smooth-scroll-target', `#verse-${verseValue}`);
+            window.location.assign(url.toString());
+            return;
+        }
+
+        window.sessionStorage.removeItem('reader-smooth-scroll-target');
+        form.requestSubmit();
+    });
+});
+
 const chapterReader = document.querySelector('[data-chapter-reader]');
 const bookmarkPopup = document.querySelector('[data-bookmark-popup]');
 const bookmarkPopupForm = document.querySelector('[data-bookmark-popup-form]');
