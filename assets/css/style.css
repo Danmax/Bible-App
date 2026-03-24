@@ -1436,6 +1436,30 @@ textarea {
     background: linear-gradient(135deg, var(--gold), var(--accent));
 }
 
+.planner-calendar-toolbar {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.planner-view-switch,
+.planner-nav-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.planner-nav-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+}
+
+.planner-nav-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
 .planner-month-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -1474,6 +1498,16 @@ textarea {
 .planner-week-head strong {
     font-weight: 700;
     color: var(--primary-dark);
+}
+
+.planner-calendar-day-group {
+    display: grid;
+    gap: 0.08rem;
+}
+
+.planner-mobile-weekday,
+.planner-mobile-date {
+    display: none;
 }
 
 .planner-day-head,
@@ -1976,6 +2010,50 @@ textarea {
     .planner-week-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .planner-calendar-head {
+        display: none;
+    }
+
+    .planner-mobile-weekday,
+    .planner-mobile-date {
+        display: block;
+    }
+
+    .planner-calendar-toolbar {
+        gap: 0.7rem;
+    }
+
+    .planner-view-switch,
+    .planner-nav-switch {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.55rem;
+    }
+
+    .planner-nav-switch {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .planner-nav-link {
+        min-height: 3rem;
+        padding-inline: 0.8rem;
+    }
+
+    .planner-calendar-cell,
+    .planner-week-day {
+        min-height: 0;
+    }
+
+    .planner-day-quick-actions {
+        opacity: 1;
+        transform: none;
+    }
+
+    .planner-quick-trigger {
+        width: 2.6rem;
+        height: 2.6rem;
+    }
 }
 
 @media (max-width: 760px) {
@@ -2172,9 +2250,50 @@ textarea {
     .planner-month-grid,
     .planner-week-grid {
         grid-template-columns: 1fr;
+        gap: 0.7rem;
     }
 
-    .planner-calendar-head {
+    .planner-calendar-cell.is-muted {
         display: none;
+    }
+
+    .planner-calendar-cell,
+    .planner-week-day {
+        gap: 0.65rem;
+        padding: 0.8rem;
+        border-radius: 16px;
+    }
+
+    .planner-calendar-day {
+        font-size: 1.45rem;
+        line-height: 1;
+    }
+
+    .planner-mobile-weekday {
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+    }
+
+    .planner-mobile-date {
+        font-size: 0.86rem;
+        color: var(--muted);
+    }
+
+    .planner-calendar-events,
+    .planner-week-events {
+        gap: 0.45rem;
+    }
+
+    .planner-calendar-event {
+        padding: 0.65rem 0.75rem;
+        border-radius: 12px;
+    }
+
+    .planner-calendar-empty,
+    .planner-calendar-more,
+    .planner-week-head span {
+        font-size: 0.85rem;
     }
 }

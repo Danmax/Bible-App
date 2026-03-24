@@ -437,12 +437,22 @@ require_once __DIR__ . '/includes/header.php';
                 <span class="mini-card"><?= e($calendarRange['label']); ?></span>
             </div>
 
-            <div class="filter-row top-gap-sm">
-                <a class="filter-chip <?= $calendarView === 'month' ? 'is-active' : ''; ?>" href="<?= e(planner_build_url($activeYear, 'month', $calendarDate, $editingGoalId ?: null, $editingEventId ?: null)); ?>">Month</a>
-                <a class="filter-chip <?= $calendarView === 'week' ? 'is-active' : ''; ?>" href="<?= e(planner_build_url($activeYear, 'week', $calendarDate, $editingGoalId ?: null, $editingEventId ?: null)); ?>">Week</a>
-                <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarRange['previous_date'], $editingGoalId ?: null, $editingEventId ?: null)); ?>">Previous</a>
-                <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, date('Y-m-d'), $editingGoalId ?: null, $editingEventId ?: null)); ?>">Today</a>
-                <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarRange['next_date'], $editingGoalId ?: null, $editingEventId ?: null)); ?>">Next</a>
+            <div class="planner-calendar-toolbar top-gap-sm">
+                <div class="planner-view-switch">
+                    <a class="filter-chip <?= $calendarView === 'month' ? 'is-active' : ''; ?>" href="<?= e(planner_build_url($activeYear, 'month', $calendarDate, $editingGoalId ?: null, $editingEventId ?: null)); ?>">Month</a>
+                    <a class="filter-chip <?= $calendarView === 'week' ? 'is-active' : ''; ?>" href="<?= e(planner_build_url($activeYear, 'week', $calendarDate, $editingGoalId ?: null, $editingEventId ?: null)); ?>">Week</a>
+                </div>
+                <div class="planner-nav-switch">
+                    <a class="button button-secondary planner-nav-link" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarRange['previous_date'], $editingGoalId ?: null, $editingEventId ?: null)); ?>">
+                        <span class="planner-nav-icon" aria-hidden="true">&#8249;</span>
+                        <span class="planner-nav-label">Prev</span>
+                    </a>
+                    <a class="button button-secondary planner-nav-link" href="<?= e(planner_build_url($activeYear, $calendarView, date('Y-m-d'), $editingGoalId ?: null, $editingEventId ?: null)); ?>">Today</a>
+                    <a class="button button-secondary planner-nav-link" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarRange['next_date'], $editingGoalId ?: null, $editingEventId ?: null)); ?>">
+                        <span class="planner-nav-label">Next</span>
+                        <span class="planner-nav-icon" aria-hidden="true">&#8250;</span>
+                    </a>
+                </div>
             </div>
 
             <?php if ($calendarView === 'month'): ?>
@@ -461,7 +471,11 @@ require_once __DIR__ . '/includes/header.php';
                     ?>
                         <div class="planner-calendar-cell <?= $isCurrentMonth ? '' : 'is-muted'; ?> <?= $isToday ? 'is-today' : ''; ?>">
                             <div class="planner-day-head">
-                                <div class="planner-calendar-day"><?= e(date('j', strtotime($dayKey))); ?></div>
+                                <div class="planner-calendar-day-group">
+                                    <span class="planner-mobile-weekday"><?= e(date('D', strtotime($dayKey))); ?></span>
+                                    <div class="planner-calendar-day"><?= e(date('j', strtotime($dayKey))); ?></div>
+                                    <span class="planner-mobile-date"><?= e(date('M j', strtotime($dayKey))); ?></span>
+                                </div>
                                 <div class="planner-day-quick-actions">
                                     <?php if ($plannerAiEnabled): ?>
                                         <button
