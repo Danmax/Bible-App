@@ -95,6 +95,10 @@ require_once __DIR__ . '/includes/header.php';
                                             <?= e((string) $bookmark['selected_text']); ?>
                                         </mark>
                                         <span class="muted-copy">from <?= e((string) $bookmark['verse_text']); ?></span>
+                                    <?php elseif (!empty($bookmark['highlight_color'])): ?>
+                                        <mark class="verse-highlight <?= e(highlight_class((string) $bookmark['highlight_color'])); ?>">
+                                            <?= e((string) $bookmark['verse_text']); ?>
+                                        </mark>
                                     <?php else: ?>
                                         <?= e((string) $bookmark['verse_text']); ?>
                                     <?php endif; ?>

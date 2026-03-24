@@ -193,11 +193,21 @@ function render_verse_text_with_highlights(string $verseText, array $highlights 
     }
 
     $segments = [];
+    $fullVerseClass = null;
 
     foreach ($highlights as $highlight) {
         $start = isset($highlight['selection_start']) ? (int) $highlight['selection_start'] : null;
         $end = isset($highlight['selection_end']) ? (int) $highlight['selection_end'] : null;
         $selectedText = trim((string) ($highlight['selected_text'] ?? ''));
+        $highlightClass = highlight_class((string) ($highlight['highlight_color'] ?? 'neon-yellow'));
+
+        if ($selectedText === '' && $start === null && $end === null) {
+            if (!empty($highlight['highlight_color'])) {
+                $fullVerseClass = $highlightClass;
+            }
+
+            continue;
+        }
 
         if ($start === null || $end === null || $end <= $start) {
             if ($selectedText === '') {
@@ -221,11 +231,15 @@ function render_verse_text_with_highlights(string $verseText, array $highlights 
         $segments[] = [
             'start' => $start,
             'end' => $end,
-            'class' => highlight_class((string) ($highlight['highlight_color'] ?? 'neon-yellow')),
+            'class' => $highlightClass,
         ];
     }
 
     if ($segments === []) {
+        if ($fullVerseClass !== null) {
+            return '<mark class="verse-highlight ' . e($fullVerseClass) . '">' . e($verseText) . '</mark>';
+        }
+
         return e($verseText);
     }
 
@@ -250,6 +264,10 @@ function render_verse_text_with_highlights(string $verseText, array $highlights 
     }
 
     $output .= e(mb_substr($verseText, $cursor));
+
+    if ($fullVerseClass !== null) {
+        return '<span class="verse-highlight ' . e($fullVerseClass) . '">' . $output . '</span>';
+    }
 
     return $output;
 }
