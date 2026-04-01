@@ -76,6 +76,170 @@ function recent_bible_searches(): array
     ));
 }
 
+function bible_clamp_offset(int $offset, int $length): int
+{
+    return max(0, min($length, $offset));
+}
+
+function bible_save_multi_verse_highlight(
+    int $userId,
+    int $startVerseId,
+    int $endVerseId,
+    int $startOffset,
+    int $endOffset,
+    string $tag,
+    string $note,
+    string $highlightColor
+): int {
+    $startVerse = fetch_verse_by_id($startVerseId);
+    $endVerse = fetch_verse_by_id($endVerseId);
+
+    if ($startVerse === null || $endVerse === null) {
+        throw new RuntimeException('The selected verses could not be found.');
+    }
+
+    if (
+        (int) $startVerse['book_id'] !== (int) $endVerse['book_id']
+        || (int) $startVerse['chapter_number'] !== (int) $endVerse['chapter_number']
+        || (string) $startVerse['translation'] !== (string) $endVerse['translation']
+    ) {
+        throw new RuntimeException('Highlights can only span verses within the same chapter.');
+    }
+
+    $chapterVerses = fetch_chapter_verses(
+        (int) $startVerse['book_id'],
+        (int) $startVerse['chapter_number'],
+        (string) $startVerse['translation']
+    );
+
+    $positions = [];
+
+    foreach ($chapterVerses as $index => $verse) {
+        $positions[(int) $verse['id']] = $index;
+    }
+
+    if (!isset($positions[$startVerseId], $positions[$endVerseId])) {
+        throw new RuntimeException('The selected highlight range is unavailable in this chapter.');
+    }
+
+    $startIndex = (int) $positions[$startVerseId];
+    $endIndex = (int) $positions[$endVerseId];
+
+    if ($startIndex > $endIndex) {
+        [$startIndex, $endIndex] = [$endIndex, $startIndex];
+        [$startVerseId, $endVerseId] = [$endVerseId, $startVerseId];
+        [$startOffset, $endOffset] = [$endOffset, $startOffset];
+    }
+
+    if ($startIndex === $endIndex) {
+        $verseText = (string) $chapterVerses[$startIndex]['verse_text'];
+        $length = mb_strlen($verseText);
+        $normalizedStart = bible_clamp_offset($startOffset, $length);
+        $normalizedEnd = bible_clamp_offset($endOffset, $length);
+
+        if ($normalizedEnd <= $normalizedStart) {
+            throw new RuntimeException('Select part of a verse before saving a highlight.');
+        }
+
+        save_bookmark_record(
+            $userId,
+            (int) $chapterVerses[$startIndex]['id'],
+            $tag,
+            $note,
+            mb_substr($verseText, $normalizedStart, $normalizedEnd - $normalizedStart),
+            $highlightColor,
+            $normalizedStart,
+            $normalizedEnd
+        );
+
+        return 1;
+    }
+
+    $pdo = db();
+    $savedCount = 0;
+
+    $pdo->beginTransaction();
+
+    try {
+        for ($index = $startIndex; $index <= $endIndex; $index++) {
+            $verse = $chapterVerses[$index];
+            $verseId = (int) $verse['id'];
+            $verseText = (string) $verse['verse_text'];
+            $verseLength = mb_strlen($verseText);
+
+            if ($index === $startIndex) {
+                $normalizedStart = bible_clamp_offset($startOffset, $verseLength);
+                $normalizedEnd = $verseLength;
+
+                if ($normalizedEnd <= $normalizedStart) {
+                    continue;
+                }
+
+                save_bookmark_record(
+                    $userId,
+                    $verseId,
+                    $tag,
+                    $note,
+                    mb_substr($verseText, $normalizedStart, $normalizedEnd - $normalizedStart),
+                    $highlightColor,
+                    $normalizedStart,
+                    $normalizedEnd
+                );
+                $savedCount++;
+                continue;
+            }
+
+            if ($index === $endIndex) {
+                $normalizedStart = 0;
+                $normalizedEnd = bible_clamp_offset($endOffset, $verseLength);
+
+                if ($normalizedEnd <= $normalizedStart) {
+                    continue;
+                }
+
+                save_bookmark_record(
+                    $userId,
+                    $verseId,
+                    $tag,
+                    $note,
+                    mb_substr($verseText, $normalizedStart, $normalizedEnd - $normalizedStart),
+                    $highlightColor,
+                    $normalizedStart,
+                    $normalizedEnd
+                );
+                $savedCount++;
+                continue;
+            }
+
+            save_bookmark_record(
+                $userId,
+                $verseId,
+                $tag,
+                $note,
+                null,
+                $highlightColor,
+                null,
+                null
+            );
+            $savedCount++;
+        }
+
+        if ($savedCount === 0) {
+            throw new RuntimeException('Select part of a verse before saving a highlight.');
+        }
+
+        $pdo->commit();
+
+        return $savedCount;
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        throw $exception;
+    }
+}
+
 $pageTitle = 'Bible Reader';
 $activePage = 'bible';
 $user = is_logged_in() ? refresh_current_user() : null;
@@ -126,9 +290,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $highlightColor = trim($_POST['highlight_color'] ?? '');
         $selectionStart = trim($_POST['selection_start'] ?? '');
         $selectionEnd = trim($_POST['selection_end'] ?? '');
+        $rangeStartVerseId = (int) ($_POST['range_start_verse_id'] ?? 0);
+        $rangeEndVerseId = (int) ($_POST['range_end_verse_id'] ?? 0);
+        $rangeStartOffset = trim($_POST['range_start_offset'] ?? '');
+        $rangeEndOffset = trim($_POST['range_end_offset'] ?? '');
 
         if ($action === 'save-section' && $selectedText === '') {
             set_flash('Select part of a verse before saving a highlight.', 'warning');
+        } elseif (
+            $action === 'save-section'
+            && $rangeStartVerseId > 0
+            && $rangeEndVerseId > 0
+            && $rangeStartVerseId !== $rangeEndVerseId
+        ) {
+            $savedCount = bible_save_multi_verse_highlight(
+                (int) $user['id'],
+                $rangeStartVerseId,
+                $rangeEndVerseId,
+                $rangeStartOffset === '' ? 0 : (int) $rangeStartOffset,
+                $rangeEndOffset === '' ? 0 : (int) $rangeEndOffset,
+                $tag,
+                $note,
+                $highlightColor === '' ? 'neon-yellow' : $highlightColor
+            );
+
+            set_flash(
+                $savedCount > 1
+                    ? 'Highlight saved across ' . $savedCount . ' verses.'
+                    : 'Highlight saved.',
+                'success'
+            );
         } else {
             save_bookmark_record(
                 (int) $user['id'],
@@ -695,18 +886,18 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endforeach; ?>
                 </article>
 
-                <?php if (is_logged_in()): ?>
-                    <div class="bookmark-popup" data-bookmark-popup hidden>
-                        <div class="bookmark-popup-card">
-                            <div class="panel-heading">
-                                <div>
-                                    <p class="eyebrow" data-popup-mode-label>Save Verse</p>
-                                    <h3 data-popup-reference>Select a verse</h3>
-                                    <p class="muted-copy" data-popup-preview>Click any verse or highlight text inside a verse.</p>
-                                </div>
-                                <button class="popup-close" type="button" data-popup-close aria-label="Close bookmark popup">Close</button>
+                <div class="bookmark-popup" data-bookmark-popup hidden>
+                    <div class="bookmark-popup-card">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow" data-popup-mode-label>Save Verse</p>
+                                <h3 data-popup-reference>Select a verse</h3>
+                                <p class="muted-copy" data-popup-preview>Click any verse or highlight text inside a verse.</p>
                             </div>
+                            <button class="popup-close" type="button" data-popup-close aria-label="Close bookmark popup">Close</button>
+                        </div>
 
+                        <?php if (is_logged_in()): ?>
                             <form class="form-stack top-gap-sm" method="post" data-bookmark-popup-form>
                                 <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                                 <input type="hidden" name="action" value="save-bookmark">
@@ -714,6 +905,10 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="hidden" name="selected_text" value="">
                                 <input type="hidden" name="selection_start" value="">
                                 <input type="hidden" name="selection_end" value="">
+                                <input type="hidden" name="range_start_verse_id" value="">
+                                <input type="hidden" name="range_end_verse_id" value="">
+                                <input type="hidden" name="range_start_offset" value="">
+                                <input type="hidden" name="range_end_offset" value="">
                                 <input type="hidden" name="return_query" value="<?= e($query); ?>">
                                 <input type="hidden" name="return_translation" value="<?= e($selectedTranslation); ?>">
                                 <input type="hidden" name="return_book_id" value="<?= e((string) $selectedBookId); ?>">
@@ -758,9 +953,17 @@ require_once __DIR__ . '/includes/header.php';
                                     <a class="button button-secondary" href="#" data-popup-note-link>Add Note</a>
                                 </div>
                             </form>
-                        </div>
+                        <?php else: ?>
+                            <div class="form-stack top-gap-sm">
+                                <p class="muted-copy">Sign in to save bookmarks and highlights from the Bible reader.</p>
+                                <div class="inline-actions">
+                                    <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In</a>
+                                    <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create Account</a>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
-                <?php endif; ?>
+                </div>
             <?php endif; ?>
         </div>
     </div>

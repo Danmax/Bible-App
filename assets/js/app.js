@@ -1368,7 +1368,7 @@ if (chapterReader) {
     window.addEventListener('hashchange', scrollToTargetVerse);
 }
 
-if (chapterReader && bookmarkPopup && bookmarkPopupForm) {
+if (chapterReader && bookmarkPopup) {
     const popupModeLabel = bookmarkPopup.querySelector('[data-popup-mode-label]');
     const popupReference = bookmarkPopup.querySelector('[data-popup-reference]');
     const popupPreview = bookmarkPopup.querySelector('[data-popup-preview]');
@@ -1376,21 +1376,74 @@ if (chapterReader && bookmarkPopup && bookmarkPopupForm) {
     const popupClear = bookmarkPopup.querySelector('[data-popup-clear]');
     const popupNoteLink = bookmarkPopup.querySelector('[data-popup-note-link]');
     const colorPicker = bookmarkPopup.querySelector('[data-color-picker]');
-    const colorInput = bookmarkPopupForm.querySelector('input[name="highlight_color"]');
-    const actionInput = bookmarkPopupForm.querySelector('input[name="action"]');
-    const verseIdInput = bookmarkPopupForm.querySelector('input[name="verse_id"]');
-    const selectedTextInput = bookmarkPopupForm.querySelector('input[name="selected_text"]');
-    const selectionStartInput = bookmarkPopupForm.querySelector('input[name="selection_start"]');
-    const selectionEndInput = bookmarkPopupForm.querySelector('input[name="selection_end"]');
-    const tagInput = bookmarkPopupForm.querySelector('input[name="tag"]');
-    const noteInput = bookmarkPopupForm.querySelector('textarea[name="note"]');
+    const colorInput = bookmarkPopupForm?.querySelector('input[name="highlight_color"]') || null;
+    const actionInput = bookmarkPopupForm?.querySelector('input[name="action"]') || null;
+    const verseIdInput = bookmarkPopupForm?.querySelector('input[name="verse_id"]') || null;
+    const selectedTextInput = bookmarkPopupForm?.querySelector('input[name="selected_text"]') || null;
+    const selectionStartInput = bookmarkPopupForm?.querySelector('input[name="selection_start"]') || null;
+    const selectionEndInput = bookmarkPopupForm?.querySelector('input[name="selection_end"]') || null;
+    const rangeStartVerseIdInput = bookmarkPopupForm?.querySelector('input[name="range_start_verse_id"]') || null;
+    const rangeEndVerseIdInput = bookmarkPopupForm?.querySelector('input[name="range_end_verse_id"]') || null;
+    const rangeStartOffsetInput = bookmarkPopupForm?.querySelector('input[name="range_start_offset"]') || null;
+    const rangeEndOffsetInput = bookmarkPopupForm?.querySelector('input[name="range_end_offset"]') || null;
+    const tagInput = bookmarkPopupForm?.querySelector('input[name="tag"]') || null;
+    const noteInput = bookmarkPopupForm?.querySelector('textarea[name="note"]') || null;
+
+    const closestMatch = (node, selector) => {
+        if (node instanceof Element) {
+            return node.closest(selector);
+        }
+
+        return node?.parentElement?.closest(selector) || null;
+    };
+
+    const textOffsetWithin = (root, container, offset) => {
+        if (!(root instanceof Element) || !(container instanceof Node)) {
+            return null;
+        }
+
+        if (container !== root && !root.contains(container.nodeType === Node.TEXT_NODE ? container.parentNode : container)) {
+            return null;
+        }
+
+        try {
+            const prefixRange = document.createRange();
+            prefixRange.selectNodeContents(root);
+            prefixRange.setEnd(container, offset);
+            return prefixRange.toString().length;
+        } catch (error) {
+            return null;
+        }
+    };
 
     const resetPopupFields = () => {
-        actionInput.value = 'save-bookmark';
-        verseIdInput.value = '';
-        selectedTextInput.value = '';
-        selectionStartInput.value = '';
-        selectionEndInput.value = '';
+        if (actionInput) {
+            actionInput.value = 'save-bookmark';
+        }
+        if (verseIdInput) {
+            verseIdInput.value = '';
+        }
+        if (selectedTextInput) {
+            selectedTextInput.value = '';
+        }
+        if (selectionStartInput) {
+            selectionStartInput.value = '';
+        }
+        if (selectionEndInput) {
+            selectionEndInput.value = '';
+        }
+        if (rangeStartVerseIdInput) {
+            rangeStartVerseIdInput.value = '';
+        }
+        if (rangeEndVerseIdInput) {
+            rangeEndVerseIdInput.value = '';
+        }
+        if (rangeStartOffsetInput) {
+            rangeStartOffsetInput.value = '';
+        }
+        if (rangeEndOffsetInput) {
+            rangeEndOffsetInput.value = '';
+        }
 
         if (tagInput) {
             tagInput.value = '';
@@ -1417,16 +1470,58 @@ if (chapterReader && bookmarkPopup && bookmarkPopupForm) {
         });
     };
 
-    const openPopupForVerse = (verseCard, selectedText = '', selectionStart = '', selectionEnd = '') => {
-        const verseId = verseCard.getAttribute('data-verse-id') || '';
-        const verseReference = verseCard.getAttribute('data-verse-reference') || 'Verse';
-        const verseText = verseCard.getAttribute('data-verse-text') || '';
+    const buildVerseReference = (startVerseCard, endVerseCard) => {
+        const startReference = startVerseCard.getAttribute('data-verse-reference') || 'Verse';
+        const endReference = endVerseCard.getAttribute('data-verse-reference') || 'Verse';
 
-        verseIdInput.value = verseId;
-        selectedTextInput.value = selectedText;
-        selectionStartInput.value = selectionStart;
-        selectionEndInput.value = selectionEnd;
-        actionInput.value = selectedText ? 'save-section' : 'save-bookmark';
+        if (startVerseCard === endVerseCard) {
+            return startReference;
+        }
+
+        return `${startReference} - ${endReference}`;
+    };
+
+    const openPopupForSelection = ({
+        startVerseCard,
+        endVerseCard = startVerseCard,
+        selectedText = '',
+        selectionStart = '',
+        selectionEnd = '',
+        rangeStartOffset = '',
+        rangeEndOffset = '',
+    }) => {
+        const verseId = startVerseCard.getAttribute('data-verse-id') || '';
+        const endVerseId = endVerseCard.getAttribute('data-verse-id') || verseId;
+        const verseReference = buildVerseReference(startVerseCard, endVerseCard);
+        const verseText = startVerseCard.getAttribute('data-verse-text') || '';
+
+        if (verseIdInput) {
+            verseIdInput.value = verseId;
+        }
+        if (selectedTextInput) {
+            selectedTextInput.value = selectedText;
+        }
+        if (selectionStartInput) {
+            selectionStartInput.value = selectionStart;
+        }
+        if (selectionEndInput) {
+            selectionEndInput.value = selectionEnd;
+        }
+        if (rangeStartVerseIdInput) {
+            rangeStartVerseIdInput.value = verseId;
+        }
+        if (rangeEndVerseIdInput) {
+            rangeEndVerseIdInput.value = endVerseId;
+        }
+        if (rangeStartOffsetInput) {
+            rangeStartOffsetInput.value = rangeStartOffset;
+        }
+        if (rangeEndOffsetInput) {
+            rangeEndOffsetInput.value = rangeEndOffset;
+        }
+        if (actionInput) {
+            actionInput.value = selectedText ? 'save-section' : 'save-bookmark';
+        }
 
         if (popupModeLabel) {
             popupModeLabel.textContent = selectedText ? 'Highlight Selection' : 'Save Verse';
@@ -1439,7 +1534,7 @@ if (chapterReader && bookmarkPopup && bookmarkPopupForm) {
         if (popupPreview) {
             popupPreview.textContent = selectedText
                 ? `"${selectedText}"`
-                : verseText;
+                : (startVerseCard === endVerseCard ? verseText : `${verseReference}`);
         }
 
         if (popupNoteLink) {
@@ -1457,10 +1552,10 @@ if (chapterReader && bookmarkPopup && bookmarkPopupForm) {
         }
 
         const range = selection.getRangeAt(0);
-        const startVerse = range.startContainer.parentElement?.closest('.reader-verse-text');
-        const endVerse = range.endContainer.parentElement?.closest('.reader-verse-text');
+        const startVerseCard = closestMatch(range.startContainer, '[data-verse-card]');
+        const endVerseCard = closestMatch(range.endContainer, '[data-verse-card]');
 
-        if (!startVerse || !endVerse || startVerse !== endVerse) {
+        if (!startVerseCard || !endVerseCard) {
             return;
         }
 
@@ -1470,20 +1565,45 @@ if (chapterReader && bookmarkPopup && bookmarkPopupForm) {
             return;
         }
 
-        const verseCard = startVerse.closest('[data-verse-card]');
+        const startVerseText = startVerseCard.querySelector('.reader-verse-text');
+        const endVerseText = endVerseCard.querySelector('.reader-verse-text');
 
-        if (!verseCard) {
+        if (!(startVerseText instanceof Element) || !(endVerseText instanceof Element)) {
             return;
         }
 
-        const preRange = range.cloneRange();
-        preRange.selectNodeContents(startVerse);
-        preRange.setEnd(range.startContainer, range.startOffset);
+        let start = textOffsetWithin(startVerseText, range.startContainer, range.startOffset);
+        let end = textOffsetWithin(endVerseText, range.endContainer, range.endOffset);
 
-        const start = preRange.toString().length;
-        const end = start + range.toString().length;
+        if (start === null || end === null) {
+            if (startVerseCard !== endVerseCard) {
+                return;
+            }
 
-        openPopupForVerse(verseCard, selectedText, String(start), String(end));
+            const verseTextValue = startVerseCard.getAttribute('data-verse-text') || '';
+            const fallbackStart = verseTextValue.indexOf(selectedText);
+
+            if (fallbackStart === -1) {
+                return;
+            }
+
+            start = fallbackStart;
+            end = fallbackStart + selectedText.length;
+        }
+
+        if (startVerseCard === endVerseCard && end <= start) {
+            return;
+        }
+
+        openPopupForSelection({
+            startVerseCard,
+            endVerseCard,
+            selectedText,
+            selectionStart: String(start),
+            selectionEnd: String(end),
+            rangeStartOffset: String(start),
+            rangeEndOffset: String(end),
+        });
     };
 
     chapterReader.querySelectorAll('[data-verse-card]').forEach((verseCard) => {
@@ -1500,7 +1620,7 @@ if (chapterReader && bookmarkPopup && bookmarkPopupForm) {
                 return;
             }
 
-            openPopupForVerse(verseCard);
+            openPopupForSelection({ startVerseCard: verseCard });
         });
     });
 
@@ -1533,17 +1653,19 @@ if (chapterReader && bookmarkPopup && bookmarkPopupForm) {
         hidePopup();
     });
 
-    bookmarkPopupForm.addEventListener('submit', (event) => {
-        if (!verseIdInput.value) {
-            event.preventDefault();
-            hidePopup();
-        }
+    if (bookmarkPopupForm && verseIdInput && actionInput && selectedTextInput) {
+        bookmarkPopupForm.addEventListener('submit', (event) => {
+            if (!verseIdInput.value) {
+                event.preventDefault();
+                hidePopup();
+            }
 
-        if (actionInput.value === 'save-section' && !selectedTextInput.value) {
-            event.preventDefault();
-            hidePopup();
-        }
-    });
+            if (actionInput.value === 'save-section' && !selectedTextInput.value) {
+                event.preventDefault();
+                hidePopup();
+            }
+        });
+    }
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
