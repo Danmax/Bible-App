@@ -27,7 +27,7 @@ if (!current_user_has_role(['admin'])) {
 }
 
 $pageTitle = 'Admin';
-$activePage = '';
+$activePage = 'admin';
 
 require_once dirname(__DIR__) . '/includes/header.php';
 ?>
@@ -36,10 +36,17 @@ require_once dirname(__DIR__) . '/includes/header.php';
         <div class="section-heading">
             <p class="eyebrow">Admin Preview</p>
             <h1>Content and event management</h1>
-            <p>Use this area later for verses, reading plans, featured content, users, and community events.</p>
+            <p>Manage public sessions now, and use this area later for verses, reading plans, featured content, users, and community events.</p>
         </div>
 
         <div class="card-grid card-grid-3">
+            <article class="panel">
+                <h2>Public Sessions</h2>
+                <p>Create, publish, archive, and feature public sessions for everyone to see.</p>
+                <div class="top-gap-sm">
+                    <a class="button button-primary" href="<?= e(app_url('admin/sessions.php')); ?>">Manage Sessions</a>
+                </div>
+            </article>
             <article class="panel">
                 <h2>Verses</h2>
                 <p>Import and manage public-domain Bible text.</p>

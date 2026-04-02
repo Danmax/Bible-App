@@ -3,9 +3,29 @@
 declare(strict_types=1);
 
 $iconDirectory = dirname(__DIR__) . '/assets/icons';
+$sourcePath = dirname(__DIR__) . '/assets/images/good-news-app.png';
 
 if (!is_dir($iconDirectory) && !mkdir($iconDirectory, 0775, true) && !is_dir($iconDirectory)) {
     fwrite(STDERR, "Unable to create icon directory.\n");
+    exit(1);
+}
+
+if (!is_file($sourcePath)) {
+    fwrite(STDERR, "Missing icon source image at assets/images/good-news-app.png.\n");
+    exit(1);
+}
+
+$sourceBytes = file_get_contents($sourcePath);
+
+if ($sourceBytes === false) {
+    fwrite(STDERR, "Unable to read icon source image.\n");
+    exit(1);
+}
+
+$sourceImage = imagecreatefromstring($sourceBytes);
+
+if (!$sourceImage instanceof GdImage) {
+    fwrite(STDERR, "Unable to load icon source image.\n");
     exit(1);
 }
 
@@ -23,27 +43,24 @@ imageantialias($baseImage, true);
 
 $transparent = imagecolorallocatealpha($baseImage, 0, 0, 0, 127);
 imagefill($baseImage, 0, 0, $transparent);
+$sourceWidth = imagesx($sourceImage);
+$sourceHeight = imagesy($sourceImage);
+$sourceCrop = min($sourceWidth, $sourceHeight);
+$sourceX = (int) floor(($sourceWidth - $sourceCrop) / 2);
+$sourceY = (int) floor(($sourceHeight - $sourceCrop) / 2);
 
-$skyTop = [112, 198, 241];
-$skyBottom = [255, 239, 195];
-
-for ($y = 0; $y < $baseSize; $y++) {
-    $mix = $y / max(1, $baseSize - 1);
-    $red = (int) round($skyTop[0] + (($skyBottom[0] - $skyTop[0]) * $mix));
-    $green = (int) round($skyTop[1] + (($skyBottom[1] - $skyTop[1]) * $mix));
-    $blue = (int) round($skyTop[2] + (($skyBottom[2] - $skyTop[2]) * $mix));
-    $lineColor = imagecolorallocate($baseImage, $red, $green, $blue);
-    imageline($baseImage, 0, $y, $baseSize, $y, $lineColor);
-}
-
-draw_glow($baseImage, 540, 210, 320, [255, 245, 196], 8);
-draw_rays($baseImage, 540, 210);
-draw_sparkles($baseImage);
-draw_clouds($baseImage);
-draw_leaves($baseImage);
-draw_book($baseImage);
-draw_cross($baseImage);
-draw_heart($baseImage);
+imagecopyresampled(
+    $baseImage,
+    $sourceImage,
+    0,
+    0,
+    $sourceX,
+    $sourceY,
+    $baseSize,
+    $baseSize,
+    $sourceCrop,
+    $sourceCrop
+);
 
 $exports = [
     'app-icon-512.png' => 512,
@@ -97,12 +114,12 @@ file_put_contents($iconDirectory . '/favicon.ico', $icoHeader . $icoEntry . $fav
 
 $manifest = [
     'name' => 'Good News Bible',
-    'short_name' => 'STWB',
+    'short_name' => 'GoodNews',
     'description' => 'Study The Word Bible with reading, prayer, notes, planner tools, and community.',
     'start_url' => '/index.php',
     'display' => 'standalone',
     'background_color' => '#f6efe1',
-    'theme_color' => '#d7a035',
+    'theme_color' => '#22333b',
     'icons' => [
         [
             'src' => '/assets/icons/app-icon-192.png',

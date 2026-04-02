@@ -76,6 +76,53 @@ function recent_bible_searches(): array
     ));
 }
 
+function bible_share_reference(array $verses, string $translation): string
+{
+    if ($verses === []) {
+        return 'Scripture';
+    }
+
+    $firstVerse = $verses[0];
+    $lastVerse = $verses[count($verses) - 1];
+    $bookName = (string) ($firstVerse['book_name'] ?? 'Scripture');
+    $chapterNumber = (int) ($firstVerse['chapter_number'] ?? 0);
+    $firstVerseNumber = (int) ($firstVerse['verse_number'] ?? 0);
+    $lastVerseNumber = (int) ($lastVerse['verse_number'] ?? $firstVerseNumber);
+
+    if ($firstVerseNumber > 0 && $lastVerseNumber > 0) {
+        if ($firstVerseNumber === $lastVerseNumber) {
+            return sprintf('%s %d:%d (%s)', $bookName, $chapterNumber, $firstVerseNumber, $translation);
+        }
+
+        return sprintf('%s %d:%d-%d (%s)', $bookName, $chapterNumber, $firstVerseNumber, $lastVerseNumber, $translation);
+    }
+
+    return sprintf('%s %d (%s)', $bookName, $chapterNumber, $translation);
+}
+
+function bible_share_text(array $verses): string
+{
+    if ($verses === []) {
+        return '';
+    }
+
+    if (count($verses) === 1) {
+        return trim((string) ($verses[0]['verse_text'] ?? ''));
+    }
+
+    $parts = [];
+
+    foreach ($verses as $verse) {
+        $parts[] = trim(sprintf(
+            '%d %s',
+            (int) ($verse['verse_number'] ?? 0),
+            trim((string) ($verse['verse_text'] ?? ''))
+        ));
+    }
+
+    return trim(implode(' ', array_filter($parts, static fn($part): bool => $part !== '')));
+}
+
 function bible_clamp_offset(int $offset, int $length): int
 {
     return max(0, min($length, $offset));
@@ -569,6 +616,49 @@ if ($chapterVerseSet !== []) {
     }
 }
 
+$sharePayloadJson = null;
+
+if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) {
+    $shareParams = array_filter([
+        'q' => $query !== '' ? $query : null,
+        'translation' => $selectedTranslation,
+        'book_id' => $selectedBookId ?: null,
+        'chapter' => $selectedChapter ?: null,
+        'verse' => $selectedVerseNumber ?: null,
+        'reader_mode' => $readerMode,
+    ], static fn($value) => $value !== null && $value !== '');
+    $sharePath = 'bible.php';
+
+    if ($shareParams !== []) {
+        $sharePath .= '?' . http_build_query($shareParams);
+    }
+
+    $sharePayload = [
+        'reference' => bible_share_reference($browseVerses, $selectedTranslation),
+        'translation' => $selectedTranslation,
+        'displayMode' => $displayMode,
+        'text' => bible_share_text($browseVerses),
+        'url' => app_url($sharePath, true),
+        'verses' => array_map(
+            static fn(array $verse): array => [
+                'number' => (int) ($verse['verse_number'] ?? 0),
+                'text' => trim((string) ($verse['verse_text'] ?? '')),
+            ],
+            $browseVerses
+        ),
+    ];
+    $encodedSharePayload = json_encode(
+        $sharePayload,
+        JSON_UNESCAPED_SLASHES
+        | JSON_UNESCAPED_UNICODE
+        | JSON_HEX_TAG
+        | JSON_HEX_AMP
+        | JSON_HEX_APOS
+        | JSON_HEX_QUOT
+    );
+    $sharePayloadJson = is_string($encodedSharePayload) ? $encodedSharePayload : null;
+}
+
 require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
@@ -703,6 +793,117 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                 </div>
             </div>
+
+            <?php if ($sharePayloadJson !== null): ?>
+                <div class="share-composer-launch top-gap-sm">
+                    <div>
+                        <strong>Public post share</strong>
+                        <p class="muted-copy">Create a portrait story or square post with customizable themes, fonts, and caption text.</p>
+                    </div>
+                    <button class="button button-primary" type="button" data-share-composer-toggle>Create Share Post</button>
+                </div>
+
+                <div class="panel share-composer-panel top-gap-sm" data-share-composer hidden>
+                    <script type="application/json" data-share-payload><?= $sharePayloadJson; ?></script>
+
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Share Composer</p>
+                            <h3>Public post templates for Scripture</h3>
+                            <p class="muted-copy">Tune the layout, style, and caption before posting the Good News.</p>
+                        </div>
+                        <button class="button button-secondary" type="button" data-share-composer-close>Close</button>
+                    </div>
+
+                    <div class="share-composer-grid top-gap-sm">
+                        <form class="form-stack share-composer-form" data-share-composer-form>
+                            <div class="two-column">
+                                <label>
+                                    <span>Template</span>
+                                    <select name="template" data-share-template>
+                                        <option value="story">Vertical Phone Story</option>
+                                        <option value="square">Square 1:1 Post</option>
+                                    </select>
+                                </label>
+
+                                <label>
+                                    <span>Theme</span>
+                                    <select name="theme" data-share-theme>
+                                        <option value="good-news-bible" selected>Good News Bible</option>
+                                        <option value="slate-glow">Slate Glow</option>
+                                        <option value="earth-canvas">Earth Canvas</option>
+                                        <option value="light-sermon">Light Sermon</option>
+                                        <option value="midnight-gospel">Midnight Gospel</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <div class="two-column">
+                                <label>
+                                    <span>Font</span>
+                                    <select name="font" data-share-font>
+                                        <option value="editorial">Editorial</option>
+                                        <option value="modern">Modern</option>
+                                        <option value="classic">Classic Serif</option>
+                                    </select>
+                                </label>
+
+                                <label>
+                                    <span>Branding</span>
+                                    <select name="branding" data-share-branding>
+                                        <option value="good-news">Good News Bible</option>
+                                        <option value="none">No branding</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <label>
+                                <span>Headline</span>
+                                <input type="text" name="headline" value="Share the Good News" data-share-headline>
+                            </label>
+
+                            <label>
+                                <span>Footer note</span>
+                                <input type="text" name="footer" value="Faith for today" data-share-footer>
+                            </label>
+
+                            <label>
+                                <span>Caption</span>
+                                <textarea name="caption" rows="5" data-share-caption></textarea>
+                            </label>
+
+                            <div class="inline-actions">
+                                <button class="button button-primary" type="button" data-share-download>Download PNG</button>
+                                <button class="button button-secondary" type="button" data-share-native>Share</button>
+                                <button class="button button-secondary" type="button" data-share-copy>Copy Caption</button>
+                                <button class="button button-secondary" type="button" data-share-randomize>New Background</button>
+                            </div>
+
+                            <p class="muted-copy" data-share-status>Portrait and square templates are ready for public posting.</p>
+                        </form>
+
+                        <div class="share-preview-column">
+                            <div class="share-preview-shell" data-share-preview-shell data-template="story">
+                                <div class="share-preview-card share-theme-good-news-bible share-font-editorial" data-share-preview-card>
+                                    <div class="share-preview-overlay"></div>
+                                    <div class="share-preview-inner">
+                                        <p class="share-preview-kicker" data-share-preview-kicker>Share the Good News</p>
+                                        <div class="share-preview-scripture">
+                                            <p class="share-preview-reference" data-share-preview-reference></p>
+                                            <blockquote class="share-preview-text" data-share-preview-text></blockquote>
+                                        </div>
+                                        <div class="share-preview-meta">
+                                            <span class="share-preview-footer" data-share-preview-footer>Faith for today</span>
+                                            <span class="share-preview-brand" data-share-preview-brand>Good News Bible</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <canvas class="share-render-canvas" data-share-canvas width="1080" height="1920" hidden></canvas>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
 
             <?php if ($selectedBook && $bookChapters !== []): ?>
                 <div class="reader-nav-bar top-gap-sm">

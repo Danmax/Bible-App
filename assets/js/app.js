@@ -1677,3 +1677,523 @@ if (chapterReader && bookmarkPopup) {
     resetPopupFields();
     setActiveColor(colorInput?.value || 'neon-yellow');
 }
+
+const shareComposer = document.querySelector('[data-share-composer]');
+const shareComposerToggle = document.querySelector('[data-share-composer-toggle]');
+
+if (shareComposer && shareComposerToggle) {
+    const shareComposerClose = shareComposer.querySelector('[data-share-composer-close]');
+    const sharePayloadNode = shareComposer.querySelector('[data-share-payload]');
+    const shareForm = shareComposer.querySelector('[data-share-composer-form]');
+    const previewShell = shareComposer.querySelector('[data-share-preview-shell]');
+    const previewCard = shareComposer.querySelector('[data-share-preview-card]');
+    const previewKicker = shareComposer.querySelector('[data-share-preview-kicker]');
+    const previewReference = shareComposer.querySelector('[data-share-preview-reference]');
+    const previewText = shareComposer.querySelector('[data-share-preview-text]');
+    const previewFooter = shareComposer.querySelector('[data-share-preview-footer]');
+    const previewBrand = shareComposer.querySelector('[data-share-preview-brand]');
+    const shareStatus = shareComposer.querySelector('[data-share-status]');
+    const shareCanvas = shareComposer.querySelector('[data-share-canvas]');
+    const templateSelect = shareComposer.querySelector('[data-share-template]');
+    const themeSelect = shareComposer.querySelector('[data-share-theme]');
+    const fontSelect = shareComposer.querySelector('[data-share-font]');
+    const brandingSelect = shareComposer.querySelector('[data-share-branding]');
+    const headlineInput = shareComposer.querySelector('[data-share-headline]');
+    const footerInput = shareComposer.querySelector('[data-share-footer]');
+    const captionInput = shareComposer.querySelector('[data-share-caption]');
+    const downloadButton = shareComposer.querySelector('[data-share-download]');
+    const nativeShareButton = shareComposer.querySelector('[data-share-native]');
+    const copyCaptionButton = shareComposer.querySelector('[data-share-copy]');
+    const randomizeButton = shareComposer.querySelector('[data-share-randomize]');
+    let sharePayload = null;
+
+    try {
+        sharePayload = sharePayloadNode?.textContent ? JSON.parse(sharePayloadNode.textContent) : null;
+    } catch (error) {
+        sharePayload = null;
+    }
+
+    const setShareStatus = (message) => {
+        if (shareStatus instanceof HTMLElement) {
+            shareStatus.textContent = message;
+        }
+    };
+
+    if (sharePayload && shareForm && previewShell && previewCard && previewKicker && previewReference && previewText && previewFooter && previewBrand && shareCanvas instanceof HTMLCanvasElement) {
+        const templatePresets = {
+            story: {
+                width: 1080,
+                height: 1920,
+                aspectRatio: '9 / 16',
+                padding: 92,
+                kickerSize: 42,
+                referenceSize: 32,
+                quoteSize: 86,
+                quoteMin: 42,
+                quoteLineHeight: 1.15,
+                quoteMaxLines: 14,
+                quoteMaxChars: 780,
+            },
+            square: {
+                width: 1080,
+                height: 1080,
+                aspectRatio: '1 / 1',
+                padding: 84,
+                kickerSize: 36,
+                referenceSize: 28,
+                quoteSize: 68,
+                quoteMin: 34,
+                quoteLineHeight: 1.14,
+                quoteMaxLines: 10,
+                quoteMaxChars: 430,
+            },
+        };
+
+        const themePresets = {
+            'good-news-bible': {
+                gradient: ['#7fc0df', '#f8eeb8', '#fff6dc'],
+                orbs: ['rgba(255, 231, 150, 0.42)', 'rgba(78, 162, 48, 0.18)', 'rgba(205, 38, 42, 0.14)'],
+                text: '#4c260d',
+                muted: 'rgba(76, 38, 13, 0.74)',
+                panel: 'rgba(255, 249, 230, 0.46)',
+                panelBorder: 'rgba(131, 69, 24, 0.16)',
+            },
+            'slate-glow': {
+                gradient: ['#0a0908', '#22333b', '#5e503f'],
+                orbs: ['rgba(198, 172, 143, 0.30)', 'rgba(234, 224, 213, 0.14)', 'rgba(198, 172, 143, 0.18)'],
+                text: '#f8f3ed',
+                muted: 'rgba(248, 243, 237, 0.78)',
+                panel: 'rgba(234, 224, 213, 0.12)',
+                panelBorder: 'rgba(234, 224, 213, 0.16)',
+            },
+            'earth-canvas': {
+                gradient: ['#5e503f', '#c6ac8f', '#eae0d5'],
+                orbs: ['rgba(10, 9, 8, 0.10)', 'rgba(34, 51, 59, 0.10)', 'rgba(234, 224, 213, 0.30)'],
+                text: '#0a0908',
+                muted: 'rgba(10, 9, 8, 0.62)',
+                panel: 'rgba(255, 252, 248, 0.24)',
+                panelBorder: 'rgba(10, 9, 8, 0.10)',
+            },
+            'light-sermon': {
+                gradient: ['#fbf8f3', '#eae0d5', '#c6ac8f'],
+                orbs: ['rgba(34, 51, 59, 0.12)', 'rgba(94, 80, 63, 0.10)', 'rgba(255, 255, 255, 0.32)'],
+                text: '#0a0908',
+                muted: 'rgba(10, 9, 8, 0.66)',
+                panel: 'rgba(255, 255, 255, 0.28)',
+                panelBorder: 'rgba(34, 51, 59, 0.10)',
+            },
+            'midnight-gospel': {
+                gradient: ['#0b1320', '#22333b', '#0a0908'],
+                orbs: ['rgba(198, 172, 143, 0.18)', 'rgba(117, 181, 214, 0.14)', 'rgba(234, 224, 213, 0.10)'],
+                text: '#f5efe7',
+                muted: 'rgba(245, 239, 231, 0.72)',
+                panel: 'rgba(255, 255, 255, 0.08)',
+                panelBorder: 'rgba(255, 255, 255, 0.12)',
+            },
+        };
+
+        const fontPresets = {
+            editorial: {
+                previewClass: 'share-font-editorial',
+                kicker: '"Manrope", sans-serif',
+                quote: '"Outfit", sans-serif',
+                reference: '"Manrope", sans-serif',
+                footer: '"Manrope", sans-serif',
+            },
+            modern: {
+                previewClass: 'share-font-modern',
+                kicker: '"Manrope", sans-serif',
+                quote: '"Manrope", sans-serif',
+                reference: '"Outfit", sans-serif',
+                footer: '"Manrope", sans-serif',
+            },
+            classic: {
+                previewClass: 'share-font-classic',
+                kicker: '"Manrope", sans-serif',
+                quote: 'Georgia, serif',
+                reference: 'Georgia, serif',
+                footer: '"Manrope", sans-serif',
+            },
+        };
+
+        const createSeededRandom = (seed) => {
+            let current = seed >>> 0;
+
+            return () => {
+                current = (current * 1664525 + 1013904223) >>> 0;
+                return current / 4294967296;
+            };
+        };
+
+        const truncateAtWord = (text, maxChars) => {
+            const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+
+            if (normalized.length <= maxChars) {
+                return normalized;
+            }
+
+            const shortened = normalized.slice(0, maxChars - 1);
+            const boundary = shortened.lastIndexOf(' ');
+            return `${(boundary > 120 ? shortened.slice(0, boundary) : shortened).trim()}...`;
+        };
+
+        const buildShareBody = (template) => {
+            const verses = Array.isArray(sharePayload.verses) ? sharePayload.verses : [];
+
+            if (verses.length === 0) {
+                return '';
+            }
+
+            const text = verses.length === 1
+                ? String(verses[0].text || '').trim()
+                : verses.map((verse) => `${verse.number} ${String(verse.text || '').trim()}`).join(' ');
+
+            return truncateAtWord(text, templatePresets[template].quoteMaxChars);
+        };
+
+        const buildDefaultCaption = () => {
+            const reference = String(sharePayload.reference || 'Scripture').trim();
+            const text = truncateAtWord(String(sharePayload.text || '').trim(), 1100);
+            const url = String(sharePayload.url || '').trim();
+
+            return [reference, text, url].filter(Boolean).join('\n\n');
+        };
+
+        const buildBackgroundCss = (themeKey, seed) => {
+            const theme = themePresets[themeKey] || themePresets['good-news-bible'];
+            const random = createSeededRandom(seed);
+            const orbOne = `${12 + Math.round(random() * 20)}% ${8 + Math.round(random() * 18)}%`;
+            const orbTwo = `${70 + Math.round(random() * 18)}% ${10 + Math.round(random() * 20)}%`;
+            const orbThree = `${18 + Math.round(random() * 60)}% ${62 + Math.round(random() * 22)}%`;
+
+            return [
+                `radial-gradient(circle at ${orbOne}, ${theme.orbs[0]}, transparent 28%)`,
+                `radial-gradient(circle at ${orbTwo}, ${theme.orbs[1]}, transparent 30%)`,
+                `radial-gradient(circle at ${orbThree}, ${theme.orbs[2]}, transparent 34%)`,
+                `linear-gradient(160deg, ${theme.gradient[0]} 0%, ${theme.gradient[1]} 48%, ${theme.gradient[2]} 100%)`,
+            ].join(', ');
+        };
+
+        const buildCanvasBackdrop = (ctx, width, height, themeKey, seed) => {
+            const theme = themePresets[themeKey] || themePresets['good-news-bible'];
+            const gradient = ctx.createLinearGradient(0, 0, width, height);
+            gradient.addColorStop(0, theme.gradient[0]);
+            gradient.addColorStop(0.5, theme.gradient[1]);
+            gradient.addColorStop(1, theme.gradient[2]);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            const random = createSeededRandom(seed);
+            theme.orbs.forEach((color, index) => {
+                const x = width * (0.15 + random() * 0.7);
+                const y = height * (0.12 + random() * 0.7);
+                const radius = Math.min(width, height) * (0.18 + random() * 0.1 + index * 0.02);
+                const orb = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                orb.addColorStop(0, color);
+                orb.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = orb;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        };
+
+        const wrapText = (ctx, text, maxWidth) => {
+            const words = String(text || '').split(/\s+/).filter(Boolean);
+            const lines = [];
+            let current = '';
+
+            words.forEach((word) => {
+                const attempt = current === '' ? word : `${current} ${word}`;
+
+                if (ctx.measureText(attempt).width <= maxWidth) {
+                    current = attempt;
+                    return;
+                }
+
+                if (current !== '') {
+                    lines.push(current);
+                }
+
+                current = word;
+            });
+
+            if (current !== '') {
+                lines.push(current);
+            }
+
+            return lines;
+        };
+
+        const fitQuoteLayout = (ctx, quote, templateKey, fontKey, maxWidth) => {
+            const template = templatePresets[templateKey];
+            const font = fontPresets[fontKey] || fontPresets.editorial;
+            let size = template.quoteSize;
+
+            while (size >= template.quoteMin) {
+                ctx.font = `700 ${size}px ${font.quote}`;
+                const lines = wrapText(ctx, quote, maxWidth);
+
+                if (lines.length <= template.quoteMaxLines) {
+                    return {
+                        size,
+                        lines,
+                        lineHeight: Math.round(size * template.quoteLineHeight),
+                    };
+                }
+
+                size -= 2;
+            }
+
+            ctx.font = `700 ${template.quoteMin}px ${font.quote}`;
+            return {
+                size: template.quoteMin,
+                lines: wrapText(ctx, quote, maxWidth).slice(0, template.quoteMaxLines),
+                lineHeight: Math.round(template.quoteMin * template.quoteLineHeight),
+            };
+        };
+
+        const renderPreview = (state) => {
+            const template = templatePresets[state.template];
+            const theme = themePresets[state.theme] || themePresets['good-news-bible'];
+            const font = fontPresets[state.font] || fontPresets.editorial;
+            const quote = buildShareBody(state.template);
+
+            previewShell.dataset.template = state.template;
+            previewShell.style.setProperty('--share-preview-aspect', template.aspectRatio);
+            previewCard.className = `share-preview-card ${font.previewClass}`;
+            previewCard.style.background = buildBackgroundCss(state.theme, state.seed);
+            previewCard.style.color = theme.text;
+            previewCard.style.setProperty('--share-panel-bg', theme.panel);
+            previewCard.style.setProperty('--share-panel-border', theme.panelBorder);
+            previewCard.style.setProperty('--share-text-muted', theme.muted);
+            previewCard.style.setProperty('--share-text-main', theme.text);
+            previewKicker.textContent = state.headline.trim() || 'Share the Good News';
+            previewReference.textContent = String(sharePayload.reference || '').trim();
+            previewText.textContent = quote;
+            previewFooter.textContent = state.footer.trim();
+            previewFooter.hidden = state.footer.trim() === '';
+            previewBrand.textContent = state.branding === 'good-news' ? 'Good News Bible' : '';
+            previewBrand.hidden = state.branding !== 'good-news';
+        };
+
+        const renderCanvas = (state) => {
+            const template = templatePresets[state.template];
+            const theme = themePresets[state.theme] || themePresets['good-news-bible'];
+            const font = fontPresets[state.font] || fontPresets.editorial;
+            const ctx = shareCanvas.getContext('2d');
+
+            if (!ctx) {
+                throw new Error('Canvas rendering is unavailable.');
+            }
+
+            shareCanvas.width = template.width;
+            shareCanvas.height = template.height;
+            ctx.clearRect(0, 0, template.width, template.height);
+
+            buildCanvasBackdrop(ctx, template.width, template.height, state.theme, state.seed);
+
+            const padding = template.padding;
+            const cardWidth = template.width - (padding * 2);
+            const cardHeight = template.height - (padding * 2);
+
+            ctx.fillStyle = theme.panel;
+            ctx.strokeStyle = theme.panelBorder;
+            ctx.lineWidth = 2;
+            const radius = 42;
+            ctx.beginPath();
+            ctx.moveTo(padding + radius, padding);
+            ctx.lineTo(padding + cardWidth - radius, padding);
+            ctx.quadraticCurveTo(padding + cardWidth, padding, padding + cardWidth, padding + radius);
+            ctx.lineTo(padding + cardWidth, padding + cardHeight - radius);
+            ctx.quadraticCurveTo(padding + cardWidth, padding + cardHeight, padding + cardWidth - radius, padding + cardHeight);
+            ctx.lineTo(padding + radius, padding + cardHeight);
+            ctx.quadraticCurveTo(padding, padding + cardHeight, padding, padding + cardHeight - radius);
+            ctx.lineTo(padding, padding + radius);
+            ctx.quadraticCurveTo(padding, padding, padding + radius, padding);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            const innerX = padding + 56;
+            const innerY = padding + 58;
+            const innerWidth = cardWidth - 112;
+            let cursorY = innerY;
+
+            ctx.fillStyle = theme.muted;
+            ctx.font = `700 ${template.kickerSize}px ${font.kicker}`;
+            ctx.textBaseline = 'top';
+            ctx.fillText(state.headline.trim() || 'Share the Good News', innerX, cursorY, innerWidth);
+
+            cursorY += template.kickerSize + 34;
+
+            ctx.fillStyle = theme.text;
+            ctx.font = `600 ${template.referenceSize}px ${font.reference}`;
+            ctx.fillText(String(sharePayload.reference || '').trim(), innerX, cursorY, innerWidth);
+
+            cursorY += template.referenceSize + 36;
+
+            const quote = buildShareBody(state.template);
+            const quoteLayout = fitQuoteLayout(ctx, quote, state.template, state.font, innerWidth);
+            ctx.font = `700 ${quoteLayout.size}px ${font.quote}`;
+            ctx.fillStyle = theme.text;
+
+            quoteLayout.lines.forEach((line) => {
+                ctx.fillText(line, innerX, cursorY, innerWidth);
+                cursorY += quoteLayout.lineHeight;
+            });
+
+            const footerY = template.height - padding - 74;
+
+            ctx.fillStyle = theme.muted;
+            ctx.font = `600 26px ${font.footer}`;
+
+            if (state.footer.trim() !== '') {
+                ctx.fillText(state.footer.trim(), innerX, footerY, innerWidth * 0.7);
+            }
+
+            if (state.branding === 'good-news') {
+                ctx.textAlign = 'right';
+                ctx.fillText('Good News Bible', template.width - innerX, footerY, innerWidth * 0.4);
+                ctx.textAlign = 'left';
+            }
+        };
+
+        const currentState = () => ({
+            template: templateSelect instanceof HTMLSelectElement ? templateSelect.value : 'story',
+            theme: themeSelect instanceof HTMLSelectElement ? themeSelect.value : 'good-news-bible',
+            font: fontSelect instanceof HTMLSelectElement ? fontSelect.value : 'editorial',
+            branding: brandingSelect instanceof HTMLSelectElement ? brandingSelect.value : 'good-news',
+            headline: headlineInput instanceof HTMLInputElement ? headlineInput.value : 'Share the Good News',
+            footer: footerInput instanceof HTMLInputElement ? footerInput.value : 'Faith for today',
+            caption: captionInput instanceof HTMLTextAreaElement ? captionInput.value : '',
+            seed: Number(shareComposer.dataset.shareSeed || '1') || 1,
+        });
+
+        const rerenderComposer = () => {
+            const state = currentState();
+            renderPreview(state);
+            renderCanvas(state);
+        };
+
+        const exportPngBlob = async () => {
+            rerenderComposer();
+
+            return new Promise((resolve, reject) => {
+                shareCanvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(blob);
+                        return;
+                    }
+
+                    reject(new Error('The share image could not be generated.'));
+                }, 'image/png');
+            });
+        };
+
+        if (captionInput instanceof HTMLTextAreaElement) {
+            captionInput.value = buildDefaultCaption();
+        }
+
+        shareComposer.dataset.shareSeed = String(Math.floor(Date.now() % 100000));
+        rerenderComposer();
+
+        const toggleComposer = (shouldOpen) => {
+            shareComposer.hidden = !shouldOpen;
+            shareComposerToggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+
+            if (shouldOpen) {
+                shareComposer.scrollIntoView({
+                    block: 'start',
+                    behavior: 'smooth',
+                });
+            }
+        };
+
+        shareComposerToggle.addEventListener('click', () => {
+            toggleComposer(shareComposer.hidden);
+        });
+
+        shareComposerClose?.addEventListener('click', () => {
+            toggleComposer(false);
+        });
+
+        shareForm.querySelectorAll('input, select, textarea').forEach((field) => {
+            field.addEventListener('input', rerenderComposer);
+            field.addEventListener('change', rerenderComposer);
+        });
+
+        randomizeButton?.addEventListener('click', () => {
+            shareComposer.dataset.shareSeed = String(Math.floor(Math.random() * 1000000) + 1);
+            rerenderComposer();
+            setShareStatus('Background refreshed for a new post variation.');
+        });
+
+        copyCaptionButton?.addEventListener('click', async () => {
+            if (!(captionInput instanceof HTMLTextAreaElement) || !navigator.clipboard?.writeText) {
+                setShareStatus('Copy is not available in this browser.');
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(captionInput.value);
+                setShareStatus('Caption copied. Paste it into your public post.');
+            } catch (error) {
+                setShareStatus('The caption could not be copied.');
+            }
+        });
+
+        downloadButton?.addEventListener('click', async () => {
+            try {
+                const blob = await exportPngBlob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const reference = String(sharePayload.reference || 'scripture').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+                link.href = url;
+                link.download = `${reference}-${currentState().template}.png`;
+                link.click();
+                URL.revokeObjectURL(url);
+                setShareStatus('PNG downloaded for your post.');
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'The share image could not be downloaded.';
+                setShareStatus(message);
+            }
+        });
+
+        nativeShareButton?.addEventListener('click', async () => {
+            if (!(captionInput instanceof HTMLTextAreaElement) || !navigator.share) {
+                setShareStatus('Native sharing is not available here. Use Download PNG instead.');
+                return;
+            }
+
+            try {
+                const blob = await exportPngBlob();
+                const reference = String(sharePayload.reference || 'scripture').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                const file = new File([blob], `${reference}-${currentState().template}.png`, { type: 'image/png' });
+                const shareData = {
+                    title: String(sharePayload.reference || 'Scripture'),
+                    text: captionInput.value,
+                    files: [file],
+                };
+
+                if (navigator.canShare && !navigator.canShare({ files: [file] })) {
+                    setShareStatus('This browser cannot share image files directly. Use Download PNG instead.');
+                    return;
+                }
+
+                await navigator.share(shareData);
+                setShareStatus('Ready to share the Good News.');
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    setShareStatus('Share canceled.');
+                    return;
+                }
+
+                setShareStatus('The post could not be shared directly. Download the PNG instead.');
+            }
+        });
+    } else {
+        shareComposerToggle.setAttribute('hidden', 'hidden');
+    }
+}

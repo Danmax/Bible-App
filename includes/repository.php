@@ -1258,6 +1258,190 @@ function fetch_manageable_community_event_by_id(int $eventId, int $actorUserId, 
     return $event ?: null;
 }
 
+function fetch_public_sessions(bool $includeUnpublished = false, int $limit = 24): array
+{
+    $sql = 'SELECT public_sessions.*, users.name AS created_by_name
+        FROM public_sessions
+        LEFT JOIN users ON users.id = public_sessions.created_by_user_id';
+    $params = [];
+
+    if (!$includeUnpublished) {
+        $sql .= ' WHERE public_sessions.status = :status';
+        $params['status'] = 'published';
+    }
+
+    $sql .= ' ORDER BY public_sessions.is_featured DESC, public_sessions.start_at ASC
+        LIMIT ' . (int) $limit;
+
+    $statement = db()->prepare($sql);
+    $statement->execute($params);
+
+    return $statement->fetchAll();
+}
+
+function fetch_public_session_by_id(int $sessionId, bool $includeUnpublished = false): ?array
+{
+    $sql = 'SELECT public_sessions.*, users.name AS created_by_name
+        FROM public_sessions
+        LEFT JOIN users ON users.id = public_sessions.created_by_user_id
+        WHERE public_sessions.id = :id';
+    $params = ['id' => $sessionId];
+
+    if (!$includeUnpublished) {
+        $sql .= ' AND public_sessions.status = :status';
+        $params['status'] = 'published';
+    }
+
+    $sql .= ' LIMIT 1';
+
+    $statement = db()->prepare($sql);
+    $statement->execute($params);
+    $session = $statement->fetch();
+
+    return $session ?: null;
+}
+
+function fetch_manageable_public_sessions(int $limit = 50): array
+{
+    $statement = db()->prepare(
+        'SELECT public_sessions.*, users.name AS created_by_name
+        FROM public_sessions
+        LEFT JOIN users ON users.id = public_sessions.created_by_user_id
+        ORDER BY public_sessions.updated_at DESC, public_sessions.start_at DESC
+        LIMIT ' . (int) $limit
+    );
+    $statement->execute();
+
+    return $statement->fetchAll();
+}
+
+function fetch_manageable_public_session_by_id(int $sessionId): ?array
+{
+    $statement = db()->prepare(
+        'SELECT public_sessions.*, users.name AS created_by_name
+        FROM public_sessions
+        LEFT JOIN users ON users.id = public_sessions.created_by_user_id
+        WHERE public_sessions.id = :id
+        LIMIT 1'
+    );
+    $statement->execute(['id' => $sessionId]);
+    $session = $statement->fetch();
+
+    return $session ?: null;
+}
+
+function create_public_session(
+    int $actorUserId,
+    string $title,
+    string $summary,
+    string $sessionType,
+    string $hostName,
+    string $locationName,
+    string $meetingUrl,
+    string $startAt,
+    ?string $endAt,
+    ?int $capacity,
+    bool $isFeatured,
+    string $status
+): int {
+    $statement = db()->prepare(
+        'INSERT INTO public_sessions (
+            created_by_user_id,
+            title,
+            summary,
+            session_type,
+            host_name,
+            location_name,
+            meeting_url,
+            start_at,
+            end_at,
+            capacity,
+            is_featured,
+            status
+        ) VALUES (
+            :created_by_user_id,
+            :title,
+            :summary,
+            :session_type,
+            :host_name,
+            :location_name,
+            :meeting_url,
+            :start_at,
+            :end_at,
+            :capacity,
+            :is_featured,
+            :status
+        )'
+    );
+    $statement->execute([
+        'created_by_user_id' => $actorUserId,
+        'title' => trim($title),
+        'summary' => trim($summary),
+        'session_type' => trim($sessionType),
+        'host_name' => normalize_optional_text($hostName),
+        'location_name' => normalize_optional_text($locationName),
+        'meeting_url' => normalize_optional_text($meetingUrl),
+        'start_at' => trim($startAt),
+        'end_at' => normalize_optional_text((string) $endAt),
+        'capacity' => $capacity,
+        'is_featured' => $isFeatured ? 1 : 0,
+        'status' => trim($status),
+    ]);
+
+    return (int) db()->lastInsertId();
+}
+
+function update_public_session(
+    int $sessionId,
+    string $title,
+    string $summary,
+    string $sessionType,
+    string $hostName,
+    string $locationName,
+    string $meetingUrl,
+    string $startAt,
+    ?string $endAt,
+    ?int $capacity,
+    bool $isFeatured,
+    string $status
+): void {
+    $statement = db()->prepare(
+        'UPDATE public_sessions
+        SET title = :title,
+            summary = :summary,
+            session_type = :session_type,
+            host_name = :host_name,
+            location_name = :location_name,
+            meeting_url = :meeting_url,
+            start_at = :start_at,
+            end_at = :end_at,
+            capacity = :capacity,
+            is_featured = :is_featured,
+            status = :status
+        WHERE id = :id'
+    );
+    $statement->execute([
+        'id' => $sessionId,
+        'title' => trim($title),
+        'summary' => trim($summary),
+        'session_type' => trim($sessionType),
+        'host_name' => normalize_optional_text($hostName),
+        'location_name' => normalize_optional_text($locationName),
+        'meeting_url' => normalize_optional_text($meetingUrl),
+        'start_at' => trim($startAt),
+        'end_at' => normalize_optional_text((string) $endAt),
+        'capacity' => $capacity,
+        'is_featured' => $isFeatured ? 1 : 0,
+        'status' => trim($status),
+    ]);
+}
+
+function delete_public_session(int $sessionId): void
+{
+    $statement = db()->prepare('DELETE FROM public_sessions WHERE id = :id');
+    $statement->execute(['id' => $sessionId]);
+}
+
 function upsert_user_session_record(
     int $userId,
     string $sessionId,
@@ -1732,6 +1916,24 @@ function user_sessions_available(): bool
 
     try {
         $statement = db()->query("SHOW TABLES LIKE 'user_sessions'");
+        $available = $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
+function public_sessions_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW TABLES LIKE 'public_sessions'");
         $available = $statement->fetch() !== false;
     } catch (Throwable $exception) {
         $available = false;

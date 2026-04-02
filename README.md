@@ -7,11 +7,13 @@ Good News Bible is a PHP + MySQL Bible study app focused on reading, prayer, not
 - Bible reader with quick reference search like `John 3:16` and `Daniel 6:20-24`
 - Verse view and paragraph view reader modes
 - Compact chapter and verse navigation with previous/next stepping
-- Bookmarks, highlights, verse notes, and voice note support
+- Bookmarks, multi-verse highlights, verse notes, and voice note support
+- Public post share composer for verses and passages with portrait and square templates
 - Good News hub for devotionals, events, plans, feed, celebrations, and prayer
 - Prayer request workflow with voice input and AI draft support
 - Planner with calendar views, modal event creation, and goal tracking
 - Community events with AI-assisted drafting and calendar `.ics` export
+- Public sessions page with admin-managed publishing controls
 - Local authentication with profile management, password reset, and active sessions
 - Friends, saved verses, dashboard, and notes surfaces
 
@@ -37,6 +39,7 @@ Default translation: `MSB`
 - `bible.php`: Bible reader
 - `good-news.php`: Good News hub
 - `community.php`: events and community feed
+- `sessions.php`: public sessions listing
 - `planner.php`: planner and calendar
 - `prayer.php`: prayer requests
 - `dashboard.php`: signed-in overview
@@ -44,6 +47,7 @@ Default translation: `MSB`
 - `notes.php`: notes
 - `friends.php`: friend invites and connections
 - `profile.php`: profile, password, and sessions
+- `admin/sessions.php`: admin session management
 
 ## Local Setup
 
@@ -146,6 +150,7 @@ Recent migrations:
 
 - `sql/add_phase2_authorization_audit.sql`
 - `sql/add_phase3_user_sessions.sql`
+- `sql/add_public_sessions.sql`
 
 ## Bible Import Scripts
 
@@ -172,6 +177,26 @@ App icons and favicon assets live in `assets/icons/`. The icon set can be regene
 php scripts/generate_app_icons.php
 ```
 
+The source artwork for favicon, app icons, and social share previews is stored at:
+
+```text
+assets/images/good-news-app.png
+```
+
+Shared metadata is rendered from `includes/header.php`, which now includes Open Graph and Twitter image tags for link previews.
+
+## Sharing
+
+The Bible reader includes a public-post share composer for chapter, verse, and passage views. It supports:
+
+- `Vertical Phone Story` and `Square 1:1 Post` export sizes
+- dynamic generated backgrounds
+- selectable fonts and themes
+- optional Good News Bible branding
+- PNG download and native share when supported by the browser
+
+The default branded share theme is `Good News Bible`, based on the current app icon palette.
+
 ## Deployment
 
 This project is designed to deploy directly to standard PHP hosting.
@@ -186,10 +211,11 @@ See:
 
 Current work has focused on:
 
-- Good News Bible / STWB branding
-- Bible reader UX and mobile controls
+- Good News Bible branding, icons, and social preview metadata
+- Bible reader UX, mobile controls, and share-post tooling
 - Good News and prayer surfaces
 - planner and community AI workflows
 - profile and session controls
+- public sessions publishing
 - event calendar export
 - translation support for WEB and MSB

@@ -3,25 +3,58 @@
 declare(strict_types=1);
 
 $pageTitle = $pageTitle ?? null;
+$pageDescription = $pageDescription ?? 'Good News Bible is a warm, mobile-first Bible study app with bookmarks, planner tools, and community events.';
 $activePage = $activePage ?? '';
 $flash = pull_flash();
 $user = current_user();
+$currentRequestUri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+$currentPageUrl = app_url($currentRequestUri === '' ? '/' : ltrim($currentRequestUri, '/'), true);
+$metaTitle = page_title($pageTitle);
+$shareImagePath = 'assets/images/good-news-app.png';
+$shareImageFile = dirname(__DIR__) . '/' . $shareImagePath;
+$shareImageUrl = app_url($shareImagePath, true);
+$shareImageVersion = is_file($shareImageFile) ? filemtime($shareImageFile) : false;
+
+if ($shareImageVersion !== false) {
+    $shareImageUrl .= '?v=' . $shareImageVersion;
+}
+
+$shareImageSize = is_file($shareImageFile) ? getimagesize($shareImageFile) : false;
+$shareImageWidth = is_array($shareImageSize) ? (int) ($shareImageSize[0] ?? 0) : 0;
+$shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) : 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e(page_title($pageTitle)); ?></title>
-    <meta name="description" content="Good News Bible is a warm, mobile-first Bible study app with bookmarks, planner tools, and community events.">
+    <title><?= e($metaTitle); ?></title>
+    <meta name="description" content="<?= e($pageDescription); ?>">
     <meta name="application-name" content="<?= e(APP_NAME); ?>">
     <meta name="apple-mobile-web-app-title" content="<?= e(APP_NAME); ?>">
-    <meta name="theme-color" content="#d7a035">
+    <meta name="theme-color" content="#22333b">
+    <link rel="canonical" href="<?= e($currentPageUrl); ?>">
     <link rel="icon" type="image/x-icon" href="<?= e(asset_url('assets/icons/favicon.ico')); ?>">
     <link rel="icon" type="image/png" sizes="32x32" href="<?= e(asset_url('assets/icons/favicon-32x32.png')); ?>">
     <link rel="icon" type="image/png" sizes="16x16" href="<?= e(asset_url('assets/icons/favicon-16x16.png')); ?>">
     <link rel="apple-touch-icon" sizes="180x180" href="<?= e(asset_url('assets/icons/apple-touch-icon.png')); ?>">
     <link rel="manifest" href="<?= e(asset_url('assets/icons/site.webmanifest')); ?>">
+    <meta property="og:site_name" content="<?= e(APP_NAME); ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="<?= e($metaTitle); ?>">
+    <meta property="og:description" content="<?= e($pageDescription); ?>">
+    <meta property="og:url" content="<?= e($currentPageUrl); ?>">
+    <meta property="og:image" content="<?= e($shareImageUrl); ?>">
+    <meta property="og:image:alt" content="Good News Bible app icon showing a glowing cross above an open Bible with the Good News Bible name.">
+    <?php if ($shareImageWidth > 0 && $shareImageHeight > 0): ?>
+        <meta property="og:image:width" content="<?= e((string) $shareImageWidth); ?>">
+        <meta property="og:image:height" content="<?= e((string) $shareImageHeight); ?>">
+    <?php endif; ?>
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<?= e($metaTitle); ?>">
+    <meta name="twitter:description" content="<?= e($pageDescription); ?>">
+    <meta name="twitter:image" content="<?= e($shareImageUrl); ?>">
+    <meta name="twitter:image:alt" content="Good News Bible app icon showing a glowing cross above an open Bible with the Good News Bible name.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -48,8 +81,9 @@ $user = current_user();
                     <a class="<?= $activePage === 'good-news' ? 'is-active' : ''; ?>" href="<?= e(app_url('good-news.php')); ?>">Good News</a>
                     <a class="<?= $activePage === 'bible' ? 'is-active' : ''; ?>" href="<?= e(app_url('bible.php')); ?>">Bible</a>
                     <a class="<?= $activePage === 'community' ? 'is-active' : ''; ?>" href="<?= e(app_url('community.php')); ?>">Community</a>
+                    <a class="<?= $activePage === 'sessions' ? 'is-active' : ''; ?>" href="<?= e(app_url('sessions.php')); ?>">Sessions</a>
                     <?php
-                    $morePages = ['planner', 'dashboard', 'friends', 'bookmarks', 'notes', 'prayer', 'profile'];
+                    $morePages = ['planner', 'dashboard', 'friends', 'bookmarks', 'notes', 'prayer', 'profile', 'admin'];
                     $moreIsActive = in_array($activePage, $morePages, true);
                     $moreLinks = [
                         [
@@ -97,6 +131,14 @@ $user = current_user();
                             'active' => $activePage === 'profile',
                             'class' => '',
                         ];
+                        if (current_user_has_role(['admin'])) {
+                            $moreLinks[] = [
+                                'label' => 'Admin',
+                                'href' => app_url('admin/index.php'),
+                                'active' => $activePage === 'admin',
+                                'class' => '',
+                            ];
+                        }
                         $moreLinks[] = [
                             'label' => 'Logout',
                             'href' => app_url('logout.php'),
