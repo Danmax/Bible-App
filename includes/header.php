@@ -10,6 +10,18 @@ $user = current_user();
 $currentRequestUri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
 $currentPageUrl = app_url($currentRequestUri === '' ? '/' : ltrim($currentRequestUri, '/'), true);
 $metaTitle = page_title($pageTitle);
+$appThemeOptions = app_theme_options();
+$defaultAppTheme = normalize_app_theme(null);
+$themeMetaColors = [];
+
+foreach ($appThemeOptions as $option) {
+    $themeMetaColors[(string) ($option['value'] ?? '')] = (string) ($option['meta_color'] ?? '#22333b');
+}
+
+$themeMetaColorsJson = json_encode(
+    $themeMetaColors,
+    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+);
 $shareImagePath = 'assets/images/good-news-app.png';
 $shareImageFile = dirname(__DIR__) . '/' . $shareImagePath;
 $shareImageUrl = app_url($shareImagePath, true);
@@ -24,7 +36,7 @@ $shareImageWidth = is_array($shareImageSize) ? (int) ($shareImageSize[0] ?? 0) :
 $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) : 0;
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="<?= e($defaultAppTheme); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,7 +44,7 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
     <meta name="description" content="<?= e($pageDescription); ?>">
     <meta name="application-name" content="<?= e(APP_NAME); ?>">
     <meta name="apple-mobile-web-app-title" content="<?= e(APP_NAME); ?>">
-    <meta name="theme-color" content="#22333b">
+    <meta name="theme-color" content="<?= e(app_theme_meta_color($defaultAppTheme)); ?>">
     <link rel="canonical" href="<?= e($currentPageUrl); ?>">
     <link rel="icon" type="image/x-icon" href="<?= e(asset_url('assets/icons/favicon.ico')); ?>">
     <link rel="icon" type="image/png" sizes="32x32" href="<?= e(asset_url('assets/icons/favicon-32x32.png')); ?>">
@@ -55,6 +67,31 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
     <meta name="twitter:description" content="<?= e($pageDescription); ?>">
     <meta name="twitter:image" content="<?= e($shareImageUrl); ?>">
     <meta name="twitter:image:alt" content="Good News Bible app icon showing a glowing cross above an open Bible with the Good News Bible name.">
+    <script>
+        (() => {
+            const themeMetaColors = <?= is_string($themeMetaColorsJson) ? $themeMetaColorsJson : '{"good-news":"#22333b"}'; ?>;
+            const defaultTheme = <?= json_encode($defaultAppTheme, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+            let activeTheme = defaultTheme;
+
+            try {
+                const savedTheme = window.localStorage.getItem('app-theme');
+
+                if (savedTheme && Object.prototype.hasOwnProperty.call(themeMetaColors, savedTheme)) {
+                    activeTheme = savedTheme;
+                }
+            } catch (error) {
+                activeTheme = defaultTheme;
+            }
+
+            document.documentElement.setAttribute('data-theme', activeTheme);
+
+            const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+
+            if (themeColorMeta && Object.prototype.hasOwnProperty.call(themeMetaColors, activeTheme)) {
+                themeColorMeta.setAttribute('content', themeMetaColors[activeTheme]);
+            }
+        })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -163,6 +200,18 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                     <details class="more-nav">
                         <summary class="<?= $moreIsActive ? 'is-active' : ''; ?>">More</summary>
                         <div class="more-nav-menu">
+                            <div class="theme-picker-nav">
+                                <label class="theme-picker-inline" for="nav-theme-select">
+                                    <span>Theme</span>
+                                    <select id="nav-theme-select" data-app-theme-select aria-label="Select site theme">
+                                        <?php foreach ($appThemeOptions as $themeOption): ?>
+                                            <option value="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>">
+                                                <?= e((string) ($themeOption['label'] ?? 'Theme')); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+                            </div>
                             <?php foreach ($moreLinks as $link): ?>
                                 <a
                                     class="<?= e(trim(($link['active'] ? 'is-active ' : '') . $link['class'])); ?>"
@@ -175,6 +224,18 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                     </details>
 
                     <div class="more-nav-mobile" aria-label="More">
+                        <div class="theme-picker-nav theme-picker-nav-mobile">
+                            <label class="theme-picker-inline" for="mobile-theme-select">
+                                <span>Theme</span>
+                                <select id="mobile-theme-select" data-app-theme-select aria-label="Select site theme">
+                                    <?php foreach ($appThemeOptions as $themeOption): ?>
+                                        <option value="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>">
+                                            <?= e((string) ($themeOption['label'] ?? 'Theme')); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                        </div>
                         <?php foreach ($moreLinks as $link): ?>
                             <a
                                 class="<?= e(trim(($link['active'] ? 'is-active ' : '') . $link['class'])); ?>"

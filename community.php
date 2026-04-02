@@ -325,66 +325,71 @@ require_once __DIR__ . '/includes/header.php';
                     </button>
                 </div>
 
-                <div
-                    class="panel community-manager-panel top-gap-sm"
+                <section
+                    class="panel-modal"
                     data-community-panel="compose"
+                    data-panel-modal
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="community-compose-modal-title"
                     <?= $showComposePanel ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>
                 >
-                    <div class="panel-heading">
-                        <div>
-                            <h2><?= $editingEvent ? 'Edit event' : 'Create event'; ?></h2>
-                            <p class="muted-copy">
-                                Build the shared community calendar from here.
-                            </p>
-                        </div>
-                        <button class="button button-secondary" type="button" data-community-panel-close="compose">Close</button>
-                    </div>
-
-                    <?php if ($formError): ?>
-                        <div class="flash flash-warning"><?= e($formError); ?></div>
-                    <?php endif; ?>
-                    <div
-                        class="community-ai-panel"
-                        data-ai-event-builder
-                        data-ai-endpoint="<?= e(app_url('community-ai-event.php')); ?>"
-                    >
+                    <div class="panel community-manager-panel panel-modal-card" data-panel-modal-content>
                         <div class="panel-heading">
                             <div>
-                                <h3>AI Event Draft</h3>
-                                <p class="muted-copy">Speak or type a prompt, then review the generated event draft before saving.</p>
+                                <h2 id="community-compose-modal-title"><?= $editingEvent ? 'Edit event' : 'Create event'; ?></h2>
+                                <p class="muted-copy">
+                                    Build the shared community calendar from here.
+                                </p>
                             </div>
-                            <span class="pill pill-dark"><?= e(strtoupper(openai_event_model())); ?></span>
+                            <button class="button button-secondary" type="button" data-community-panel-close="compose">Close</button>
                         </div>
 
-                        <label>
-                            Prompt
-                            <textarea
-                                name="ai_prompt"
-                                rows="4"
-                                placeholder="Example: Create a community prayer night next Thursday at 7 PM in the fellowship hall with public visibility."
-                                data-ai-prompt
-                            ></textarea>
-                        </label>
+                        <?php if ($formError): ?>
+                            <div class="flash flash-warning"><?= e($formError); ?></div>
+                        <?php endif; ?>
+                        <div
+                            class="community-ai-panel"
+                            data-ai-event-builder
+                            data-ai-endpoint="<?= e(app_url('community-ai-event.php')); ?>"
+                        >
+                            <div class="panel-heading">
+                                <div>
+                                    <h3>AI Event Draft</h3>
+                                    <p class="muted-copy">Speak or type a prompt, then review the generated event draft before saving.</p>
+                                </div>
+                                <span class="pill pill-dark"><?= e(strtoupper(openai_event_model())); ?></span>
+                            </div>
 
-                        <div class="inline-actions top-gap-sm">
-                            <button class="button button-secondary" type="button" data-ai-voice-start <?= openai_event_drafts_enabled() ? '' : 'disabled'; ?>>Voice to Text</button>
-                            <button class="button button-secondary" type="button" data-ai-voice-stop hidden>Stop</button>
-                            <button class="button button-primary" type="button" data-ai-generate <?= openai_event_drafts_enabled() ? '' : 'disabled'; ?>>Create Draft</button>
+                            <label>
+                                Prompt
+                                <textarea
+                                    name="ai_prompt"
+                                    rows="4"
+                                    placeholder="Example: Create a community prayer night next Thursday at 7 PM in the fellowship hall with public visibility."
+                                    data-ai-prompt
+                                ></textarea>
+                            </label>
+
+                            <div class="inline-actions top-gap-sm">
+                                <button class="button button-secondary" type="button" data-ai-voice-start <?= openai_event_drafts_enabled() ? '' : 'disabled'; ?>>Voice to Text</button>
+                                <button class="button button-secondary" type="button" data-ai-voice-stop hidden>Stop</button>
+                                <button class="button button-primary" type="button" data-ai-generate <?= openai_event_drafts_enabled() ? '' : 'disabled'; ?>>Create Draft</button>
+                            </div>
+
+                            <p class="muted-copy" data-ai-status>
+                                <?= openai_event_drafts_enabled()
+                                    ? 'AI drafting fills the form only. Review and edit the result before publishing.'
+                                    : 'Add OPENAI_API_KEY to enable AI event drafting.'; ?>
+                            </p>
                         </div>
 
-                        <p class="muted-copy" data-ai-status>
-                            <?= openai_event_drafts_enabled()
-                                ? 'AI drafting fills the form only. Review and edit the result before publishing.'
-                                : 'Add OPENAI_API_KEY to enable AI event drafting.'; ?>
-                        </p>
-                    </div>
-
-                    <form
-                        class="form-stack top-gap"
-                        method="post"
-                        action="<?= e(app_url('community.php' . ($editingEvent ? '?edit=' . (int) $editingEvent['id'] : ''))); ?>"
-                        data-community-event-form
-                    >
+                        <form
+                            class="form-stack top-gap"
+                            method="post"
+                            action="<?= e(app_url('community.php' . ($editingEvent ? '?edit=' . (int) $editingEvent['id'] : ''))); ?>"
+                            data-community-event-form
+                        >
                         <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                         <input type="hidden" name="action" value="<?= e($editingEvent ? 'update-event' : 'create-event'); ?>">
                         <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
@@ -473,45 +478,52 @@ require_once __DIR__ . '/includes/header.php';
                         <textarea name="description" rows="6" required data-ai-field="description"><?= e($formData['description']); ?></textarea>
                     </label>
 
-                    <div class="inline-actions">
-                        <button class="button button-primary" type="submit"><?= $editingEvent ? 'Update Event' : 'Create Event'; ?></button>
-                        <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug)); ?>">Cancel</a>
-                    </div>
-                </form>
-            </div>
-
-            <div
-                class="panel community-manager-panel top-gap-sm"
-                data-community-panel="manage"
-                hidden
-                aria-hidden="true"
-                style="display: none;"
-            >
-                <div class="panel-heading">
-                    <div>
-                        <h2><?= $canManageAllEvents ? 'Event queue' : 'Your events'; ?></h2>
-                        <p class="muted-copy"><?= $canManageAllEvents ? 'Leaders can review every event from this panel.' : 'Quick shortcuts into the events you created.'; ?></p>
-                    </div>
-                    <button class="button button-secondary" type="button" data-community-panel-close="manage">Close</button>
-                </div>
-
-                <?php if ($manageableEvents === []): ?>
-                    <p class="empty-state">No events to manage yet.</p>
-                <?php else: ?>
-                    <div class="stack-list">
-                        <?php foreach ($manageableEvents as $manageableEvent): ?>
-                            <div class="list-card list-card-block">
-                                <div>
-                                    <strong><?= e((string) $manageableEvent['title']); ?></strong>
-                                    <span><?= e(format_event_datetime((string) $manageableEvent['start_at'])); ?></span>
-                                    <span class="muted-copy"><?= e((string) ($manageableEvent['category_label'] ?: $manageableEvent['event_type'])); ?></span>
-                                </div>
-                                <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug, (int) $manageableEvent['id'])); ?>">Edit</a>
+                            <div class="inline-actions">
+                                <button class="button button-primary" type="submit"><?= $editingEvent ? 'Update Event' : 'Create Event'; ?></button>
+                                <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug)); ?>">Cancel</a>
                             </div>
-                        <?php endforeach; ?>
+                        </form>
                     </div>
-                <?php endif; ?>
-            </div>
+                </section>
+
+                <section
+                    class="panel-modal"
+                    data-community-panel="manage"
+                    data-panel-modal
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="community-manage-modal-title"
+                    hidden
+                    aria-hidden="true"
+                    style="display: none;"
+                >
+                    <div class="panel community-manager-panel panel-modal-card" data-panel-modal-content>
+                        <div class="panel-heading">
+                            <div>
+                                <h2 id="community-manage-modal-title"><?= $canManageAllEvents ? 'Event queue' : 'Your events'; ?></h2>
+                                <p class="muted-copy"><?= $canManageAllEvents ? 'Leaders can review every event from this panel.' : 'Quick shortcuts into the events you created.'; ?></p>
+                            </div>
+                            <button class="button button-secondary" type="button" data-community-panel-close="manage">Close</button>
+                        </div>
+
+                        <?php if ($manageableEvents === []): ?>
+                            <p class="empty-state">No events to manage yet.</p>
+                        <?php else: ?>
+                            <div class="stack-list">
+                                <?php foreach ($manageableEvents as $manageableEvent): ?>
+                                    <div class="list-card list-card-block">
+                                        <div>
+                                            <strong><?= e((string) $manageableEvent['title']); ?></strong>
+                                            <span><?= e(format_event_datetime((string) $manageableEvent['start_at'])); ?></span>
+                                            <span class="muted-copy"><?= e((string) ($manageableEvent['category_label'] ?: $manageableEvent['event_type'])); ?></span>
+                                        </div>
+                                        <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug, (int) $manageableEvent['id'])); ?>">Edit</a>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </section>
         <?php elseif ($user === null): ?>
             <div class="panel top-gap">
                 <p class="empty-state">Create an account or sign in to publish events, update your own listings, and collect RSVPs.</p>

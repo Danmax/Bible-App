@@ -161,6 +161,58 @@ function current_year(): string
     return date('Y');
 }
 
+function app_theme_options(): array
+{
+    return [
+        [
+            'value' => 'good-news',
+            'label' => 'Good News',
+            'meta_color' => '#22333b',
+        ],
+        [
+            'value' => 'spring',
+            'label' => 'Spring',
+            'meta_color' => '#5f8f52',
+        ],
+        [
+            'value' => 'summer',
+            'label' => 'Summer',
+            'meta_color' => '#1d6fa3',
+        ],
+        [
+            'value' => 'fall',
+            'label' => 'Fall',
+            'meta_color' => '#8c4b22',
+        ],
+        [
+            'value' => 'winter',
+            'label' => 'Winter',
+            'meta_color' => '#496c88',
+        ],
+    ];
+}
+
+function normalize_app_theme(?string $theme): string
+{
+    $normalized = strtolower(trim((string) $theme));
+    $allowedThemes = array_column(app_theme_options(), 'value');
+
+    return in_array($normalized, $allowedThemes, true) ? $normalized : 'good-news';
+}
+
+function app_theme_meta_color(string $theme): string
+{
+    $normalizedTheme = normalize_app_theme($theme);
+
+    foreach (app_theme_options() as $option) {
+        if (($option['value'] ?? '') === $normalizedTheme) {
+            return (string) ($option['meta_color'] ?? '#22333b');
+        }
+    }
+
+    return '#22333b';
+}
+
 function profile_initials(string $name): string
 {
     $parts = preg_split('/\s+/', trim($name)) ?: [];

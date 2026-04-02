@@ -302,6 +302,69 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             <?php endif; ?>
 
+            <div class="top-gap" data-community-panels>
+                <div class="community-action-bar">
+                    <button
+                        class="button button-secondary"
+                        type="button"
+                        data-community-panel-toggle="appearance"
+                        aria-expanded="false"
+                    >
+                        Appearance Settings
+                    </button>
+                </div>
+
+                <section
+                    class="panel-modal"
+                    data-community-panel="appearance"
+                    data-panel-modal
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="profile-appearance-modal-title"
+                    hidden
+                    aria-hidden="true"
+                    style="display: none;"
+                >
+                    <div class="panel community-manager-panel panel-modal-card" data-panel-modal-content>
+                        <div class="panel-heading">
+                            <div>
+                                <h3 id="profile-appearance-modal-title">Appearance</h3>
+                                <p class="muted-copy">Choose a seasonal site theme for this browser.</p>
+                            </div>
+                            <button class="button button-secondary" type="button" data-community-panel-close="appearance">Close</button>
+                        </div>
+
+                        <div class="form-stack top-gap-sm">
+                            <label>
+                                <span>Site theme</span>
+                                <select data-app-theme-select aria-label="Select site theme">
+                                    <?php foreach (app_theme_options() as $themeOption): ?>
+                                        <option value="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>">
+                                            <?= e((string) ($themeOption['label'] ?? 'Theme')); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+
+                            <div class="theme-swatch-grid" aria-hidden="true">
+                                <?php foreach (app_theme_options() as $themeOption): ?>
+                                    <button
+                                        class="theme-swatch"
+                                        type="button"
+                                        data-app-theme-option="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>"
+                                        title="<?= e((string) ($themeOption['label'] ?? 'Theme')); ?>"
+                                    >
+                                        <span><?= e((string) ($themeOption['label'] ?? 'Theme')); ?></span>
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+
+                            <p class="muted-copy" data-app-theme-status>Theme changes are saved on this device.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
             <section class="account-action-card top-gap">
                 <div class="panel-heading">
                     <div>

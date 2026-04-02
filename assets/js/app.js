@@ -88,6 +88,101 @@ if (yearNode) {
     yearNode.textContent = String(new Date().getFullYear());
 }
 
+const appThemeSelects = document.querySelectorAll('[data-app-theme-select]');
+const appThemeStatusNodes = document.querySelectorAll('[data-app-theme-status]');
+const appThemeSwatches = document.querySelectorAll('[data-app-theme-option]');
+
+if (appThemeSelects.length > 0 || appThemeSwatches.length > 0) {
+    const themeMetaColors = {
+        'good-news': '#22333b',
+        spring: '#5f8f52',
+        summer: '#1d6fa3',
+        fall: '#8c4b22',
+        winter: '#496c88',
+    };
+    const defaultTheme = 'good-news';
+    const allowedThemes = Object.keys(themeMetaColors);
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+
+    const normalizeAppTheme = (theme) => (
+        allowedThemes.includes(String(theme || '').trim()) ? String(theme).trim() : defaultTheme
+    );
+
+    const setThemeStatus = (message) => {
+        appThemeStatusNodes.forEach((node) => {
+            if (node instanceof HTMLElement) {
+                node.textContent = message;
+            }
+        });
+    };
+
+    const syncThemeControls = (theme) => {
+        appThemeSelects.forEach((selectNode) => {
+            if (selectNode instanceof HTMLSelectElement) {
+                selectNode.value = theme;
+            }
+        });
+
+        appThemeSwatches.forEach((buttonNode) => {
+            if (buttonNode instanceof HTMLElement) {
+                buttonNode.classList.toggle('is-active', buttonNode.getAttribute('data-app-theme-option') === theme);
+            }
+        });
+    };
+
+    const applyAppTheme = (theme, { announce = false } = {}) => {
+        const normalizedTheme = normalizeAppTheme(theme);
+        document.documentElement.setAttribute('data-theme', normalizedTheme);
+
+        if (themeColorMeta instanceof HTMLMetaElement) {
+            themeColorMeta.setAttribute('content', themeMetaColors[normalizedTheme] || themeMetaColors[defaultTheme]);
+        }
+
+        try {
+            window.localStorage.setItem('app-theme', normalizedTheme);
+        } catch (error) {
+            // Ignore storage failures and keep the in-memory theme.
+        }
+
+        syncThemeControls(normalizedTheme);
+
+        if (announce) {
+            const selectedLabel = appThemeSelects[0] instanceof HTMLSelectElement
+                ? appThemeSelects[0].selectedOptions[0]?.textContent?.trim() || 'Theme'
+                : 'Theme';
+            setThemeStatus(`${selectedLabel} theme applied on this device.`);
+        }
+    };
+
+    let initialTheme = defaultTheme;
+
+    try {
+        initialTheme = normalizeAppTheme(window.localStorage.getItem('app-theme'));
+    } catch (error) {
+        initialTheme = normalizeAppTheme(document.documentElement.getAttribute('data-theme'));
+    }
+
+    applyAppTheme(initialTheme);
+
+    appThemeSelects.forEach((selectNode) => {
+        selectNode.addEventListener('change', () => {
+            if (selectNode instanceof HTMLSelectElement) {
+                applyAppTheme(selectNode.value, { announce: true });
+            }
+        });
+    });
+
+    appThemeSwatches.forEach((buttonNode) => {
+        buttonNode.addEventListener('click', () => {
+            const nextTheme = buttonNode.getAttribute('data-app-theme-option');
+
+            if (nextTheme) {
+                applyAppTheme(nextTheme, { announce: true });
+            }
+        });
+    });
+}
+
 const panelGroups = document.querySelectorAll('[data-community-panels]');
 const modalCloseParamMap = {
     compose: ['edit'],

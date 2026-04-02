@@ -9,10 +9,11 @@ Good News Bible is a PHP + MySQL Bible study app focused on reading, prayer, not
 - Compact chapter and verse navigation with previous/next stepping
 - Bookmarks, multi-verse highlights, verse notes, and voice note support
 - Public post share composer for verses and passages with portrait and square templates
+- Seasonal site themes with `Spring`, `Summer`, `Fall`, `Winter`, and `Good News`
 - Good News hub for devotionals, events, plans, feed, celebrations, and prayer
 - Prayer request workflow with voice input and AI draft support
 - Planner with calendar views, modal event creation, and goal tracking
-- Community events with AI-assisted drafting and calendar `.ics` export
+- Community events with AI-assisted drafting, modal management panels, and calendar `.ics` export
 - Public sessions page with admin-managed publishing controls
 - Local authentication with profile management, password reset, and active sessions
 - Friends, saved verses, dashboard, and notes surfaces
@@ -197,6 +198,28 @@ The Bible reader includes a public-post share composer for chapter, verse, and p
 
 The default branded share theme is `Good News Bible`, based on the current app icon palette.
 
+## Themes
+
+The site includes browser-saved appearance themes:
+
+- `Good News`
+- `Spring`
+- `Summer`
+- `Fall`
+- `Winter`
+
+Users can change themes from the navigation theme picker or from the Profile appearance modal. Theme selection is currently saved per browser using local storage.
+
+## Modals
+
+Shared modal panels are used for management flows across the app, including:
+
+- planner event and goal editing
+- community event creation and management
+- profile appearance settings
+
+This keeps editing flows consistent and avoids browser-native alert or prompt interactions.
+
 ## Deployment
 
 This project is designed to deploy directly to standard PHP hosting.
@@ -213,8 +236,9 @@ Current work has focused on:
 
 - Good News Bible branding, icons, and social preview metadata
 - Bible reader UX, mobile controls, and share-post tooling
+- seasonal site themes and browser-saved appearance controls
 - Good News and prayer surfaces
-- planner and community AI workflows
+- planner and community AI workflows with shared modal management patterns
 - profile and session controls
 - public sessions publishing
 - event calendar export
