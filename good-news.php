@@ -87,6 +87,50 @@ function good_news_guest_encouragement(): array
     ];
 }
 
+function good_news_default_radio_stations(): array
+{
+    return [
+        [
+            'slug' => 'praise-worship',
+            'name' => 'Moody Radio Praise & Worship',
+            'tagline' => 'Uplifting worship songs and Christ-centered encouragement.',
+            'stream_url' => 'https://playerservices.streamtheworld.com/api/livestream-redirect/IM_1.mp3',
+            'listen_url' => 'https://www.moodyradio.org/stations/praise-and-worship/',
+            'kind' => 'Music',
+        ],
+        [
+            'slug' => 'urban-praise',
+            'name' => 'Moody Radio Urban Praise',
+            'tagline' => 'Gospel music exalting the name of Jesus Christ all day.',
+            'stream_url' => 'https://playerservices.streamtheworld.com/api/livestream-redirect/IM_3.mp3',
+            'listen_url' => 'https://www.moodyradio.org/stations/urban-praise/',
+            'kind' => 'Gospel',
+        ],
+        [
+            'slug' => 'majesty-radio',
+            'name' => 'Moody Radio Majesty',
+            'tagline' => 'Hymns, sacred classics, and reverent worship centered on Christ.',
+            'stream_url' => 'https://player.listenlive.co/63701',
+            'listen_url' => 'https://www.moodyradio.org/stations/majesty-radio/',
+            'kind' => 'Hymns',
+        ],
+    ];
+}
+
+function good_news_default_radio_links(): array
+{
+    return [
+        [
+            'name' => 'K-LOVE',
+            'url' => 'https://www.klove.com/music/ways-to-listen?sLk2cOLJnOUBRf3=MrbZo9Pz',
+        ],
+        [
+            'name' => 'Air1',
+            'url' => 'https://www.air1.com/music/ways-to-listen',
+        ],
+    ];
+}
+
 $pageTitle = 'Good News';
 $activePage = 'good-news';
 $user = is_logged_in() ? refresh_current_user() : null;
@@ -102,9 +146,34 @@ $currentYear = (int) date('Y');
 $prayerPageUrl = app_url($user !== null ? 'prayer.php' : 'login.php');
 $responseSteps = good_news_response_steps($user !== null, $prayerPageUrl);
 $guestEncouragement = good_news_guest_encouragement();
+$radioStations = good_news_default_radio_stations();
+$radioLinks = good_news_default_radio_links();
+$defaultRadioStation = $radioStations[0] ?? null;
 
 try {
     $upcomingEvents = fetch_upcoming_events(4);
+
+    if (public_radio_stations_available()) {
+        $managedStations = fetch_public_radio_stations();
+
+        if ($managedStations !== []) {
+            $radioStations = array_values(array_filter(
+                $managedStations,
+                static fn(array $station): bool => (
+                    trim((string) ($station['stream_url'] ?? '')) !== ''
+                    || trim((string) ($station['youtube_playlist_id'] ?? '')) !== ''
+                )
+            ));
+            $radioLinks = array_values(array_filter(
+                $managedStations,
+                static fn(array $station): bool => (
+                    trim((string) ($station['stream_url'] ?? '')) === ''
+                    && trim((string) ($station['youtube_playlist_id'] ?? '')) === ''
+                )
+            ));
+            $defaultRadioStation = $radioStations[0] ?? null;
+        }
+    }
 
     if ($user !== null) {
         $recentNotes = fetch_recent_notes((int) $user['id'], 2);
@@ -194,6 +263,91 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endforeach; ?>
             </div>
         </section>
+
+        <?php if ($radioStations !== [] || $radioLinks !== []): ?>
+            <section class="panel good-news-radio-panel" id="christian-radio">
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">Christian Radio</p>
+                        <h2>Listen to worship, gospel, and Bible teaching</h2>
+                        <p class="muted-copy">Keep Scripture and Christ-centered encouragement playing while you read, pray, or reflect.</p>
+                    </div>
+                    <div class="hero-actions">
+                        <a class="button button-secondary" href="<?= e(app_url('divine-radio.php')); ?>">Open Divine Radio</a>
+                    </div>
+                </div>
+
+                <?php if ($defaultRadioStation !== null): ?>
+                    <?php
+                    $defaultPlaylistId = trim((string) ($defaultRadioStation['youtube_playlist_id'] ?? ''));
+                    $defaultPlaylistEmbedUrl = $defaultPlaylistId !== ''
+                        ? 'https://www.youtube-nocookie.com/embed/videoseries?list=' . rawurlencode($defaultPlaylistId)
+                        : '';
+                    ?>
+                    <div class="good-news-radio-player top-gap-sm" data-good-news-radio>
+                        <div class="good-news-radio-now">
+                            <span class="pill pill-dark" data-radio-kind><?= e((string) $defaultRadioStation['kind']); ?></span>
+                            <h3 data-radio-name><?= e((string) $defaultRadioStation['name']); ?></h3>
+                            <p data-radio-tagline><?= e((string) $defaultRadioStation['tagline']); ?></p>
+                            <audio
+                                class="good-news-radio-audio"
+                                controls
+                                preload="none"
+                                data-radio-audio
+                                src="<?= e((string) $defaultRadioStation['stream_url']); ?>"
+                                <?= $defaultPlaylistId !== '' ? 'hidden' : ''; ?>
+                            ></audio>
+                            <div class="good-news-radio-video" data-radio-video-wrapper <?= $defaultPlaylistId === '' ? 'hidden' : ''; ?>>
+                                <iframe
+                                    class="good-news-radio-video-frame"
+                                    data-radio-video
+                                    src="<?= e($defaultPlaylistEmbedUrl); ?>"
+                                    title="YouTube playlist player"
+                                    loading="lazy"
+                                    referrerpolicy="strict-origin-when-cross-origin"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowfullscreen
+                                ></iframe>
+                            </div>
+                            <div class="inline-actions">
+                                <a class="button button-secondary" href="<?= e((string) $defaultRadioStation['listen_url']); ?>" target="_blank" rel="noreferrer noopener" data-radio-link>Open official station page</a>
+                            </div>
+                        </div>
+
+                        <div class="good-news-radio-stations">
+                            <?php foreach ($radioStations as $index => $station): ?>
+                                <button
+                                    class="good-news-radio-station <?= $index === 0 ? 'is-active' : ''; ?>"
+                                    type="button"
+                                    data-radio-station
+                                    data-name="<?= e((string) $station['name']); ?>"
+                                    data-kind="<?= e((string) $station['kind']); ?>"
+                                    data-tagline="<?= e((string) $station['tagline']); ?>"
+                                    data-stream-url="<?= e((string) $station['stream_url']); ?>"
+                                    data-listen-url="<?= e((string) $station['listen_url']); ?>"
+                                    data-youtube-playlist-id="<?= e((string) ($station['youtube_playlist_id'] ?? '')); ?>"
+                                >
+                                    <span class="pill"><?= e((string) $station['kind']); ?></span>
+                                    <strong><?= e((string) $station['name']); ?></strong>
+                                    <span><?= e((string) $station['tagline']); ?></span>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($radioLinks !== []): ?>
+                    <div class="good-news-radio-links top-gap-sm">
+                        <?php foreach ($radioLinks as $link): ?>
+                            <?php $radioLinkUrl = (string) ($link['url'] ?? $link['listen_url'] ?? ''); ?>
+                            <a class="button button-secondary" href="<?= e($radioLinkUrl); ?>" target="_blank" rel="noreferrer noopener">
+                                <?= e((string) $link['name']); ?> official listening options
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </section>
+        <?php endif; ?>
 
         <div class="two-column top-gap">
             <section class="panel good-news-panel-emphasis">

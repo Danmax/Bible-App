@@ -48,6 +48,13 @@ require_once dirname(__DIR__) . '/includes/header.php';
                 </div>
             </article>
             <article class="panel">
+                <h2>Christian Radio</h2>
+                <p>Manage station settings and live connections for the Good News player and the dedicated Divine Radio page.</p>
+                <div class="top-gap-sm">
+                    <a class="button button-primary" href="<?= e(app_url('admin/radio.php')); ?>">Manage Radio</a>
+                </div>
+            </article>
+            <article class="panel">
                 <h2>Verses</h2>
                 <p>Import and manage public-domain Bible text.</p>
             </article>

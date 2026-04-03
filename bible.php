@@ -21,21 +21,6 @@ function bible_normalize_reader_mode(?string $mode): string
     return in_array($normalizedMode, ['verse', 'paragraph'], true) ? $normalizedMode : 'verse';
 }
 
-function bible_theme_queries(): array
-{
-    return [
-        'Hope' => 'Romans 15:13',
-        'Prayer' => 'Philippians 4:6-7',
-        'Faith' => 'Hebrews 11:1',
-        'Wisdom' => 'James 1:5',
-        'Peace' => 'Isaiah 26:3',
-        'Courage' => 'Joshua 1:9',
-        'Forgiveness' => 'forgiveness',
-        'Identity' => 'identity',
-        'Resurrection' => 'resurrection',
-    ];
-}
-
 function push_recent_bible_search(string $query, string $translation): void
 {
     $normalizedQuery = trim($query);
@@ -74,6 +59,125 @@ function recent_bible_searches(): array
             && trim((string) ($item['query'] ?? '')) !== ''
             && trim((string) ($item['translation'] ?? '')) !== ''
     ));
+}
+
+function bible_analysis_stop_words(): array
+{
+    return array_fill_keys([
+        'the', 'and', 'for', 'that', 'with', 'from', 'into', 'your', 'you', 'are', 'was', 'were',
+        'have', 'has', 'had', 'not', 'but', 'all', 'any', 'can', 'his', 'her', 'him', 'our', 'out',
+        'who', 'what', 'when', 'where', 'why', 'how', 'let', 'there', 'their', 'them', 'then', 'than',
+        'this', 'these', 'those', 'will', 'shall', 'would', 'could', 'should', 'about', 'over', 'under',
+        'through', 'after', 'before', 'because', 'been', 'being', 'also', 'unto', 'upon', 'they', 'she',
+        'himself', 'herself', 'themselves', 'ourselves', 'which', 'whom', 'whose', 'said', 'says', 'say',
+        'did', 'does', 'doing', 'very', 'more', 'most', 'much', 'many', 'each', 'every', 'some', 'such',
+        'just', 'like', 'make', 'made', 'than', 'them', 'its', 'itself', 'again', 'still', 'here', 'there',
+    ], true);
+}
+
+function bible_extract_analysis_tokens(string $text): array
+{
+    $matched = preg_match_all("/[\p{L}][\p{L}'-]*/u", $text, $matches);
+
+    if ($matched === false) {
+        return [];
+    }
+
+    $tokens = [];
+
+    foreach ($matches[0] ?? [] as $token) {
+        $normalized = trim(mb_strtolower((string) $token), "'- ");
+
+        if ($normalized !== '') {
+            $tokens[] = $normalized;
+        }
+    }
+
+    return $tokens;
+}
+
+function bible_build_scripture_analysis(array $verses, string $query = '', int $limit = 8): ?array
+{
+    if ($verses === []) {
+        return null;
+    }
+
+    $combinedText = trim(implode(' ', array_map(
+        static fn(array $verse): string => trim((string) ($verse['verse_text'] ?? '')),
+        $verses
+    )));
+    $allTokens = bible_extract_analysis_tokens($combinedText);
+    $stopWords = bible_analysis_stop_words();
+    $termCounts = [];
+
+    foreach ($allTokens as $token) {
+        if (mb_strlen($token) < 3 || isset($stopWords[$token])) {
+            continue;
+        }
+
+        $termCounts[$token] = ($termCounts[$token] ?? 0) + 1;
+    }
+
+    arsort($termCounts);
+
+    $topTerms = [];
+
+    foreach (array_slice($termCounts, 0, $limit, true) as $term => $count) {
+        $verseMatches = 0;
+
+        foreach ($verses as $verse) {
+            $verseText = mb_strtolower((string) ($verse['verse_text'] ?? ''));
+            if ($verseText !== '' && mb_strpos($verseText, $term) !== false) {
+                $verseMatches++;
+            }
+        }
+
+        $topTerms[] = [
+            'term' => $term,
+            'count' => (int) $count,
+            'verse_matches' => $verseMatches,
+        ];
+    }
+
+    $relatedItems = [];
+    $relatedTerms = [];
+
+    foreach (bible_extract_analysis_tokens($query) as $queryTerm) {
+        if (mb_strlen($queryTerm) < 3 || isset($stopWords[$queryTerm])) {
+            continue;
+        }
+
+        $relatedTerms[] = $queryTerm;
+    }
+
+    foreach (array_keys($termCounts) as $term) {
+        $relatedTerms[] = $term;
+    }
+
+    foreach (array_slice(array_values(array_unique($relatedTerms)), 0, 4) as $term) {
+        $matchCount = 0;
+
+        foreach ($verses as $verse) {
+            $verseText = mb_strtolower((string) ($verse['verse_text'] ?? ''));
+            if ($verseText !== '' && mb_strpos($verseText, $term) !== false) {
+                $matchCount++;
+            }
+        }
+
+        $relatedItems[] = [
+            'term' => $term,
+            'label' => mb_convert_case(str_replace('-', ' ', $term), MB_CASE_TITLE, 'UTF-8'),
+            'match_count' => $matchCount,
+        ];
+    }
+
+    return [
+        'verse_count' => count($verses),
+        'word_count' => count($allTokens),
+        'focus_term_count' => count($termCounts),
+        'top_terms' => $topTerms,
+        'related_items' => $relatedItems,
+    ];
 }
 
 function bible_share_reference(array $verses, string $translation): string
@@ -312,8 +416,6 @@ $translationAvailability = [];
 $displayMode = 'catalog';
 $referenceQuery = null;
 $themedSeries = [];
-$themeQueries = bible_theme_queries();
-$recentSearches = recent_bible_searches();
 $previousChapterUrl = null;
 $nextChapterUrl = null;
 $previousVerseUrl = null;
@@ -421,7 +523,6 @@ try {
     $themedSeries = fetch_thematic_scripture_series($selectedTranslation);
     if ($query !== '') {
         push_recent_bible_search($query, $selectedTranslation);
-        $recentSearches = recent_bible_searches();
     }
 
     if ($referenceQuery !== null) {
@@ -616,6 +717,20 @@ if ($chapterVerseSet !== []) {
     }
 }
 
+$analysisVerses = [];
+
+if ($displayMode === 'search' && $searchResults !== []) {
+    $analysisVerses = $searchResults;
+} elseif (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) {
+    $analysisVerses = $browseVerses;
+}
+
+$scriptureAnalysis = bible_build_scripture_analysis($analysisVerses, $query);
+$analysisTitle = $displayMode === 'search' ? 'Search Concordance' : 'Passage Concordance';
+$analysisIntro = $displayMode === 'search'
+    ? 'Study repeated words and related search paths drawn from the verses returned above.'
+    : 'Study repeated words and related search paths drawn from the passage above.';
+
 $sharePayloadJson = null;
 
 if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) {
@@ -663,119 +778,117 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
     <div class="container">
-        <div class="section-heading section-heading-rich">
-            <div>
-                <p class="eyebrow">Bible Reader</p>
-                <h1>Sword of the Spirit</h1>
-                <p>Search by reference like John 3:28 or jump through a chapter with quick next and previous controls.</p>
-            </div>
+        <?php if ($displayMode === 'catalog' || $displayMode === 'book'): ?>
+            <div class="section-heading section-heading-rich">
+                <div>
+                    <p class="eyebrow">Bible Reader</p>
+                    <h1>Sword of the Spirit</h1>
+                    <p>Search by reference like John 3:28 or jump through a chapter with quick next and previous controls.</p>
+                </div>
 
-            <div class="quick-stat-row">
-                <div class="quick-stat">
-                    <strong><?= e(strtoupper($selectedTranslation)); ?></strong>
-                    <span>active translation</span>
-                </div>
-                <div class="quick-stat">
-                    <strong><?= e((string) count($bookCatalog)); ?></strong>
-                    <span>books loaded</span>
-                </div>
-                <div class="quick-stat">
-                    <strong><?= e($selectedBook ? (string) $selectedChapter : 'Browse'); ?></strong>
-                    <span>current chapter</span>
+                <div class="quick-stat-row">
+                    <div class="quick-stat">
+                        <strong><?= e(strtoupper($selectedTranslation)); ?></strong>
+                        <span>active translation</span>
+                    </div>
+                    <div class="quick-stat">
+                        <strong><?= e((string) count($bookCatalog)); ?></strong>
+                        <span>books loaded</span>
+                    </div>
+                    <div class="quick-stat">
+                        <strong><?= e($selectedBook ? (string) $selectedChapter : 'Browse'); ?></strong>
+                        <span>current chapter</span>
+                    </div>
                 </div>
             </div>
-        </div>
+        <?php endif; ?>
 
         <?php if ($pageError): ?>
             <div class="flash flash-warning"><?= e($pageError); ?></div>
         <?php endif; ?>
 
-        <div class="panel bible-control-panel">
-            <form class="form-stack bible-search-form" method="get" data-translation-switch-form>
-                <div class="search-row search-row-compact" data-voice-search>
-                    <input type="search" name="q" value="<?= e($query); ?>" placeholder="Quick search: John 3:28 or grace" data-voice-search-input>
-                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                    <input type="hidden" name="book_id" value="<?= e($selectedBookId > 0 ? (string) $selectedBookId : ''); ?>">
-                    <input type="hidden" name="chapter" value="<?= e($selectedChapter > 0 ? (string) $selectedChapter : ''); ?>">
-                    <input type="hidden" name="verse" value="<?= e($selectedVerseNumber > 0 ? (string) $selectedVerseNumber : ''); ?>">
-                    <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
-                    <select name="translation" aria-label="Translation" data-translation-switch>
-                        <?php foreach ($translations as $translation): ?>
-                            <option value="<?= e($translation); ?>" <?= $selectedTranslation === $translation ? 'selected' : ''; ?>>
-                                <?= e($translation); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <button class="button button-secondary voice-search-button" type="button" data-voice-search-start aria-label="Speak your Bible search">
-                        <svg class="voice-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                            <path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z" />
-                            <path d="M19 11a7 7 0 0 1-14 0" />
-                            <path d="M12 18v3" />
-                            <path d="M9 21h6" />
-                        </svg>
-                    </button>
-                    <button class="button button-secondary voice-search-button" type="button" data-voice-search-stop hidden>Stop</button>
-                    <button class="button button-primary" type="submit">Search</button>
-                </div>
-                <p class="muted-copy" data-voice-search-status>Speak a reference or keyword search.</p>
-            </form>
+        <div class="panel scripture-panel top-gap">
+            <div class="bible-search-shell">
+                <form class="form-stack bible-search-form" method="get" data-translation-switch-form>
+                    <div class="search-row search-row-compact search-row-scripture" data-voice-search>
+                        <input type="search" name="q" value="<?= e($query); ?>" placeholder="Search Scripture: John 3:16 or grace" data-voice-search-input>
+                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                        <input type="hidden" name="book_id" value="<?= e($selectedBookId > 0 ? (string) $selectedBookId : ''); ?>">
+                        <input type="hidden" name="chapter" value="<?= e($selectedChapter > 0 ? (string) $selectedChapter : ''); ?>">
+                        <input type="hidden" name="verse" value="<?= e($selectedVerseNumber > 0 ? (string) $selectedVerseNumber : ''); ?>">
+                        <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
+                        <select name="translation" aria-label="Translation" data-translation-switch>
+                            <?php foreach ($translations as $translation): ?>
+                                <option value="<?= e($translation); ?>" <?= $selectedTranslation === $translation ? 'selected' : ''; ?>>
+                                    <?= e($translation); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button class="button button-secondary voice-search-button" type="button" data-voice-search-start aria-label="Speak your Bible search">
+                            <svg class="voice-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z" />
+                                <path d="M19 11a7 7 0 0 1-14 0" />
+                                <path d="M12 18v3" />
+                                <path d="M9 21h6" />
+                            </svg>
+                        </button>
+                        <button class="button button-primary" type="submit">Search</button>
+                    </div>
+                    <p class="muted-copy" data-voice-search-status>Try saying a verse, passage, or keyword and we will help you find it.</p>
+                </form>
 
-            <div class="bible-search-tools">
-                <div class="bible-chip-row">
-                    <?php foreach ($themeQueries as $themeLabel => $themeQuery): ?>
-                        <a class="filter-chip" href="<?= e(bible_reader_url([
-                            'q' => $themeQuery,
-                            'translation' => $selectedTranslation,
-                            'reader_mode' => $readerMode,
-                        ])); ?>"><?= e($themeLabel); ?></a>
-                    <?php endforeach; ?>
-                </div>
+                <details class="bible-advanced-search top-gap-sm" <?= ($displayMode === 'catalog' || $selectedBookId > 0 || $query === '') ? 'open' : ''; ?>>
+                    <summary>
+                        <span>Advanced search</span>
+                        <span class="muted-copy">Browse books, chapters, and verses</span>
+                    </summary>
+
+                    <div class="bible-advanced-search-body">
+                        <form class="form-stack" method="get" data-reader-nav>
+                            <div class="reader-select-row reader-select-row-compact">
+                                <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
+                                <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
+
+                                <label class="reader-compact-label">
+                                    <select name="book_id" data-reader-select="book">
+                                        <option value="">Select book</option>
+                                        <?php foreach ($bookCatalog as $book): ?>
+                                            <option value="<?= e((string) $book['id']); ?>" <?= $selectedBookId === (int) $book['id'] ? 'selected' : ''; ?>>
+                                                <?= e((string) $book['name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+
+                                <label class="reader-compact-label">
+                                    <select name="chapter" data-reader-select="chapter">
+                                        <option value="">Select chapter</option>
+                                        <?php foreach ($bookChapters as $chapter): ?>
+                                            <option value="<?= e((string) $chapter['chapter_number']); ?>" <?= $selectedChapter === (int) $chapter['chapter_number'] ? 'selected' : ''; ?>>
+                                                <?= e((string) $chapter['chapter_number']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+
+                                <label class="reader-compact-label">
+                                    <select name="verse" data-reader-select="verse">
+                                        <option value="">Whole chapter</option>
+                                        <?php foreach ($verseOptions as $verseOption): ?>
+                                            <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseNumber === $verseOption['number'] ? 'selected' : ''; ?>>
+                                                <?= e((string) $verseOption['number']); ?> - <?= e($verseOption['text']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+
+                                <button class="button button-secondary reader-go" type="submit">Go</button>
+                            </div>
+                        </form>
+                    </div>
+                </details>
             </div>
 
-            <form class="form-stack top-gap" method="get" data-reader-nav>
-                <div class="reader-select-row reader-select-row-compact">
-                    <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
-                    <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
-
-                    <label class="reader-compact-label">
-                        <select name="book_id" data-reader-select="book">
-                            <option value="">Select book</option>
-                            <?php foreach ($bookCatalog as $book): ?>
-                                <option value="<?= e((string) $book['id']); ?>" <?= $selectedBookId === (int) $book['id'] ? 'selected' : ''; ?>>
-                                    <?= e((string) $book['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
-
-                    <label class="reader-compact-label">
-                        <select name="chapter" data-reader-select="chapter">
-                            <option value="">Select chapter</option>
-                            <?php foreach ($bookChapters as $chapter): ?>
-                                <option value="<?= e((string) $chapter['chapter_number']); ?>" <?= $selectedChapter === (int) $chapter['chapter_number'] ? 'selected' : ''; ?>>
-                                    <?= e((string) $chapter['chapter_number']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
-
-                    <label class="reader-compact-label">
-                        <select name="verse" data-reader-select="verse">
-                            <option value="">Whole chapter</option>
-                            <?php foreach ($verseOptions as $verseOption): ?>
-                                <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseNumber === $verseOption['number'] ? 'selected' : ''; ?>>
-                                    <?= e((string) $verseOption['number']); ?> - <?= e($verseOption['text']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
-
-                    <button class="button button-secondary reader-go" type="submit">Go</button>
-                </div>
-            </form>
-        </div>
-
-        <div class="panel scripture-panel top-gap">
             <div class="scripture-heading">
                 <div>
                     <p class="eyebrow"><?= e(strtoupper($selectedTranslation)); ?></p>
@@ -793,210 +906,6 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                 </div>
             </div>
-
-            <?php if ($sharePayloadJson !== null): ?>
-                <div class="share-composer-launch top-gap-sm">
-                    <div>
-                        <strong>Public post share</strong>
-                        <p class="muted-copy">Create a portrait story or square post with customizable themes, fonts, and caption text.</p>
-                    </div>
-                    <button class="button button-primary" type="button" data-share-composer-toggle>Create Share Post</button>
-                </div>
-
-                <div class="panel share-composer-panel top-gap-sm" data-share-composer hidden>
-                    <script type="application/json" data-share-payload><?= $sharePayloadJson; ?></script>
-
-                    <div class="panel-heading">
-                        <div>
-                            <p class="eyebrow">Share Composer</p>
-                            <h3>Public post templates for Scripture</h3>
-                            <p class="muted-copy">Tune the layout, style, and caption before posting the Good News.</p>
-                        </div>
-                        <button class="button button-secondary" type="button" data-share-composer-close>Close</button>
-                    </div>
-
-                    <div class="share-composer-grid top-gap-sm">
-                        <form class="form-stack share-composer-form" data-share-composer-form>
-                            <div class="two-column">
-                                <label>
-                                    <span>Template</span>
-                                    <select name="template" data-share-template>
-                                        <option value="story">Vertical Phone Story</option>
-                                        <option value="square">Square 1:1 Post</option>
-                                    </select>
-                                </label>
-
-                                <label>
-                                    <span>Theme</span>
-                                    <select name="theme" data-share-theme>
-                                        <option value="good-news-bible" selected>Good News Bible</option>
-                                        <option value="slate-glow">Slate Glow</option>
-                                        <option value="earth-canvas">Earth Canvas</option>
-                                        <option value="light-sermon">Light Sermon</option>
-                                        <option value="midnight-gospel">Midnight Gospel</option>
-                                    </select>
-                                </label>
-                            </div>
-
-                            <div class="two-column">
-                                <label>
-                                    <span>Font</span>
-                                    <select name="font" data-share-font>
-                                        <option value="editorial">Editorial</option>
-                                        <option value="modern">Modern</option>
-                                        <option value="classic">Classic Serif</option>
-                                    </select>
-                                </label>
-
-                                <label>
-                                    <span>Branding</span>
-                                    <select name="branding" data-share-branding>
-                                        <option value="good-news">Good News Bible</option>
-                                        <option value="none">No branding</option>
-                                    </select>
-                                </label>
-                            </div>
-
-                            <label>
-                                <span>Headline</span>
-                                <input type="text" name="headline" value="Share the Good News" data-share-headline>
-                            </label>
-
-                            <label>
-                                <span>Footer note</span>
-                                <input type="text" name="footer" value="Faith for today" data-share-footer>
-                            </label>
-
-                            <label>
-                                <span>Caption</span>
-                                <textarea name="caption" rows="5" data-share-caption></textarea>
-                            </label>
-
-                            <div class="inline-actions">
-                                <button class="button button-primary" type="button" data-share-download>Download PNG</button>
-                                <button class="button button-secondary" type="button" data-share-native>Share</button>
-                                <button class="button button-secondary" type="button" data-share-copy>Copy Caption</button>
-                                <button class="button button-secondary" type="button" data-share-randomize>New Background</button>
-                            </div>
-
-                            <p class="muted-copy" data-share-status>Portrait and square templates are ready for public posting.</p>
-                        </form>
-
-                        <div class="share-preview-column">
-                            <div class="share-preview-shell" data-share-preview-shell data-template="story">
-                                <div class="share-preview-card share-theme-good-news-bible share-font-editorial" data-share-preview-card>
-                                    <div class="share-preview-overlay"></div>
-                                    <div class="share-preview-inner">
-                                        <p class="share-preview-kicker" data-share-preview-kicker>Share the Good News</p>
-                                        <div class="share-preview-scripture">
-                                            <p class="share-preview-reference" data-share-preview-reference></p>
-                                            <blockquote class="share-preview-text" data-share-preview-text></blockquote>
-                                        </div>
-                                        <div class="share-preview-meta">
-                                            <span class="share-preview-footer" data-share-preview-footer>Faith for today</span>
-                                            <span class="share-preview-brand" data-share-preview-brand>Good News Bible</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <canvas class="share-render-canvas" data-share-canvas width="1080" height="1920" hidden></canvas>
-                        </div>
-                    </div>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($selectedBook && $bookChapters !== []): ?>
-                <div class="reader-nav-bar top-gap-sm">
-                    <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $selectedChapter > 0): ?>
-                        <div class="reader-mode-switch">
-                            <a class="mini-card <?= $readerMode === 'verse' ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url([
-                                'q' => $query !== '' ? $query : null,
-                                'translation' => $selectedTranslation,
-                                'book_id' => $selectedBookId ?: null,
-                                'chapter' => $selectedChapter ?: null,
-                                'verse' => $selectedVerseNumber ?: null,
-                                'reader_mode' => 'verse',
-                            ])); ?>">Verse View</a>
-                            <a class="mini-card <?= $readerMode === 'paragraph' ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url([
-                                'q' => $query !== '' ? $query : null,
-                                'translation' => $selectedTranslation,
-                                'book_id' => $selectedBookId ?: null,
-                                'chapter' => $selectedChapter ?: null,
-                                'verse' => $selectedVerseNumber ?: null,
-                                'reader_mode' => 'paragraph',
-                            ])); ?>">Paragraph View</a>
-                        </div>
-                    <?php endif; ?>
-
-                    <div class="reader-nav-combined">
-                        <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $selectedChapter > 0): ?>
-                            <div class="reader-nav-actions">
-                                <?php if ($previousVerseUrl): ?>
-                                    <a class="button button-secondary reader-nav-button" href="<?= e($previousVerseUrl); ?>" aria-label="Previous verse">
-                                        <span class="reader-nav-icon" aria-hidden="true">&#8249;</span>
-                                        <span class="reader-nav-label">Verse</span>
-                                    </a>
-                                <?php endif; ?>
-                                <?php if ($wholeChapterUrl): ?>
-                                    <a class="button button-secondary reader-nav-button" href="<?= e($wholeChapterUrl); ?>" aria-label="Whole chapter">
-                                        <span class="reader-nav-icon" aria-hidden="true">&#9638;</span>
-                                        <span class="reader-nav-label">Chapter</span>
-                                    </a>
-                                <?php endif; ?>
-                                <?php if ($nextVerseUrl): ?>
-                                    <a class="button button-secondary reader-nav-button" href="<?= e($nextVerseUrl); ?>" aria-label="Next verse">
-                                        <span class="reader-nav-label">Verse</span>
-                                        <span class="reader-nav-icon" aria-hidden="true">&#8250;</span>
-                                    </a>
-                                <?php endif; ?>
-                            </div>
-                        <?php endif; ?>
-
-                        <form class="chapter-jump-form" method="get">
-                            <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
-                            <input type="hidden" name="book_id" value="<?= e((string) $selectedBookId); ?>">
-                            <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
-                            <div class="chapter-jump-card">
-                                <div class="chapter-jump-header">
-                                    <strong class="chapter-jump-title"><?= e((string) $selectedBook['name']); ?></strong>
-                                    <?php if ($bookOverviewUrl): ?>
-                                        <a class="mini-card chapter-book-link" href="<?= e($bookOverviewUrl); ?>" aria-label="Open <?= e((string) $selectedBook['name']); ?> overview">Book</a>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="chapter-jump-controls">
-                                    <?php if ($previousChapterUrl): ?>
-                                        <a class="button button-secondary chapter-step-button" href="<?= e($previousChapterUrl); ?>" aria-label="Previous chapter">&#8249;</a>
-                                    <?php endif; ?>
-                                    <label class="chapter-jump-label">
-                                        <select name="chapter">
-                                            <?php foreach ($bookChapters as $chapter): ?>
-                                                <option value="<?= e((string) $chapter['chapter_number']); ?>" <?= $selectedChapter === (int) $chapter['chapter_number'] ? 'selected' : ''; ?>>
-                                                    Chapter <?= e((string) $chapter['chapter_number']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </label>
-                                    <label class="chapter-jump-label">
-                                        <select name="verse">
-                                            <option value="">Whole</option>
-                                            <?php foreach ($verseOptions as $verseOption): ?>
-                                                <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseNumber === $verseOption['number'] ? 'selected' : ''; ?>>
-                                                    <?= e((string) $verseOption['number']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </label>
-                                    <button class="button button-secondary chapter-step-button chapter-go-button" type="submit" aria-label="Go to selected chapter and verse">&#10148;</button>
-                                    <?php if ($nextChapterUrl): ?>
-                                        <a class="button button-secondary chapter-step-button" href="<?= e($nextChapterUrl); ?>" aria-label="Next chapter">&#8250;</a>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                </div>
-            <?php endif; ?>
 
             <?php if ($searchMessage): ?>
                 <p class="empty-state top-gap-sm"><?= e($searchMessage); ?></p>
@@ -1087,6 +996,110 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endforeach; ?>
                 </article>
 
+                <?php if ($selectedChapter > 0): ?>
+                    <div class="reader-mode-inline top-gap-sm">
+                        <span class="reader-mode-inline-label">Reading view</span>
+                        <div class="reader-mode-switch reader-mode-switch-compact">
+                            <a class="mini-card <?= $readerMode === 'verse' ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url([
+                                'q' => $query !== '' ? $query : null,
+                                'translation' => $selectedTranslation,
+                                'book_id' => $selectedBookId ?: null,
+                                'chapter' => $selectedChapter ?: null,
+                                'verse' => $selectedVerseNumber ?: null,
+                                'reader_mode' => 'verse',
+                            ])); ?>">Verse View</a>
+                            <a class="mini-card <?= $readerMode === 'paragraph' ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url([
+                                'q' => $query !== '' ? $query : null,
+                                'translation' => $selectedTranslation,
+                                'book_id' => $selectedBookId ?: null,
+                                'chapter' => $selectedChapter ?: null,
+                                'verse' => $selectedVerseNumber ?: null,
+                                'reader_mode' => 'paragraph',
+                            ])); ?>">Paragraph View</a>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($selectedBook && $bookChapters !== []): ?>
+                    <div class="reader-nav-bar top-gap-sm">
+                        <div class="chapter-strip">
+                            <?php if ($previousChapterUrl): ?>
+                                <a class="button button-secondary chapter-strip-button" href="<?= e($previousChapterUrl); ?>" aria-label="Previous chapter">
+                                    <span aria-hidden="true">&#8249;</span>
+                                </a>
+                            <?php endif; ?>
+
+                            <div class="chapter-strip-current">
+                                <span class="chapter-strip-label"><?= e((string) $selectedBook['name']); ?></span>
+                                <strong>Chapter <?= e((string) $selectedChapter); ?></strong>
+                            </div>
+
+                            <div class="chapter-strip-actions">
+                                <?php if ($bookOverviewUrl): ?>
+                                    <a class="mini-card chapter-book-link" href="<?= e($bookOverviewUrl); ?>" aria-label="Open <?= e((string) $selectedBook['name']); ?> overview">Book</a>
+                                <?php endif; ?>
+                                <?php if ($nextChapterUrl): ?>
+                                    <a class="button button-secondary chapter-strip-button" href="<?= e($nextChapterUrl); ?>" aria-label="Next chapter">
+                                        <span aria-hidden="true">&#8250;</span>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <div class="reader-nav-combined">
+                            <?php if ($selectedChapter > 0): ?>
+                                <div class="reader-nav-actions">
+                                    <?php if ($previousVerseUrl): ?>
+                                        <a class="button button-secondary reader-nav-button is-prev" href="<?= e($previousVerseUrl); ?>" aria-label="Previous verse">
+                                            <span class="reader-nav-icon" aria-hidden="true">&#8249;</span>
+                                            <span class="reader-nav-label">Verse</span>
+                                        </a>
+                                    <?php endif; ?>
+                                    <?php if ($nextVerseUrl): ?>
+                                        <a class="button button-secondary reader-nav-button is-next" href="<?= e($nextVerseUrl); ?>" aria-label="Next verse">
+                                            <span class="reader-nav-label">Verse</span>
+                                            <span class="reader-nav-icon" aria-hidden="true">&#8250;</span>
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <form class="chapter-jump-form chapter-jump-mobile-form" method="get">
+                                <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
+                                <input type="hidden" name="book_id" value="<?= e((string) $selectedBookId); ?>">
+                                <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
+                                <div class="chapter-jump-card">
+                                    <div class="chapter-jump-header">
+                                        <strong class="chapter-jump-title">Jump to another place</strong>
+                                    </div>
+                                    <div class="chapter-jump-controls">
+                                        <label class="chapter-jump-label">
+                                            <select name="chapter">
+                                                <?php foreach ($bookChapters as $chapter): ?>
+                                                    <option value="<?= e((string) $chapter['chapter_number']); ?>" <?= $selectedChapter === (int) $chapter['chapter_number'] ? 'selected' : ''; ?>>
+                                                        Chapter <?= e((string) $chapter['chapter_number']); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </label>
+                                        <label class="chapter-jump-label">
+                                            <select name="verse">
+                                                <option value="">Whole</option>
+                                                <?php foreach ($verseOptions as $verseOption): ?>
+                                                    <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseNumber === $verseOption['number'] ? 'selected' : ''; ?>>
+                                                        <?= e((string) $verseOption['number']); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </label>
+                                        <button class="button button-secondary chapter-step-button chapter-go-button" type="submit" aria-label="Go to selected chapter and verse">&#10148;</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <div class="bookmark-popup" data-bookmark-popup hidden>
                     <div class="bookmark-popup-card">
                         <div class="panel-heading">
@@ -1143,7 +1156,7 @@ require_once __DIR__ . '/includes/header.php';
                                             </svg>
                                         </button>
                                         <button class="button button-secondary" type="button" data-voice-compose-stop hidden>Stop</button>
-                                        <span class="muted-copy" data-voice-compose-status>Speak to add a bookmark note.</span>
+                                        <span class="muted-copy" data-voice-compose-status>Share what this verse is speaking to your heart.</span>
                                     </div>
                                     <textarea name="note" rows="3" placeholder="Why are you saving this?"></textarea>
                                 </label>
@@ -1164,6 +1177,193 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         <?php endif; ?>
                     </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($scriptureAnalysis !== null): ?>
+                <section class="scripture-analysis-panel top-gap">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Study Tools</p>
+                            <h3><?= e($analysisTitle); ?></h3>
+                            <p class="muted-copy"><?= e($analysisIntro); ?></p>
+                        </div>
+                    </div>
+
+                    <div class="study-summary-bar">
+                        <span class="mini-card study-summary-pill"><?= e((string) $scriptureAnalysis['verse_count']); ?> verses</span>
+                        <span class="mini-card study-summary-pill"><?= e((string) $scriptureAnalysis['word_count']); ?> words</span>
+                        <span class="mini-card study-summary-pill"><?= e((string) $scriptureAnalysis['focus_term_count']); ?> focus terms</span>
+                    </div>
+
+                    <div class="card-grid card-grid-2 scripture-analysis-grid">
+                        <article class="dashboard-card scripture-analysis-card">
+                            <div>
+                                <h3>Concordance Focus</h3>
+                                <p class="muted-copy">Open repeated words from this result set as fresh Bible searches.</p>
+                            </div>
+
+                            <?php if ($scriptureAnalysis['top_terms'] !== []): ?>
+                                <div class="bible-chip-row">
+                                    <?php foreach ($scriptureAnalysis['top_terms'] as $term): ?>
+                                        <a class="filter-chip" href="<?= e(bible_reader_url([
+                                            'q' => (string) $term['term'],
+                                            'translation' => $selectedTranslation,
+                                            'reader_mode' => $readerMode,
+                                        ])); ?>">
+                                            <?= e(mb_convert_case((string) $term['term'], MB_CASE_TITLE, 'UTF-8')); ?> · <?= e((string) $term['count']); ?>
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php else: ?>
+                                <p class="muted-copy">No strong concordance terms were detected in this view yet.</p>
+                            <?php endif; ?>
+                        </article>
+
+                        <article class="dashboard-card scripture-analysis-card">
+                            <div>
+                                <h3>Related Study Items</h3>
+                                <p class="muted-copy">Use these next-step searches to explore the same theme in more places.</p>
+                            </div>
+
+                            <div class="analysis-link-list">
+                                <?php foreach ($scriptureAnalysis['related_items'] as $item): ?>
+                                    <a class="analysis-link-card" href="<?= e(bible_reader_url([
+                                        'q' => (string) $item['term'],
+                                        'translation' => $selectedTranslation,
+                                        'reader_mode' => $readerMode,
+                                    ])); ?>">
+                                        <strong><?= e((string) $item['label']); ?></strong>
+                                        <span class="muted-copy"><?= e((string) $item['match_count']); ?> verses in this view mention it</span>
+                                    </a>
+                                <?php endforeach; ?>
+
+                                <?php if ($wholeChapterUrl): ?>
+                                    <a class="analysis-link-card" href="<?= e($wholeChapterUrl); ?>">
+                                        <strong>Chapter Context</strong>
+                                        <span class="muted-copy">Step back into the full chapter around this verse.</span>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+            <?php endif; ?>
+
+            <?php if ($sharePayloadJson !== null): ?>
+                <div class="scripture-support-stack top-gap">
+                    <?php if ($sharePayloadJson !== null): ?>
+                        <div class="scripture-bottom-actions">
+                            <button class="share-composer-fab" type="button" data-share-composer-toggle aria-expanded="false" aria-controls="share-composer-panel" aria-label="Open share composer">
+                                <span class="share-composer-fab-copy">
+                                    <span class="share-composer-fab-label">Share Post</span>
+                                    <span class="share-composer-fab-meta">Create a verse or passage post</span>
+                                </span>
+                                <span class="share-composer-fab-icon" aria-hidden="true">&#10138;</span>
+                            </button>
+                        </div>
+
+                        <div class="panel share-composer-panel" id="share-composer-panel" data-share-composer hidden>
+                            <script type="application/json" data-share-payload><?= $sharePayloadJson; ?></script>
+
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="eyebrow">Share Composer</p>
+                                    <h3>Public post templates for Scripture</h3>
+                                    <p class="muted-copy">Tune the layout, style, and caption before posting the Good News.</p>
+                                </div>
+                                <button class="button button-secondary" type="button" data-share-composer-close>Close</button>
+                            </div>
+
+                            <div class="share-composer-grid top-gap-sm">
+                                <form class="form-stack share-composer-form" data-share-composer-form>
+                                    <div class="two-column">
+                                        <label>
+                                            <span>Template</span>
+                                            <select name="template" data-share-template>
+                                                <option value="story">Vertical Phone Story</option>
+                                                <option value="square">Square 1:1 Post</option>
+                                            </select>
+                                        </label>
+
+                                        <label>
+                                            <span>Theme</span>
+                                            <select name="theme" data-share-theme>
+                                                <option value="good-news-bible" selected>Good News Bible</option>
+                                                <option value="slate-glow">Slate Glow</option>
+                                                <option value="earth-canvas">Earth Canvas</option>
+                                                <option value="light-sermon">Light Sermon</option>
+                                                <option value="midnight-gospel">Midnight Gospel</option>
+                                            </select>
+                                        </label>
+                                    </div>
+
+                                    <div class="two-column">
+                                        <label>
+                                            <span>Font</span>
+                                            <select name="font" data-share-font>
+                                                <option value="editorial">Editorial</option>
+                                                <option value="modern">Modern</option>
+                                                <option value="classic">Classic Serif</option>
+                                            </select>
+                                        </label>
+
+                                        <label>
+                                            <span>Branding</span>
+                                            <select name="branding" data-share-branding>
+                                                <option value="good-news">Good News Bible</option>
+                                                <option value="none">No branding</option>
+                                            </select>
+                                        </label>
+                                    </div>
+
+                                    <label>
+                                        <span>Headline</span>
+                                        <input type="text" name="headline" value="Share the Good News" data-share-headline>
+                                    </label>
+
+                                    <label>
+                                        <span>Footer note</span>
+                                        <input type="text" name="footer" value="Faith for today" data-share-footer>
+                                    </label>
+
+                                    <label>
+                                        <span>Caption</span>
+                                        <textarea name="caption" rows="5" data-share-caption></textarea>
+                                    </label>
+
+                                    <div class="inline-actions">
+                                        <button class="button button-primary" type="button" data-share-download>Download PNG</button>
+                                        <button class="button button-secondary" type="button" data-share-native>Share</button>
+                                        <button class="button button-secondary" type="button" data-share-copy>Copy Caption</button>
+                                        <button class="button button-secondary" type="button" data-share-randomize>New Background</button>
+                                    </div>
+
+                                    <p class="muted-copy" data-share-status>Portrait and square templates are ready for public posting.</p>
+                                </form>
+
+                                <div class="share-preview-column">
+                                    <div class="share-preview-shell" data-share-preview-shell data-template="story">
+                                        <div class="share-preview-card share-theme-good-news-bible share-font-editorial" data-share-preview-card>
+                                            <div class="share-preview-overlay"></div>
+                                            <div class="share-preview-inner">
+                                                <p class="share-preview-kicker" data-share-preview-kicker>Share the Good News</p>
+                                                <div class="share-preview-scripture">
+                                                    <p class="share-preview-reference" data-share-preview-reference></p>
+                                                    <blockquote class="share-preview-text" data-share-preview-text></blockquote>
+                                                </div>
+                                                <div class="share-preview-meta">
+                                                    <span class="share-preview-footer" data-share-preview-footer>Faith for today</span>
+                                                    <span class="share-preview-brand" data-share-preview-brand>Good News Bible</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <canvas class="share-render-canvas" data-share-canvas width="1080" height="1920" hidden></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
         </div>

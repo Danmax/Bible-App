@@ -158,6 +158,47 @@ function send_friend_invite_email(string $senderName, string $recipientEmail, st
     send_app_email($recipientEmail, $subject, $textBody, $htmlBody);
 }
 
+function send_community_event_email(
+    string $recipientName,
+    string $recipientEmail,
+    string $eventTitle,
+    string $eventDateLabel,
+    string $subject,
+    string $body,
+    ?string $meetingUrl = null
+): void {
+    $safeName = trim($recipientName) !== '' ? trim($recipientName) : 'there';
+    $safeSubject = trim($subject) !== '' ? trim($subject) : APP_NAME . ' community event update';
+    $safeBody = trim($body);
+    $safeMeetingUrl = trim((string) $meetingUrl);
+
+    $textParts = [
+        'Hi ' . $safeName . ',',
+        $safeBody,
+        'Event: ' . $eventTitle,
+        'When: ' . $eventDateLabel,
+    ];
+
+    if ($safeMeetingUrl !== '') {
+        $textParts[] = 'Join link: ' . $safeMeetingUrl;
+    }
+
+    $textParts[] = 'Support: ' . app_support_email();
+
+    $textBody = implode("\n\n", $textParts);
+    $htmlBody = '<p>Hi ' . e($safeName) . ',</p>'
+        . '<p>' . nl2br(e($safeBody)) . '</p>'
+        . '<p><strong>Event:</strong> ' . e($eventTitle) . '<br><strong>When:</strong> ' . e($eventDateLabel) . '</p>';
+
+    if ($safeMeetingUrl !== '') {
+        $htmlBody .= '<p><a href="' . e($safeMeetingUrl) . '">Open the event link</a></p>';
+    }
+
+    $htmlBody .= '<p>Support: <a href="mailto:' . e(app_support_email()) . '">' . e(app_support_email()) . '</a></p>';
+
+    send_app_email($recipientEmail, $safeSubject, $textBody, $htmlBody);
+}
+
 function smtp_send_message(string $fromEmail, string $recipientEmail, string $message): void
 {
     $host = trim((string) SMTP_HOST);

@@ -51,12 +51,14 @@ try {
         'title' => trim((string) ($draft['title'] ?? '')),
         'category_id' => trim((string) ($draft['category_id'] ?? '')),
         'event_type' => trim((string) ($draft['event_type'] ?? '')),
+        'event_format' => trim((string) ($draft['event_format'] ?? 'standard')),
         'visibility' => trim((string) ($draft['visibility'] ?? 'public')),
         'location_name' => trim((string) ($draft['location_name'] ?? '')),
         'location_address' => trim((string) ($draft['location_address'] ?? '')),
         'meeting_url' => trim((string) ($draft['meeting_url'] ?? '')),
         'start_at' => normalize_ai_event_datetime($draft['start_at'] ?? ''),
         'end_at' => normalize_ai_event_datetime($draft['end_at'] ?? ''),
+        'potluck_items_text' => trim((string) ($draft['potluck_items_text'] ?? '')),
         'description' => trim((string) ($draft['description'] ?? '')),
         'status' => trim((string) ($draft['status'] ?? 'published')),
         'is_featured' => !empty($draft['is_featured']) ? '1' : '0',
@@ -68,6 +70,14 @@ try {
 
     if (!in_array($normalized['visibility'], ['public', 'members', 'private'], true)) {
         $normalized['visibility'] = 'public';
+    }
+
+    if (!in_array($normalized['event_format'], array_keys(community_event_format_options()), true)) {
+        $normalized['event_format'] = 'standard';
+    }
+
+    if ($normalized['event_format'] !== 'potluck') {
+        $normalized['potluck_items_text'] = '';
     }
 
     if (!in_array($normalized['status'], ['published', 'draft', 'cancelled'], true)) {

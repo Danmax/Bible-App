@@ -189,6 +189,21 @@ function app_theme_options(): array
             'label' => 'Winter',
             'meta_color' => '#496c88',
         ],
+        [
+            'value' => 'wood-cabin',
+            'label' => 'Wood Cabin',
+            'meta_color' => '#6b4423',
+        ],
+        [
+            'value' => 'swordsman',
+            'label' => 'Swordsman',
+            'meta_color' => '#4d6275',
+        ],
+        [
+            'value' => 'dark-mode',
+            'label' => 'Dark Mode',
+            'meta_color' => '#15181d',
+        ],
     ];
 }
 

@@ -77,6 +77,7 @@ function send_security_headers(): void
         "font-src 'self' https://fonts.gstatic.com data:; " .
         "script-src 'self'; " .
         "connect-src 'self' https://api.nlt.to; " .
+        "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; " .
         "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     );
 

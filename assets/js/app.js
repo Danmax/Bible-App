@@ -2,9 +2,42 @@ const menuToggle = document.querySelector('.menu-toggle');
 const primaryNav = document.querySelector('.primary-nav');
 
 if (menuToggle && primaryNav) {
-    menuToggle.addEventListener('click', () => {
-        const isOpen = primaryNav.classList.toggle('is-open');
+    const setMobileBodyLock = (isLocked) => {
+        if (isLocked) {
+            const scrollY = window.scrollY || window.pageYOffset || 0;
+            document.body.dataset.navScrollY = String(scrollY);
+            document.body.style.top = `-${scrollY}px`;
+            document.body.classList.add('nav-open');
+            return;
+        }
+
+        const previousScrollY = Number(document.body.dataset.navScrollY || '0') || 0;
+        document.body.classList.remove('nav-open');
+        document.body.style.top = '';
+        delete document.body.dataset.navScrollY;
+        window.scrollTo(0, previousScrollY);
+    };
+
+    const syncMobileNavState = (isOpen) => {
+        primaryNav.classList.toggle('is-open', isOpen);
         menuToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        setMobileBodyLock(isOpen);
+    };
+
+    menuToggle.addEventListener('click', () => {
+        syncMobileNavState(!primaryNav.classList.contains('is-open'));
+    });
+
+    primaryNav.querySelectorAll('a').forEach((link) => {
+        link.addEventListener('click', () => {
+            syncMobileNavState(false);
+        });
+    });
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 760 && primaryNav.classList.contains('is-open')) {
+            syncMobileNavState(false);
+        }
     });
 }
 
@@ -46,6 +79,7 @@ moreMenus.forEach((moreMenu) => {
                 if (primaryNav && menuToggle) {
                     primaryNav.classList.remove('is-open');
                     menuToggle.setAttribute('aria-expanded', 'false');
+                    document.body.classList.remove('nav-open');
                 }
 
                 window.location.assign(href);
@@ -99,6 +133,9 @@ if (appThemeSelects.length > 0 || appThemeSwatches.length > 0) {
         summer: '#1d6fa3',
         fall: '#8c4b22',
         winter: '#496c88',
+        'wood-cabin': '#6b4423',
+        swordsman: '#4d6275',
+        'dark-mode': '#15181d',
     };
     const defaultTheme = 'good-news';
     const allowedThemes = Object.keys(themeMetaColors);
@@ -182,6 +219,112 @@ if (appThemeSelects.length > 0 || appThemeSwatches.length > 0) {
         });
     });
 }
+
+const goodNewsRadioSections = document.querySelectorAll('[data-good-news-radio]');
+
+goodNewsRadioSections.forEach((section) => {
+    if (!(section instanceof HTMLElement)) {
+        return;
+    }
+
+    const audioNode = section.querySelector('[data-radio-audio]');
+    const videoWrapperNode = section.querySelector('[data-radio-video-wrapper]');
+    const videoNode = section.querySelector('[data-radio-video]');
+    const kindNode = section.querySelector('[data-radio-kind]');
+    const nameNode = section.querySelector('[data-radio-name]');
+    const taglineNode = section.querySelector('[data-radio-tagline]');
+    const linkNode = section.querySelector('[data-radio-link]');
+    const stationButtons = Array.from(section.querySelectorAll('[data-radio-station]'));
+
+    if (!(audioNode instanceof HTMLAudioElement) || stationButtons.length === 0) {
+        return;
+    }
+
+    const applyRadioStation = (buttonNode, { autoplay = false } = {}) => {
+        if (!(buttonNode instanceof HTMLButtonElement)) {
+            return;
+        }
+
+        const streamUrl = String(buttonNode.dataset.streamUrl || '').trim();
+        const listenUrl = String(buttonNode.dataset.listenUrl || '').trim();
+        const name = String(buttonNode.dataset.name || '').trim();
+        const kind = String(buttonNode.dataset.kind || '').trim();
+        const tagline = String(buttonNode.dataset.tagline || '').trim();
+        const youtubePlaylistId = String(buttonNode.dataset.youtubePlaylistId || '').trim();
+        const shouldResumePlayback = autoplay || !audioNode.paused;
+        const streamChanged = audioNode.currentSrc !== streamUrl && audioNode.getAttribute('src') !== streamUrl;
+        const playlistEmbedUrl = youtubePlaylistId !== ''
+            ? `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(youtubePlaylistId)}`
+            : '';
+
+        stationButtons.forEach((stationButton) => {
+            stationButton.classList.toggle('is-active', stationButton === buttonNode);
+            stationButton.setAttribute('aria-pressed', stationButton === buttonNode ? 'true' : 'false');
+        });
+
+        if (kindNode instanceof HTMLElement) {
+            kindNode.textContent = kind;
+        }
+
+        if (nameNode instanceof HTMLElement) {
+            nameNode.textContent = name;
+        }
+
+        if (taglineNode instanceof HTMLElement) {
+            taglineNode.textContent = tagline;
+        }
+
+        if (linkNode instanceof HTMLAnchorElement && listenUrl !== '') {
+            linkNode.href = listenUrl;
+        }
+
+        if (playlistEmbedUrl !== '') {
+            audioNode.pause();
+
+            if (videoWrapperNode instanceof HTMLElement) {
+                videoWrapperNode.hidden = false;
+            }
+
+            if (videoNode instanceof HTMLIFrameElement && videoNode.src !== playlistEmbedUrl) {
+                videoNode.src = playlistEmbedUrl;
+            }
+
+            audioNode.hidden = true;
+        } else {
+            if (videoWrapperNode instanceof HTMLElement) {
+                videoWrapperNode.hidden = true;
+            }
+
+            if (videoNode instanceof HTMLIFrameElement && videoNode.src !== '') {
+                videoNode.src = '';
+            }
+
+            audioNode.hidden = false;
+
+            if (streamChanged && streamUrl !== '') {
+                audioNode.pause();
+                audioNode.src = streamUrl;
+                audioNode.load();
+            }
+
+            if (shouldResumePlayback) {
+                audioNode.play().catch(() => {
+                    // Ignore autoplay rejections and leave controls available for manual play.
+                });
+            }
+        }
+    };
+
+    stationButtons.forEach((buttonNode) => {
+        if (!(buttonNode instanceof HTMLButtonElement)) {
+            return;
+        }
+
+        buttonNode.addEventListener('click', () => {
+            applyRadioStation(buttonNode, { autoplay: true });
+        });
+    });
+});
 
 const panelGroups = document.querySelectorAll('[data-community-panels]');
 const modalCloseParamMap = {
@@ -490,6 +633,7 @@ const createVoiceRecorder = ({
     statusNode,
     csrfInput,
     onTranscript,
+    onRecordingStateChange,
     listeningMessage,
     successMessage,
     unsupportedMessage,
@@ -517,12 +661,18 @@ const createVoiceRecorder = ({
 
     const setRecordingState = (isRecording) => {
         if (triggerButton instanceof HTMLButtonElement) {
-            triggerButton.hidden = isRecording;
             triggerButton.disabled = !canRecord;
+            triggerButton.hidden = Boolean(stopButton) && isRecording;
+            triggerButton.classList.toggle('is-recording', isRecording);
+            triggerButton.setAttribute('aria-pressed', isRecording ? 'true' : 'false');
         }
 
         if (stopButton instanceof HTMLButtonElement) {
             stopButton.hidden = !isRecording;
+        }
+
+        if (typeof onRecordingStateChange === 'function') {
+            onRecordingStateChange(isRecording);
         }
     };
 
@@ -545,7 +695,7 @@ const createVoiceRecorder = ({
 
     const uploadRecording = async () => {
         if (!(csrfInput instanceof HTMLInputElement) || audioChunks.length === 0) {
-            throw new Error('Record audio first, then try again.');
+            throw new Error('Record a short message first, then try again.');
         }
 
         const mimeType = mediaRecorder?.mimeType || pickRecordingMimeType() || 'audio/webm';
@@ -572,17 +722,17 @@ const createVoiceRecorder = ({
         try {
             payload = rawText ? JSON.parse(rawText) : {};
         } catch (parseError) {
-            throw new Error(rawText.trim() || 'The voice transcription response was not valid JSON.');
+            throw new Error(rawText.trim() || 'We could not read the voice response just yet.');
         }
 
         if (!response.ok) {
-            throw new Error(payload.error || 'The voice transcription could not be completed.');
+            throw new Error(payload.error || 'We could not finish the voice transcription right now.');
         }
 
         const transcript = String(payload.text || '').trim();
 
         if (transcript === '') {
-            throw new Error('The voice transcription was empty.');
+            throw new Error('We did not hear anything yet. Try speaking again.');
         }
 
         onTranscript(transcript, payload);
@@ -607,6 +757,11 @@ const createVoiceRecorder = ({
     }
 
     triggerButton.addEventListener('click', async () => {
+        if (!(stopButton instanceof HTMLButtonElement) && mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            return;
+        }
+
         try {
             audioChunks = [];
             mediaStream = await mediaDevices.getUserMedia({ audio: true });
@@ -625,12 +780,12 @@ const createVoiceRecorder = ({
             mediaRecorder.addEventListener('stop', async () => {
                 setRecordingState(false);
                 stopMediaTracks();
-                setStatus('Transcribing audio...');
+                setStatus('Turning your words into text...');
 
                 try {
                     await uploadRecording();
                 } catch (error) {
-                    const message = error instanceof Error ? error.message : 'The voice transcription could not be completed.';
+                    const message = error instanceof Error ? error.message : 'We could not finish the voice transcription right now.';
                     setStatus(message);
                 } finally {
                     audioChunks = [];
@@ -643,7 +798,7 @@ const createVoiceRecorder = ({
             mediaRecorder.start();
         } catch (error) {
             stopMediaTracks();
-            const message = error instanceof Error ? error.message : 'Microphone access was not granted.';
+            const message = error instanceof Error ? error.message : 'Microphone access was not granted yet.';
             setStatus(message);
             setRecordingState(false);
         }
@@ -870,6 +1025,169 @@ aiEventBuilders.forEach((aiEventBuilder) => {
     }
 });
 
+document.querySelectorAll('[data-community-event-form]').forEach((communityEventForm) => {
+    const formatField = communityEventForm.querySelector('[data-community-event-format]');
+    const potluckPanel = communityEventForm.querySelector('[data-community-potluck-options]');
+    const potluckSeedBuilder = communityEventForm.querySelector('[data-community-potluck-seed-builder]');
+    const potluckSeedList = communityEventForm.querySelector('[data-potluck-seed-list]');
+    const potluckSeedOutput = communityEventForm.querySelector('[data-potluck-seed-output]');
+    const potluckSeedAddButton = communityEventForm.querySelector('[data-potluck-seed-add]');
+    const aiPromptField = document.querySelector('[data-ai-event-builder] [data-ai-prompt]');
+
+    if (!(formatField instanceof HTMLSelectElement) || !(potluckPanel instanceof HTMLElement)) {
+        return;
+    }
+
+    const potluckFields = potluckPanel.querySelectorAll('input, textarea, select');
+    let isSyncingPotluckRows = false;
+
+    const createPotluckSeedRow = (typeValue = '', detailValue = '') => {
+        const row = document.createElement('div');
+        row.className = 'community-potluck-seed-row';
+        row.innerHTML = `
+            <input type="text" data-potluck-seed-type placeholder="Type" maxlength="160">
+            <input type="text" data-potluck-seed-detail placeholder="Detail" maxlength="255">
+            <button class="button button-secondary" type="button" data-potluck-seed-remove>Remove</button>
+        `;
+
+        const typeInput = row.querySelector('[data-potluck-seed-type]');
+        const detailInput = row.querySelector('[data-potluck-seed-detail]');
+        const removeButton = row.querySelector('[data-potluck-seed-remove]');
+
+        if (typeInput instanceof HTMLInputElement) {
+            typeInput.value = typeValue;
+            typeInput.name = 'potluck_seed_type[]';
+            typeInput.addEventListener('input', () => {
+                syncPotluckSeedOutput();
+            });
+        }
+
+        if (detailInput instanceof HTMLInputElement) {
+            detailInput.value = detailValue;
+            detailInput.name = 'potluck_seed_detail[]';
+            detailInput.addEventListener('input', () => {
+                syncPotluckSeedOutput();
+            });
+        }
+
+        removeButton?.addEventListener('click', () => {
+            row.remove();
+            ensureMinimumPotluckRows();
+            syncPotluckSeedOutput();
+        });
+
+        return row;
+    };
+
+    const parsePotluckSeedOutput = () => String(
+        potluckSeedOutput instanceof HTMLTextAreaElement ? potluckSeedOutput.value : ''
+    )
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line !== '')
+        .map((line) => {
+            const [typePart, detailPart] = line.split('|', 2);
+            return {
+                type: String(typePart || '').trim(),
+                detail: String(detailPart || '').trim(),
+            };
+        });
+
+    const syncPotluckSeedOutput = () => {
+        if (!(potluckSeedList instanceof HTMLElement) || !(potluckSeedOutput instanceof HTMLTextAreaElement)) {
+            return;
+        }
+
+        const rows = Array.from(potluckSeedList.querySelectorAll('.community-potluck-seed-row'));
+        const lines = rows.map((row) => {
+            const typeInput = row.querySelector('[data-potluck-seed-type]');
+            const detailInput = row.querySelector('[data-potluck-seed-detail]');
+            const typeValue = typeInput instanceof HTMLInputElement ? typeInput.value.trim() : '';
+            const detailValue = detailInput instanceof HTMLInputElement ? detailInput.value.trim() : '';
+
+            if (typeValue === '' && detailValue === '') {
+                return '';
+            }
+
+            const normalizedType = typeValue === '' ? 'Item' : typeValue;
+
+            return detailValue === '' ? normalizedType : `${normalizedType} | ${detailValue}`;
+        }).filter((line) => line !== '');
+
+        isSyncingPotluckRows = true;
+        potluckSeedOutput.value = lines.join('\n');
+        potluckSeedOutput.dispatchEvent(new Event('input', { bubbles: true }));
+        potluckSeedOutput.dispatchEvent(new Event('change', { bubbles: true }));
+        isSyncingPotluckRows = false;
+    };
+
+    const ensureMinimumPotluckRows = () => {
+        if (!(potluckSeedList instanceof HTMLElement)) {
+            return;
+        }
+
+        const minimumRows = 4;
+
+        while (potluckSeedList.children.length < minimumRows) {
+            potluckSeedList.append(createPotluckSeedRow());
+        }
+    };
+
+    const syncPotluckSeedRowsFromOutput = () => {
+        if (isSyncingPotluckRows || !(potluckSeedList instanceof HTMLElement) || !(potluckSeedOutput instanceof HTMLTextAreaElement)) {
+            return;
+        }
+
+        const parsedRows = parsePotluckSeedOutput();
+        potluckSeedList.innerHTML = '';
+
+        if (parsedRows.length === 0) {
+            ensureMinimumPotluckRows();
+            return;
+        }
+
+        parsedRows.forEach((row) => {
+            potluckSeedList.append(createPotluckSeedRow(row.type, row.detail));
+        });
+
+        ensureMinimumPotluckRows();
+    };
+
+    if (potluckSeedAddButton instanceof HTMLButtonElement && potluckSeedList instanceof HTMLElement) {
+        potluckSeedAddButton.addEventListener('click', () => {
+            potluckSeedList.append(createPotluckSeedRow());
+        });
+    }
+
+    if (potluckSeedOutput instanceof HTMLTextAreaElement) {
+        syncPotluckSeedRowsFromOutput();
+        potluckSeedOutput.addEventListener('input', syncPotluckSeedRowsFromOutput);
+        potluckSeedOutput.addEventListener('change', syncPotluckSeedRowsFromOutput);
+    }
+
+    const syncPotluckOptions = () => {
+        const isPotluck = formatField.value === 'potluck';
+
+        potluckPanel.hidden = !isPotluck;
+        potluckPanel.setAttribute('aria-hidden', isPotluck ? 'false' : 'true');
+
+        potluckFields.forEach((field) => {
+            if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement) {
+                field.disabled = !isPotluck;
+            }
+        });
+
+        if (aiPromptField instanceof HTMLTextAreaElement) {
+            aiPromptField.placeholder = isPotluck
+                ? 'Example: Create a church potluck after Sunday service with starter items like Main dish | Lasagna, Dessert | Brownies, Drinks | Lemonade, and Supplies | Plates.'
+                : 'Example: Create a Wednesday Bible study with a theme verse, fellowship time, and reminder emails.';
+        }
+    };
+
+    syncPotluckOptions();
+    formatField.addEventListener('change', syncPotluckOptions);
+});
+
 const plannerQuickTriggers = document.querySelectorAll('[data-planner-quick-event]');
 
 plannerQuickTriggers.forEach((button) => {
@@ -1004,10 +1322,38 @@ const voiceSearchGroups = document.querySelectorAll('[data-voice-search]');
 voiceSearchGroups.forEach((group) => {
     const input = group.querySelector('[data-voice-search-input]');
     const startButton = group.querySelector('[data-voice-search-start]');
-    const stopButton = group.querySelector('[data-voice-search-stop]');
     const statusNode = group.parentElement?.querySelector('[data-voice-search-status]');
     const SpeechRecognitionApi = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
+    let isListening = false;
+
+    const microphoneIconMarkup = `
+        <path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z" />
+        <path d="M19 11a7 7 0 0 1-14 0" />
+        <path d="M12 18v3" />
+        <path d="M9 21h6" />
+    `;
+    const stopIconMarkup = `
+        <rect x="7" y="7" width="10" height="10" rx="2" ry="2" />
+    `;
+
+    const setVoiceSearchListeningState = (listening) => {
+        isListening = listening;
+
+        if (!(startButton instanceof HTMLButtonElement)) {
+            return;
+        }
+
+        startButton.classList.toggle('is-recording', listening);
+        startButton.setAttribute('aria-pressed', listening ? 'true' : 'false');
+        startButton.setAttribute('aria-label', listening ? 'Stop voice search' : 'Speak your Bible search');
+
+        const icon = startButton.querySelector('.voice-search-icon');
+
+        if (icon instanceof SVGElement) {
+            icon.innerHTML = listening ? stopIconMarkup : microphoneIconMarkup;
+        }
+    };
 
     const setStatus = (message) => {
         if (statusNode instanceof HTMLElement) {
@@ -1023,16 +1369,17 @@ voiceSearchGroups.forEach((group) => {
     const csrfInput = searchForm?.querySelector('input[name="csrf_token"]');
     const voiceRecorder = createVoiceRecorder({
         triggerButton: startButton,
-        stopButton: stopButton instanceof HTMLButtonElement ? stopButton : null,
+        stopButton: null,
         statusNode,
         csrfInput: csrfInput instanceof HTMLInputElement ? csrfInput : null,
         onTranscript: (transcript) => {
             const transcriptBase = input.value.trim();
             input.value = [transcriptBase, transcript].filter(Boolean).join(transcriptBase && transcript ? ' ' : '');
         },
-        listeningMessage: 'Listening... say a verse reference or keyword.',
-        successMessage: (payload) => `Voice search captured with ${payload.model || 'OpenAI'}. Press Search when ready.`,
-        unsupportedMessage: 'Voice search is not supported in this browser.',
+        onRecordingStateChange: setVoiceSearchListeningState,
+        listeningMessage: 'Listening now. Say a verse, passage, or keyword when you are ready.',
+        successMessage: (payload) => `Your search is ready with ${payload.model || 'OpenAI'}. Press Search when you would like to continue.`,
+        unsupportedMessage: 'Voice search is not available in this browser yet.',
     });
 
     if (!SpeechRecognitionApi) {
@@ -1052,13 +1399,8 @@ voiceSearchGroups.forEach((group) => {
 
     recognition.addEventListener('start', () => {
         transcriptBase = input.value.trim();
-        startButton.hidden = true;
-
-        if (stopButton instanceof HTMLButtonElement) {
-            stopButton.hidden = false;
-        }
-
-        setStatus('Listening... say a verse reference or keyword.');
+        setVoiceSearchListeningState(true);
+        setStatus('Listening now. Say a verse, passage, or keyword when you are ready.');
     });
 
     recognition.addEventListener('result', (event) => {
@@ -1071,31 +1413,27 @@ voiceSearchGroups.forEach((group) => {
     });
 
     recognition.addEventListener('end', () => {
-        startButton.hidden = false;
-
-        if (stopButton instanceof HTMLButtonElement) {
-            stopButton.hidden = true;
-        }
-
-        setStatus('Voice search captured. Press Search when ready.');
+        setVoiceSearchListeningState(false);
+        setStatus('Your search is ready. Press Search when you would like to continue.');
     });
 
     recognition.addEventListener('error', (event) => {
-        setStatus(`Voice search error: ${event.error}`);
+        setStatus(`Voice search ran into an issue: ${event.error}`);
     });
 
     startButton.addEventListener('click', () => {
+        if (isListening) {
+            recognition?.stop();
+            return;
+        }
+
         input.focus();
         try {
             recognition?.start();
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Voice search could not start.';
+            const message = error instanceof Error ? error.message : 'Voice search could not start yet.';
             setStatus(message);
         }
-    });
-
-    stopButton?.addEventListener('click', () => {
-        recognition?.stop();
     });
 });
 
@@ -1131,9 +1469,9 @@ voiceComposeGroups.forEach((group) => {
             const transcriptBase = textarea.value.trim();
             textarea.value = [transcriptBase, transcript].filter(Boolean).join(transcriptBase && transcript ? '\n\n' : '');
         },
-        listeningMessage: 'Listening... speak your note.',
-        successMessage: (payload) => `Voice note captured with ${payload.model || 'OpenAI'}. Keep editing or save when ready.`,
-        unsupportedMessage: 'Voice notes are not supported in this browser.',
+        listeningMessage: 'Listening now. Share your note in your own words.',
+        successMessage: (payload) => `Your note was captured with ${payload.model || 'OpenAI'}. Keep shaping it or save when you are ready.`,
+        unsupportedMessage: 'Voice notes are not available in this browser yet.',
     });
 
     if (!SpeechRecognitionApi) {
@@ -1159,7 +1497,7 @@ voiceComposeGroups.forEach((group) => {
             stopButton.hidden = false;
         }
 
-        setStatus('Listening... speak your note.');
+        setStatus('Listening now. Share your note in your own words.');
     });
 
     recognition.addEventListener('result', (event) => {
@@ -1178,11 +1516,11 @@ voiceComposeGroups.forEach((group) => {
             stopButton.hidden = true;
         }
 
-        setStatus('Voice note captured. Keep editing or save when ready.');
+        setStatus('Your note is ready. Keep editing it or save when you are ready.');
     });
 
     recognition.addEventListener('error', (event) => {
-        setStatus(`Voice note error: ${event.error}`);
+        setStatus(`Voice note ran into an issue: ${event.error}`);
     });
 
     startButton.addEventListener('click', () => {
@@ -1190,7 +1528,7 @@ voiceComposeGroups.forEach((group) => {
         try {
             recognition?.start();
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Voice note could not start.';
+            const message = error instanceof Error ? error.message : 'Voice note could not start yet.';
             setStatus(message);
         }
     });
@@ -1553,6 +1891,52 @@ if (chapterReader && bookmarkPopup) {
         bookmarkPopup.hidden = true;
     };
 
+    const positionPopup = (anchorVerseCard) => {
+        if (!(anchorVerseCard instanceof HTMLElement) || !(bookmarkPopup instanceof HTMLElement)) {
+            return;
+        }
+
+        const anchorRect = anchorVerseCard.getBoundingClientRect();
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        const horizontalInset = viewportWidth <= 760 ? 16 : 24;
+        const topInset = 96;
+        const preferredWidth = Math.min(416, viewportWidth - (horizontalInset * 2));
+
+        bookmarkPopup.style.width = `${preferredWidth}px`;
+        bookmarkPopup.style.left = '';
+        bookmarkPopup.style.right = '';
+        bookmarkPopup.style.top = '';
+        bookmarkPopup.style.bottom = '';
+
+        const popupHeight = bookmarkPopup.offsetHeight || 320;
+        const gap = 14;
+        const spaceBelow = viewportHeight - anchorRect.bottom - horizontalInset;
+        const spaceAbove = anchorRect.top - topInset;
+        let top = anchorRect.bottom + gap;
+
+        if (spaceBelow < popupHeight && spaceAbove > spaceBelow) {
+            top = anchorRect.top - popupHeight - gap;
+        }
+
+        top = Math.max(topInset, Math.min(top, viewportHeight - popupHeight - horizontalInset));
+
+        if (viewportWidth <= 760) {
+            bookmarkPopup.style.left = `${horizontalInset}px`;
+            bookmarkPopup.style.right = `${horizontalInset}px`;
+            bookmarkPopup.style.width = 'auto';
+        } else {
+            const preferredLeft = anchorRect.right - preferredWidth;
+            const left = Math.max(
+                horizontalInset,
+                Math.min(preferredLeft, viewportWidth - preferredWidth - horizontalInset)
+            );
+            bookmarkPopup.style.left = `${left}px`;
+        }
+
+        bookmarkPopup.style.top = `${top}px`;
+    };
+
     const setActiveColor = (color) => {
         if (!colorPicker || !colorInput) {
             return;
@@ -1637,6 +2021,7 @@ if (chapterReader && bookmarkPopup) {
         }
 
         bookmarkPopup.hidden = false;
+        positionPopup(startVerseCard);
     };
 
     const updateSelection = () => {
@@ -2192,10 +2577,14 @@ if (shareComposer && shareComposerToggle) {
 
         shareComposer.dataset.shareSeed = String(Math.floor(Date.now() % 100000));
         rerenderComposer();
+        shareComposerToggle.dataset.state = 'closed';
+        shareComposer.hidden = true;
+        shareComposerToggle.setAttribute('aria-expanded', 'false');
 
         const toggleComposer = (shouldOpen) => {
             shareComposer.hidden = !shouldOpen;
             shareComposerToggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+            shareComposerToggle.dataset.state = shouldOpen ? 'open' : 'closed';
 
             if (shouldOpen) {
                 shareComposer.scrollIntoView({
@@ -2211,6 +2600,7 @@ if (shareComposer && shareComposerToggle) {
 
         shareComposerClose?.addEventListener('click', () => {
             toggleComposer(false);
+            shareComposerToggle.focus();
         });
 
         shareForm.querySelectorAll('input, select, textarea').forEach((field) => {

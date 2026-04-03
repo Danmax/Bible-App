@@ -32,6 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $email = trim($_POST['email'] ?? '');
             $city = trim($_POST['city'] ?? '');
             $avatarUrl = trim($_POST['avatar_url'] ?? '');
+            $primaryFlag = trim($_POST['primary_flag'] ?? '');
+            $secondaryFlag = trim($_POST['secondary_flag'] ?? '');
             $normalizedRequestedEmail = mb_strtolower($email);
             $normalizedCurrentEmail = mb_strtolower((string) ($user['email'] ?? ''));
 
@@ -41,8 +43,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pageError = 'Enter a valid email address.';
             } elseif ($avatarUrl !== '' && filter_var($avatarUrl, FILTER_VALIDATE_URL) === false) {
                 $pageError = 'Avatar must be a valid image URL.';
+            } elseif (mb_strlen($primaryFlag) > 24 || mb_strlen($secondaryFlag) > 24) {
+                $pageError = 'Primary and secondary flags must stay under 24 characters.';
             } else {
-                $user = update_user_profile_record((int) $user['id'], $name, (string) $user['email'], $city, $avatarUrl);
+                $user = update_user_profile_record(
+                    (int) $user['id'],
+                    $name,
+                    (string) $user['email'],
+                    $city,
+                    $avatarUrl,
+                    $primaryFlag,
+                    $secondaryFlag
+                );
                 log_in_user($user);
 
                 if ($normalizedRequestedEmail !== $normalizedCurrentEmail) {
@@ -224,6 +236,17 @@ require_once __DIR__ . '/includes/header.php';
                         <p class="muted-copy"><?= e($user['city'] ?: 'City not set yet'); ?></p>
                     </div>
 
+                    <?php if (!empty($user['primary_flag']) || !empty($user['secondary_flag'])): ?>
+                        <div class="profile-flag-row">
+                            <?php if (!empty($user['primary_flag'])): ?>
+                                <span class="profile-badge profile-flag-badge">Primary: <?= e((string) $user['primary_flag']); ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($user['secondary_flag'])): ?>
+                                <span class="profile-badge profile-flag-badge">Secondary: <?= e((string) $user['secondary_flag']); ?></span>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
                     <div class="profile-meta-grid">
                         <div class="profile-meta-card">
                             <span>Role</span>
@@ -249,7 +272,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="panel-heading">
                     <div>
                         <h3>Edit profile</h3>
-                        <p class="muted-copy">Update your name, city, avatar, and request an email change.</p>
+                        <p class="muted-copy">Update your name, city, flags, avatar, and request an email change.</p>
                     </div>
                 </div>
 
@@ -280,6 +303,18 @@ require_once __DIR__ . '/includes/header.php';
                             <span>City</span>
                             <input type="text" name="city" value="<?= e($user['city'] ?? ''); ?>" placeholder="Charlotte" <?= $profileEditMode ? '' : 'disabled'; ?>>
                         </label>
+
+                        <div class="two-column">
+                            <label>
+                                <span>Primary Flag</span>
+                                <input type="text" name="primary_flag" value="<?= e($user['primary_flag'] ?? ''); ?>" placeholder="🇺🇸" maxlength="24" <?= $profileEditMode ? '' : 'disabled'; ?>>
+                            </label>
+
+                            <label>
+                                <span>Secondary Flag</span>
+                                <input type="text" name="secondary_flag" value="<?= e($user['secondary_flag'] ?? ''); ?>" placeholder="🇲🇽" maxlength="24" <?= $profileEditMode ? '' : 'disabled'; ?>>
+                            </label>
+                        </div>
 
                         <label>
                             <span>Avatar Image URL</span>
@@ -329,7 +364,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="panel-heading">
                             <div>
                                 <h3 id="profile-appearance-modal-title">Appearance</h3>
-                                <p class="muted-copy">Choose a seasonal site theme for this browser.</p>
+                                <p class="muted-copy">Choose the site theme you want on this browser.</p>
                             </div>
                             <button class="button button-secondary" type="button" data-community-panel-close="appearance">Close</button>
                         </div>

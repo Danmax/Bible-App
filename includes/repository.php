@@ -412,14 +412,24 @@ function create_user(string $name, string $email, string $password): array
     return $user;
 }
 
-function update_user_profile_record(int $userId, string $name, string $email, ?string $city = null, ?string $avatarUrl = null): array
+function update_user_profile_record(
+    int $userId,
+    string $name,
+    string $email,
+    ?string $city = null,
+    ?string $avatarUrl = null,
+    ?string $primaryFlag = null,
+    ?string $secondaryFlag = null
+): array
 {
     $statement = db()->prepare(
         'UPDATE users
         SET name = :name,
             email = :email,
             city = :city,
-            avatar_url = :avatar_url
+            avatar_url = :avatar_url,
+            primary_flag = :primary_flag,
+            secondary_flag = :secondary_flag
         WHERE id = :id'
     );
     $statement->execute([
@@ -428,6 +438,8 @@ function update_user_profile_record(int $userId, string $name, string $email, ?s
         'email' => mb_strtolower(trim($email)),
         'city' => normalize_optional_text($city ?? ''),
         'avatar_url' => normalize_optional_text($avatarUrl ?? ''),
+        'primary_flag' => normalize_optional_text($primaryFlag ?? ''),
+        'secondary_flag' => normalize_optional_text($secondaryFlag ?? ''),
     ]);
 
     $user = fetch_user_by_id($userId);
@@ -1046,10 +1058,370 @@ function fetch_event_categories(): array
     )->fetchAll();
 }
 
+function community_event_settings_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW COLUMNS FROM community_events LIKE 'settings_json'");
+        $available = $statement !== false && $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
+function community_event_images_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW COLUMNS FROM community_events LIKE 'image_url'");
+        $available = $statement !== false && $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
+function community_event_items_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW TABLES LIKE 'community_event_items'");
+        $available = $statement !== false && $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
+function community_event_messages_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW TABLES LIKE 'community_event_messages'");
+        $available = $statement !== false && $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
+function community_event_rsvp_preferences_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW COLUMNS FROM community_event_rsvps LIKE 'bring_item_id'");
+        $available = $statement !== false && $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
+function community_event_default_settings(): array
+{
+    return [
+        'format' => 'standard',
+        'custom_options' => [],
+        'reminders' => [
+            'three_days' => true,
+            'same_day' => true,
+        ],
+        'potluck' => [
+            'enabled' => false,
+            'allow_self_pick' => true,
+            'allow_custom_items' => true,
+            'allow_host_assign' => true,
+        ],
+    ];
+}
+
+function normalize_community_event_custom_options(array $options): array
+{
+    $normalized = [];
+
+    foreach ($options as $option) {
+        $value = trim((string) $option);
+
+        if ($value === '' || in_array($value, $normalized, true)) {
+            continue;
+        }
+
+        $normalized[] = $value;
+    }
+
+    return array_slice($normalized, 0, 12);
+}
+
+function normalize_community_event_settings(array $settings): array
+{
+    $defaults = community_event_default_settings();
+    $format = strtolower(trim((string) ($settings['format'] ?? $defaults['format'])));
+    $allowedFormats = ['standard', 'potluck', 'study', 'prayer', 'worship', 'discipleship', 'outreach', 'service', 'fellowship', 'scripture-memory'];
+
+    if (!in_array($format, $allowedFormats, true)) {
+        $format = 'standard';
+    }
+
+    $customOptions = $settings['custom_options'] ?? [];
+
+    if (!is_array($customOptions)) {
+        $customOptions = [];
+    }
+
+    $reminders = $settings['reminders'] ?? [];
+    $potluck = $settings['potluck'] ?? [];
+
+    return [
+        'format' => $format,
+        'custom_options' => normalize_community_event_custom_options($customOptions),
+        'reminders' => [
+            'three_days' => !array_key_exists('three_days', $reminders) || !empty($reminders['three_days']),
+            'same_day' => !array_key_exists('same_day', $reminders) || !empty($reminders['same_day']),
+        ],
+        'potluck' => [
+            'enabled' => $format === 'potluck' || !empty($potluck['enabled']),
+            'allow_self_pick' => !array_key_exists('allow_self_pick', $potluck) || !empty($potluck['allow_self_pick']),
+            'allow_custom_items' => !array_key_exists('allow_custom_items', $potluck) || !empty($potluck['allow_custom_items']),
+            'allow_host_assign' => !array_key_exists('allow_host_assign', $potluck) || !empty($potluck['allow_host_assign']),
+        ],
+    ];
+}
+
+function decode_community_event_settings(?string $settingsJson): array
+{
+    if (!community_event_settings_available() || trim((string) $settingsJson) === '') {
+        return community_event_default_settings();
+    }
+
+    $decoded = json_decode((string) $settingsJson, true);
+
+    if (!is_array($decoded)) {
+        return community_event_default_settings();
+    }
+
+    return normalize_community_event_settings($decoded);
+}
+
+function encode_community_event_settings(array $settings): ?string
+{
+    if (!community_event_settings_available()) {
+        return null;
+    }
+
+    $encoded = json_encode(
+        normalize_community_event_settings($settings),
+        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+    );
+
+    return is_string($encoded) ? $encoded : null;
+}
+
+function fetch_community_event_items(int $eventId): array
+{
+    if (!community_event_items_available()) {
+        return [];
+    }
+
+    $statement = db()->prepare(
+        'SELECT community_event_items.*,
+            claimed_user.name AS claimed_by_name
+        FROM community_event_items
+        LEFT JOIN users AS claimed_user
+            ON claimed_user.id = community_event_items.claimed_by_user_id
+        WHERE community_event_items.community_event_id = :community_event_id
+        ORDER BY community_event_items.sort_order ASC, community_event_items.id ASC'
+    );
+    $statement->execute(['community_event_id' => $eventId]);
+
+    return $statement->fetchAll();
+}
+
+function fetch_community_event_items_map(array $eventIds): array
+{
+    $map = [];
+
+    foreach ($eventIds as $eventId) {
+        $map[(int) $eventId] = [];
+    }
+
+    if (!community_event_items_available() || $eventIds === []) {
+        return $map;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($eventIds), '?'));
+    $statement = db()->prepare(
+        'SELECT community_event_items.*,
+            claimed_user.name AS claimed_by_name
+        FROM community_event_items
+        LEFT JOIN users AS claimed_user
+            ON claimed_user.id = community_event_items.claimed_by_user_id
+        WHERE community_event_items.community_event_id IN (' . $placeholders . ')
+        ORDER BY community_event_items.community_event_id ASC, community_event_items.sort_order ASC, community_event_items.id ASC'
+    );
+    $statement->execute(array_map('intval', $eventIds));
+
+    foreach ($statement->fetchAll() as $item) {
+        $map[(int) $item['community_event_id']][] = $item;
+    }
+
+    return $map;
+}
+
+function fetch_community_event_attendees(int $eventId): array
+{
+    $sql = 'SELECT community_event_rsvps.*,
+            users.name AS attendee_name,
+            users.email AS attendee_email,
+            users.avatar_url AS attendee_avatar_url';
+
+    if (community_event_items_available()) {
+        $sql .= ',
+            community_event_items.label AS bring_item_name';
+    } else {
+        $sql .= ',
+            NULL AS bring_item_name';
+    }
+
+    $sql .= ' FROM community_event_rsvps
+        INNER JOIN users ON users.id = community_event_rsvps.user_id';
+
+    if (community_event_items_available()) {
+        $sql .= ' LEFT JOIN community_event_items
+            ON community_event_items.id = community_event_rsvps.bring_item_id';
+    }
+
+    $sql .= ' WHERE community_event_rsvps.community_event_id = :community_event_id
+        ORDER BY
+            CASE community_event_rsvps.response
+                WHEN \'going\' THEN 0
+                WHEN \'interested\' THEN 1
+                WHEN \'maybe\' THEN 2
+                ELSE 3
+            END ASC,
+            community_event_rsvps.updated_at DESC';
+
+    $statement = db()->prepare($sql);
+    $statement->execute(['community_event_id' => $eventId]);
+
+    return $statement->fetchAll();
+}
+
+function fetch_recent_community_event_messages(int $eventId, int $limit = 3): array
+{
+    if (!community_event_messages_available()) {
+        return [];
+    }
+
+    $statement = db()->prepare(
+        'SELECT community_event_messages.*,
+            users.name AS sender_name
+        FROM community_event_messages
+        LEFT JOIN users ON users.id = community_event_messages.sender_user_id
+        WHERE community_event_messages.community_event_id = :community_event_id
+        ORDER BY community_event_messages.created_at DESC, community_event_messages.id DESC
+        LIMIT ' . (int) $limit
+    );
+    $statement->execute(['community_event_id' => $eventId]);
+
+    return $statement->fetchAll();
+}
+
+function hydrate_community_events(array $events, bool $includeAttendees = false, int $messageLimit = 3): array
+{
+    if ($events === []) {
+        return [];
+    }
+
+    $eventIds = array_map(static fn(array $event): int => (int) $event['id'], $events);
+    $itemsMap = fetch_community_event_items_map($eventIds);
+
+    foreach ($events as &$event) {
+        $event['settings'] = decode_community_event_settings((string) ($event['settings_json'] ?? ''));
+        $event['items'] = $itemsMap[(int) $event['id']] ?? [];
+        $event['potluck_item_count'] = count($event['items']);
+        $event['claimed_item_count'] = count(array_filter(
+            $event['items'],
+            static fn(array $item): bool => in_array((string) ($item['status'] ?? 'open'), ['claimed', 'assigned'], true)
+        ));
+        $event['recent_messages'] = fetch_recent_community_event_messages((int) $event['id'], $messageLimit);
+
+        if ($includeAttendees) {
+            $event['attendees'] = fetch_community_event_attendees((int) $event['id']);
+        }
+    }
+    unset($event);
+
+    return $events;
+}
+
+function fetch_community_event_item_by_id(int $itemId, int $eventId): ?array
+{
+    if (!community_event_items_available()) {
+        return null;
+    }
+
+    $statement = db()->prepare(
+        'SELECT *
+        FROM community_event_items
+        WHERE id = :id
+            AND community_event_id = :community_event_id
+        LIMIT 1'
+    );
+    $statement->execute([
+        'id' => $itemId,
+        'community_event_id' => $eventId,
+    ]);
+    $item = $statement->fetch();
+
+    return $item ?: null;
+}
+
 function fetch_community_event_by_id(int $eventId, ?int $viewerUserId = null, bool $canManageAll = false): ?array
 {
     $viewerId = $viewerUserId ?? 0;
     $viewerIsLoggedIn = $viewerId > 0 ? 1 : 0;
+    $userRsvpFields = 'user_rsvp.response AS current_user_rsvp';
+
+    if (community_event_rsvp_preferences_available()) {
+        $userRsvpFields .= ',
+            user_rsvp.bring_item_id AS current_user_bring_item_id,
+            user_rsvp.bring_item_label AS current_user_bring_item_label,
+            user_rsvp.bring_item_note AS current_user_bring_item_note,
+            user_rsvp.remind_three_days AS current_user_remind_three_days,
+            user_rsvp.remind_same_day AS current_user_remind_same_day';
+    }
+
     $statement = db()->prepare(
         'SELECT community_events.*,
             community_event_categories.slug AS category_slug,
@@ -1061,7 +1433,7 @@ function fetch_community_event_by_id(int $eventId, ?int $viewerUserId = null, bo
             COALESCE(rsvp_counts.maybe_count, 0) AS maybe_count,
             COALESCE(rsvp_counts.not_going_count, 0) AS not_going_count,
             COALESCE(rsvp_counts.total_count, 0) AS total_rsvp_count,
-            user_rsvp.response AS current_user_rsvp
+            ' . $userRsvpFields . '
         FROM community_events
         LEFT JOIN community_event_categories
             ON community_event_categories.id = community_events.category_id
@@ -1122,13 +1494,30 @@ function fetch_community_event_by_id(int $eventId, ?int $viewerUserId = null, bo
     ]);
     $event = $statement->fetch();
 
-    return $event ?: null;
+    if (!$event) {
+        return null;
+    }
+
+    $events = hydrate_community_events([$event], true);
+
+    return $events[0] ?? null;
 }
 
 function fetch_community_events(?int $categoryId = null, ?int $viewerUserId = null, bool $canManageAll = false): array
 {
     $viewerId = $viewerUserId ?? 0;
     $viewerIsLoggedIn = $viewerId > 0 ? 1 : 0;
+    $userRsvpFields = 'user_rsvp.response AS current_user_rsvp';
+
+    if (community_event_rsvp_preferences_available()) {
+        $userRsvpFields .= ',
+            user_rsvp.bring_item_id AS current_user_bring_item_id,
+            user_rsvp.bring_item_label AS current_user_bring_item_label,
+            user_rsvp.bring_item_note AS current_user_bring_item_note,
+            user_rsvp.remind_three_days AS current_user_remind_three_days,
+            user_rsvp.remind_same_day AS current_user_remind_same_day';
+    }
+
     $sql = 'SELECT community_events.*,
             community_event_categories.slug AS category_slug,
             community_event_categories.label AS category_label,
@@ -1139,7 +1528,7 @@ function fetch_community_events(?int $categoryId = null, ?int $viewerUserId = nu
             COALESCE(rsvp_counts.maybe_count, 0) AS maybe_count,
             COALESCE(rsvp_counts.not_going_count, 0) AS not_going_count,
             COALESCE(rsvp_counts.total_count, 0) AS total_rsvp_count,
-            user_rsvp.response AS current_user_rsvp
+            ' . $userRsvpFields . '
         FROM community_events
         LEFT JOIN community_event_categories
             ON community_event_categories.id = community_events.category_id
@@ -1205,7 +1594,7 @@ function fetch_community_events(?int $categoryId = null, ?int $viewerUserId = nu
     $statement = db()->prepare($sql);
     $statement->execute($params);
 
-    return $statement->fetchAll();
+    return hydrate_community_events($statement->fetchAll());
 }
 
 function fetch_manageable_community_events(int $userId, bool $canManageAll = false, int $limit = 12): array
@@ -1233,7 +1622,7 @@ function fetch_manageable_community_events(int $userId, bool $canManageAll = fal
     $statement = db()->prepare($sql);
     $statement->execute($params);
 
-    return $statement->fetchAll();
+    return hydrate_community_events($statement->fetchAll(), true, 4);
 }
 
 function fetch_manageable_community_event_by_id(int $eventId, int $actorUserId, bool $canManageAll = false): ?array
@@ -1442,6 +1831,216 @@ function delete_public_session(int $sessionId): void
     $statement->execute(['id' => $sessionId]);
 }
 
+function fetch_public_radio_stations(bool $includeUnpublished = false, int $limit = 24): array
+{
+    if (!public_radio_stations_available()) {
+        return [];
+    }
+
+    $sql = 'SELECT public_radio_stations.*, users.name AS created_by_name
+        FROM public_radio_stations
+        LEFT JOIN users ON users.id = public_radio_stations.created_by_user_id';
+    $params = [];
+
+    if (!$includeUnpublished) {
+        $sql .= ' WHERE public_radio_stations.status = :status';
+        $params['status'] = 'published';
+    }
+
+    $sql .= ' ORDER BY public_radio_stations.is_featured DESC, public_radio_stations.sort_order ASC, public_radio_stations.name ASC
+        LIMIT ' . (int) $limit;
+
+    $statement = db()->prepare($sql);
+    $statement->execute($params);
+
+    return $statement->fetchAll();
+}
+
+function fetch_manageable_public_radio_stations(int $limit = 50): array
+{
+    if (!public_radio_stations_available()) {
+        return [];
+    }
+
+    $statement = db()->prepare(
+        'SELECT public_radio_stations.*, users.name AS created_by_name
+        FROM public_radio_stations
+        LEFT JOIN users ON users.id = public_radio_stations.created_by_user_id
+        ORDER BY public_radio_stations.updated_at DESC, public_radio_stations.sort_order ASC, public_radio_stations.name ASC
+        LIMIT ' . (int) $limit
+    );
+    $statement->execute();
+
+    return $statement->fetchAll();
+}
+
+function fetch_manageable_public_radio_station_by_id(int $stationId): ?array
+{
+    if (!public_radio_stations_available()) {
+        return null;
+    }
+
+    $statement = db()->prepare(
+        'SELECT public_radio_stations.*, users.name AS created_by_name
+        FROM public_radio_stations
+        LEFT JOIN users ON users.id = public_radio_stations.created_by_user_id
+        WHERE public_radio_stations.id = :id
+        LIMIT 1'
+    );
+    $statement->execute(['id' => $stationId]);
+    $station = $statement->fetch();
+
+    return $station ?: null;
+}
+
+function fetch_public_radio_station_by_name(string $name, bool $includeUnpublished = false): ?array
+{
+    if (!public_radio_stations_available()) {
+        return null;
+    }
+
+    $sql = 'SELECT public_radio_stations.*, users.name AS created_by_name
+        FROM public_radio_stations
+        LEFT JOIN users ON users.id = public_radio_stations.created_by_user_id
+        WHERE LOWER(public_radio_stations.name) = LOWER(:name)';
+    $params = ['name' => trim($name)];
+
+    if (!$includeUnpublished) {
+        $sql .= ' AND public_radio_stations.status = :status';
+        $params['status'] = 'published';
+    }
+
+    $sql .= ' LIMIT 1';
+
+    $statement = db()->prepare($sql);
+    $statement->execute($params);
+    $station = $statement->fetch();
+
+    return $station ?: null;
+}
+
+function create_public_radio_station(
+    int $actorUserId,
+    string $name,
+    string $kind,
+    string $tagline,
+    string $streamUrl,
+    string $listenUrl,
+    ?string $youtubePlaylistId,
+    int $sortOrder,
+    bool $isFeatured,
+    string $status
+): int {
+    $columns = [
+        'created_by_user_id',
+        'name',
+        'kind',
+        'tagline',
+        'stream_url',
+        'listen_url',
+    ];
+    $placeholders = [
+        ':created_by_user_id',
+        ':name',
+        ':kind',
+        ':tagline',
+        ':stream_url',
+        ':listen_url',
+    ];
+    $params = [
+        'created_by_user_id' => $actorUserId,
+        'name' => trim($name),
+        'kind' => trim($kind),
+        'tagline' => trim($tagline),
+        'stream_url' => normalize_optional_text($streamUrl),
+        'listen_url' => trim($listenUrl),
+    ];
+
+    if (public_radio_playlist_support_available()) {
+        $columns[] = 'youtube_playlist_id';
+        $placeholders[] = ':youtube_playlist_id';
+        $params['youtube_playlist_id'] = normalize_optional_text((string) $youtubePlaylistId);
+    }
+
+    $columns[] = 'sort_order';
+    $columns[] = 'is_featured';
+    $columns[] = 'status';
+    $placeholders[] = ':sort_order';
+    $placeholders[] = ':is_featured';
+    $placeholders[] = ':status';
+
+    $params += [
+        'sort_order' => $sortOrder,
+        'is_featured' => $isFeatured ? 1 : 0,
+        'status' => trim($status),
+    ];
+
+    $statement = db()->prepare(
+        'INSERT INTO public_radio_stations (' . implode(', ', $columns) . ')
+        VALUES (' . implode(', ', $placeholders) . ')'
+    );
+    $statement->execute($params);
+
+    return (int) db()->lastInsertId();
+}
+
+function update_public_radio_station(
+    int $stationId,
+    string $name,
+    string $kind,
+    string $tagline,
+    string $streamUrl,
+    string $listenUrl,
+    ?string $youtubePlaylistId,
+    int $sortOrder,
+    bool $isFeatured,
+    string $status
+): void {
+    $assignments = [
+        'name = :name',
+        'kind = :kind',
+        'tagline = :tagline',
+        'stream_url = :stream_url',
+        'listen_url = :listen_url',
+    ];
+    $params = [
+        'id' => $stationId,
+        'name' => trim($name),
+        'kind' => trim($kind),
+        'tagline' => trim($tagline),
+        'stream_url' => normalize_optional_text($streamUrl),
+        'listen_url' => trim($listenUrl),
+    ];
+
+    if (public_radio_playlist_support_available()) {
+        $assignments[] = 'youtube_playlist_id = :youtube_playlist_id';
+        $params['youtube_playlist_id'] = normalize_optional_text((string) $youtubePlaylistId);
+    }
+
+    $assignments[] = 'sort_order = :sort_order';
+    $assignments[] = 'is_featured = :is_featured';
+    $assignments[] = 'status = :status';
+
+    $params += [
+        'sort_order' => $sortOrder,
+        'is_featured' => $isFeatured ? 1 : 0,
+        'status' => trim($status),
+    ];
+
+    $statement = db()->prepare(
+        'UPDATE public_radio_stations
+        SET ' . implode(', ', $assignments) . '
+        WHERE id = :id'
+    );
+    $statement->execute($params);
+}
+
+function delete_public_radio_station(int $stationId): void
+{
+    $statement = db()->prepare('DELETE FROM public_radio_stations WHERE id = :id');
+    $statement->execute(['id' => $stationId]);
+}
+
 function upsert_user_session_record(
     int $userId,
     string $sessionId,
@@ -1614,15 +2213,25 @@ function fetch_user_session_records(int $userId, ?string $currentSessionId = nul
 
 function create_community_event_record(int $userId, array $payload): int
 {
-    $statement = db()->prepare(
-        'INSERT INTO community_events (
+    $settingsJson = encode_community_event_settings((array) ($payload['settings'] ?? []));
+    $sql = 'INSERT INTO community_events (
             created_by_user_id,
             category_id,
             title,
             description,
-            event_type,
-            visibility,
-            location_name,
+            event_type, ';
+
+    if (community_event_settings_available()) {
+        $sql .= 'settings_json, ';
+    }
+
+    $sql .= 'visibility, ';
+
+    if (community_event_images_available()) {
+        $sql .= 'image_url, ';
+    }
+
+    $sql .= 'location_name,
             location_address,
             meeting_url,
             start_at,
@@ -1634,18 +2243,28 @@ function create_community_event_record(int $userId, array $payload): int
             :category_id,
             :title,
             :description,
-            :event_type,
-            :visibility,
-            :location_name,
+            :event_type, ';
+
+    if (community_event_settings_available()) {
+        $sql .= ':settings_json, ';
+    }
+
+    $sql .= ':visibility, ';
+
+    if (community_event_images_available()) {
+        $sql .= ':image_url, ';
+    }
+
+    $sql .= ':location_name,
             :location_address,
             :meeting_url,
             :start_at,
             :end_at,
             :is_featured,
             :status
-        )'
-    );
-    $statement->execute([
+        )';
+
+    $params = [
         'created_by_user_id' => $userId,
         'category_id' => $payload['category_id'],
         'title' => trim((string) $payload['title']),
@@ -1659,9 +2278,26 @@ function create_community_event_record(int $userId, array $payload): int
         'end_at' => $payload['end_at'],
         'is_featured' => !empty($payload['is_featured']) ? 1 : 0,
         'status' => trim((string) $payload['status']),
-    ]);
+    ];
+
+    if (community_event_settings_available()) {
+        $params['settings_json'] = $settingsJson;
+    }
+
+    if (community_event_images_available()) {
+        $params['image_url'] = normalize_optional_text((string) ($payload['image_url'] ?? ''));
+    }
+
+    $statement = db()->prepare($sql);
+    $statement->execute($params);
 
     $eventId = (int) db()->lastInsertId();
+
+    sync_community_event_items(
+        $eventId,
+        $userId,
+        is_array($payload['potluck_items'] ?? null) ? $payload['potluck_items'] : []
+    );
 
     record_audit_event($userId, 'community_event.created', $userId, [
         'community_event_id' => $eventId,
@@ -1680,23 +2316,33 @@ function update_community_event_record(int $eventId, array $payload, int $actorU
         throw new RuntimeException('You are not allowed to update that event.');
     }
 
-    $statement = db()->prepare(
-        'UPDATE community_events
+    $settingsJson = encode_community_event_settings((array) ($payload['settings'] ?? []));
+    $sql = 'UPDATE community_events
         SET category_id = :category_id,
             title = :title,
             description = :description,
-            event_type = :event_type,
-            visibility = :visibility,
-            location_name = :location_name,
+            event_type = :event_type, ';
+
+    if (community_event_settings_available()) {
+        $sql .= 'settings_json = :settings_json, ';
+    }
+
+    $sql .= 'visibility = :visibility, ';
+
+    if (community_event_images_available()) {
+        $sql .= 'image_url = :image_url, ';
+    }
+
+    $sql .= 'location_name = :location_name,
             location_address = :location_address,
             meeting_url = :meeting_url,
             start_at = :start_at,
             end_at = :end_at,
             is_featured = :is_featured,
             status = :status
-        WHERE id = :id'
-    );
-    $statement->execute([
+        WHERE id = :id';
+
+    $params = [
         'id' => $eventId,
         'category_id' => $payload['category_id'],
         'title' => trim((string) $payload['title']),
@@ -1710,7 +2356,24 @@ function update_community_event_record(int $eventId, array $payload, int $actorU
         'end_at' => $payload['end_at'],
         'is_featured' => !empty($payload['is_featured']) ? 1 : 0,
         'status' => trim((string) $payload['status']),
-    ]);
+    ];
+
+    if (community_event_settings_available()) {
+        $params['settings_json'] = $settingsJson;
+    }
+
+    if (community_event_images_available()) {
+        $params['image_url'] = normalize_optional_text((string) ($payload['image_url'] ?? ''));
+    }
+
+    $statement = db()->prepare($sql);
+    $statement->execute($params);
+
+    sync_community_event_items(
+        $eventId,
+        $actorUserId,
+        is_array($payload['potluck_items'] ?? null) ? $payload['potluck_items'] : []
+    );
 
     record_audit_event($actorUserId, 'community_event.updated', (int) ($existingEvent['created_by_user_id'] ?? 0) ?: null, [
         'community_event_id' => $eventId,
@@ -1739,6 +2402,11 @@ function delete_community_event_record(int $eventId, int $actorUserId, bool $can
 
 function upsert_community_event_rsvp(int $eventId, int $userId, string $response): void
 {
+    if (community_event_rsvp_preferences_available()) {
+        upsert_community_event_rsvp_details($eventId, $userId, $response);
+        return;
+    }
+
     $statement = db()->prepare(
         'INSERT INTO community_event_rsvps (community_event_id, user_id, response)
         VALUES (:community_event_id, :user_id, :response)
@@ -1753,6 +2421,25 @@ function upsert_community_event_rsvp(int $eventId, int $userId, string $response
 
 function delete_community_event_rsvp(int $eventId, int $userId): void
 {
+    if (community_event_rsvp_preferences_available() && community_event_items_available()) {
+        $statement = db()->prepare(
+            'SELECT bring_item_id
+            FROM community_event_rsvps
+            WHERE community_event_id = :community_event_id
+                AND user_id = :user_id
+            LIMIT 1'
+        );
+        $statement->execute([
+            'community_event_id' => $eventId,
+            'user_id' => $userId,
+        ]);
+        $existingRsvp = $statement->fetch();
+
+        if (!empty($existingRsvp['bring_item_id'])) {
+            release_community_event_item_claim($eventId, (int) $existingRsvp['bring_item_id'], $userId, false);
+        }
+    }
+
     $statement = db()->prepare(
         'DELETE FROM community_event_rsvps
         WHERE community_event_id = :community_event_id
@@ -1761,6 +2448,473 @@ function delete_community_event_rsvp(int $eventId, int $userId): void
     $statement->execute([
         'community_event_id' => $eventId,
         'user_id' => $userId,
+    ]);
+}
+
+function upsert_community_event_rsvp_details(
+    int $eventId,
+    int $userId,
+    string $response,
+    ?int $bringItemId = null,
+    ?string $bringItemLabel = null,
+    ?string $bringItemNote = null,
+    ?bool $remindThreeDays = null,
+    ?bool $remindSameDay = null
+): void {
+    if (!community_event_rsvp_preferences_available()) {
+        $statement = db()->prepare(
+            'INSERT INTO community_event_rsvps (community_event_id, user_id, response)
+            VALUES (:community_event_id, :user_id, :response)
+            ON DUPLICATE KEY UPDATE response = VALUES(response), updated_at = CURRENT_TIMESTAMP'
+        );
+        $statement->execute([
+            'community_event_id' => $eventId,
+            'user_id' => $userId,
+            'response' => $response,
+        ]);
+        return;
+    }
+
+    $statement = db()->prepare(
+        'INSERT INTO community_event_rsvps (
+            community_event_id,
+            user_id,
+            response,
+            bring_item_id,
+            bring_item_label,
+            bring_item_note,
+            remind_three_days,
+            remind_same_day
+        ) VALUES (
+            :community_event_id,
+            :user_id,
+            :response,
+            :bring_item_id,
+            :bring_item_label,
+            :bring_item_note,
+            :remind_three_days,
+            :remind_same_day
+        )
+        ON DUPLICATE KEY UPDATE
+            response = VALUES(response),
+            bring_item_id = VALUES(bring_item_id),
+            bring_item_label = VALUES(bring_item_label),
+            bring_item_note = VALUES(bring_item_note),
+            remind_three_days = VALUES(remind_three_days),
+            remind_same_day = VALUES(remind_same_day),
+            updated_at = CURRENT_TIMESTAMP'
+    );
+    $statement->execute([
+        'community_event_id' => $eventId,
+        'user_id' => $userId,
+        'response' => $response,
+        'bring_item_id' => $bringItemId,
+        'bring_item_label' => normalize_optional_text((string) $bringItemLabel),
+        'bring_item_note' => normalize_optional_text((string) $bringItemNote),
+        'remind_three_days' => $remindThreeDays === null || $remindThreeDays ? 1 : 0,
+        'remind_same_day' => $remindSameDay === null || $remindSameDay ? 1 : 0,
+    ]);
+}
+
+function sync_community_event_items(int $eventId, int $actorUserId, array $itemDefinitions): void
+{
+    if (!community_event_items_available()) {
+        return;
+    }
+
+    $existingItems = fetch_community_event_items($eventId);
+    $matchedItemIds = [];
+    $matchedKeys = [];
+
+    foreach (array_values($itemDefinitions) as $index => $itemDefinition) {
+        $label = trim((string) ($itemDefinition['label'] ?? ''));
+        $details = trim((string) ($itemDefinition['details'] ?? ''));
+
+        if ($label === '') {
+            continue;
+        }
+
+        $normalizedKey = mb_strtolower($label);
+        $matchingItem = null;
+
+        foreach ($existingItems as $existingItem) {
+            $existingKey = mb_strtolower(trim((string) ($existingItem['label'] ?? '')));
+
+            if ($existingKey !== $normalizedKey || in_array((int) $existingItem['id'], $matchedItemIds, true)) {
+                continue;
+            }
+
+            $matchingItem = $existingItem;
+            break;
+        }
+
+        if ($matchingItem !== null) {
+            $statement = db()->prepare(
+                'UPDATE community_event_items
+                SET label = :label,
+                    details = :details,
+                    sort_order = :sort_order
+                WHERE id = :id'
+            );
+            $statement->execute([
+                'id' => (int) $matchingItem['id'],
+                'label' => $label,
+                'details' => normalize_optional_text($details),
+                'sort_order' => $index + 1,
+            ]);
+            $matchedItemIds[] = (int) $matchingItem['id'];
+            $matchedKeys[] = $normalizedKey;
+            continue;
+        }
+
+        $statement = db()->prepare(
+            'INSERT INTO community_event_items (
+                community_event_id,
+                created_by_user_id,
+                label,
+                details,
+                status,
+                assigned_by_host,
+                sort_order
+            ) VALUES (
+                :community_event_id,
+                :created_by_user_id,
+                :label,
+                :details,
+                :status,
+                0,
+                :sort_order
+            )'
+        );
+        $statement->execute([
+            'community_event_id' => $eventId,
+            'created_by_user_id' => $actorUserId,
+            'label' => $label,
+            'details' => normalize_optional_text($details),
+            'status' => 'open',
+            'sort_order' => $index + 1,
+        ]);
+    }
+
+    foreach ($existingItems as $existingItem) {
+        if (in_array((int) $existingItem['id'], $matchedItemIds, true)) {
+            continue;
+        }
+
+        $statement = db()->prepare('DELETE FROM community_event_items WHERE id = :id');
+        $statement->execute(['id' => (int) $existingItem['id']]);
+    }
+}
+
+function create_community_event_item(int $eventId, int $userId, string $label, string $details = ''): int
+{
+    if (!community_event_items_available()) {
+        throw new RuntimeException('Event item lists are not available yet.');
+    }
+
+    $maxStatement = db()->prepare(
+        'SELECT COALESCE(MAX(sort_order), 0)
+        FROM community_event_items
+        WHERE community_event_id = :community_event_id'
+    );
+    $maxStatement->execute(['community_event_id' => $eventId]);
+    $sortOrder = (int) $maxStatement->fetchColumn() + 1;
+
+    $statement = db()->prepare(
+        'INSERT INTO community_event_items (
+            community_event_id,
+            created_by_user_id,
+            label,
+            details,
+            status,
+            assigned_by_host,
+            sort_order
+        ) VALUES (
+            :community_event_id,
+            :created_by_user_id,
+            :label,
+            :details,
+            :status,
+            0,
+            :sort_order
+        )'
+    );
+    $statement->execute([
+        'community_event_id' => $eventId,
+        'created_by_user_id' => $userId,
+        'label' => trim($label),
+        'details' => normalize_optional_text($details),
+        'status' => 'open',
+        'sort_order' => $sortOrder,
+    ]);
+
+    return (int) db()->lastInsertId();
+}
+
+function update_community_event_item(int $eventId, int $itemId, string $label, string $details = ''): void
+{
+    if (!community_event_items_available()) {
+        throw new RuntimeException('Event item lists are not available yet.');
+    }
+
+    $item = fetch_community_event_item_by_id($itemId, $eventId);
+
+    if ($item === null) {
+        throw new RuntimeException('That event item could not be found.');
+    }
+
+    $statement = db()->prepare(
+        'UPDATE community_event_items
+        SET label = :label,
+            details = :details,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id
+            AND community_event_id = :community_event_id'
+    );
+    $statement->execute([
+        'id' => $itemId,
+        'community_event_id' => $eventId,
+        'label' => trim($label),
+        'details' => normalize_optional_text($details),
+    ]);
+
+    if (community_event_rsvp_preferences_available()) {
+        $statement = db()->prepare(
+            'UPDATE community_event_rsvps
+            SET bring_item_label = :bring_item_label,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE community_event_id = :community_event_id
+                AND bring_item_id = :bring_item_id'
+        );
+        $statement->execute([
+            'community_event_id' => $eventId,
+            'bring_item_id' => $itemId,
+            'bring_item_label' => trim($label),
+        ]);
+    }
+}
+
+function delete_community_event_item(int $eventId, int $itemId): void
+{
+    if (!community_event_items_available()) {
+        throw new RuntimeException('Event item lists are not available yet.');
+    }
+
+    $item = fetch_community_event_item_by_id($itemId, $eventId);
+
+    if ($item === null) {
+        return;
+    }
+
+    if (!empty($item['claimed_by_user_id'])) {
+        release_community_event_item_claim($eventId, $itemId, (int) $item['claimed_by_user_id'], true);
+    }
+
+    $statement = db()->prepare(
+        'DELETE FROM community_event_items
+        WHERE id = :id
+            AND community_event_id = :community_event_id'
+    );
+    $statement->execute([
+        'id' => $itemId,
+        'community_event_id' => $eventId,
+    ]);
+}
+
+function release_community_event_item_claim(int $eventId, int $itemId, int $userId, bool $canManageAll = false): void
+{
+    $item = fetch_community_event_item_by_id($itemId, $eventId);
+
+    if ($item === null) {
+        return;
+    }
+
+    if (!$canManageAll && (int) ($item['claimed_by_user_id'] ?? 0) !== $userId) {
+        throw new RuntimeException('You are not allowed to release that item.');
+    }
+
+    $rsvpUserId = !empty($item['claimed_by_user_id']) ? (int) $item['claimed_by_user_id'] : $userId;
+
+    $statement = db()->prepare(
+        'UPDATE community_event_items
+        SET claimed_by_user_id = NULL,
+            status = :status,
+            assigned_by_host = 0
+        WHERE id = :id'
+    );
+    $statement->execute([
+        'id' => $itemId,
+        'status' => 'open',
+    ]);
+
+    if (community_event_rsvp_preferences_available()) {
+        $statement = db()->prepare(
+            'UPDATE community_event_rsvps
+            SET bring_item_id = NULL,
+                bring_item_label = NULL
+            WHERE community_event_id = :community_event_id
+                AND user_id = :user_id
+                AND bring_item_id = :bring_item_id'
+        );
+        $statement->execute([
+            'community_event_id' => $eventId,
+            'user_id' => $rsvpUserId,
+            'bring_item_id' => $itemId,
+        ]);
+    }
+}
+
+function claim_community_event_item(
+    int $eventId,
+    int $itemId,
+    int $userId,
+    string $response,
+    ?string $bringItemNote = null,
+    ?bool $remindThreeDays = null,
+    ?bool $remindSameDay = null
+): void {
+    $item = fetch_community_event_item_by_id($itemId, $eventId);
+
+    if ($item === null) {
+        throw new RuntimeException('That event item could not be found.');
+    }
+
+    if (
+        !empty($item['claimed_by_user_id'])
+        && (int) $item['claimed_by_user_id'] !== $userId
+    ) {
+        throw new RuntimeException('That item has already been claimed.');
+    }
+
+    if (community_event_rsvp_preferences_available()) {
+        $statement = db()->prepare(
+            'SELECT bring_item_id
+            FROM community_event_rsvps
+            WHERE community_event_id = :community_event_id
+                AND user_id = :user_id
+            LIMIT 1'
+        );
+        $statement->execute([
+            'community_event_id' => $eventId,
+            'user_id' => $userId,
+        ]);
+        $existing = $statement->fetch();
+
+        if (!empty($existing['bring_item_id']) && (int) $existing['bring_item_id'] !== $itemId) {
+            release_community_event_item_claim($eventId, (int) $existing['bring_item_id'], $userId, false);
+        }
+    }
+
+    $statement = db()->prepare(
+        'UPDATE community_event_items
+        SET claimed_by_user_id = :claimed_by_user_id,
+            status = :status,
+            assigned_by_host = 0
+        WHERE id = :id'
+    );
+    $statement->execute([
+        'claimed_by_user_id' => $userId,
+        'status' => 'claimed',
+        'id' => $itemId,
+    ]);
+
+    upsert_community_event_rsvp_details(
+        $eventId,
+        $userId,
+        $response,
+        $itemId,
+        (string) $item['label'],
+        $bringItemNote,
+        $remindThreeDays,
+        $remindSameDay
+    );
+}
+
+function assign_community_event_item(int $eventId, int $itemId, int $attendeeUserId): void
+{
+    $item = fetch_community_event_item_by_id($itemId, $eventId);
+
+    if ($item === null) {
+        throw new RuntimeException('That event item could not be found.');
+    }
+
+    if (community_event_rsvp_preferences_available()) {
+        $statement = db()->prepare(
+            'SELECT bring_item_id
+            FROM community_event_rsvps
+            WHERE community_event_id = :community_event_id
+                AND user_id = :user_id
+            LIMIT 1'
+        );
+        $statement->execute([
+            'community_event_id' => $eventId,
+            'user_id' => $attendeeUserId,
+        ]);
+        $existing = $statement->fetch();
+
+        if (!empty($existing['bring_item_id']) && (int) $existing['bring_item_id'] !== $itemId) {
+            release_community_event_item_claim($eventId, (int) $existing['bring_item_id'], $attendeeUserId, true);
+        }
+    }
+
+    $statement = db()->prepare(
+        'UPDATE community_event_items
+        SET claimed_by_user_id = :claimed_by_user_id,
+            status = :status,
+            assigned_by_host = 1
+        WHERE id = :id'
+    );
+    $statement->execute([
+        'claimed_by_user_id' => $attendeeUserId,
+        'status' => 'assigned',
+        'id' => $itemId,
+    ]);
+
+    upsert_community_event_rsvp_details(
+        $eventId,
+        $attendeeUserId,
+        'going',
+        $itemId,
+        (string) $item['label']
+    );
+}
+
+function create_community_event_message_record(
+    int $eventId,
+    int $senderUserId,
+    string $messageType,
+    string $subject,
+    string $body,
+    int $deliveredCount
+): void {
+    if (!community_event_messages_available()) {
+        return;
+    }
+
+    $statement = db()->prepare(
+        'INSERT INTO community_event_messages (
+            community_event_id,
+            sender_user_id,
+            message_type,
+            subject,
+            body,
+            delivered_count
+        ) VALUES (
+            :community_event_id,
+            :sender_user_id,
+            :message_type,
+            :subject,
+            :body,
+            :delivered_count
+        )'
+    );
+    $statement->execute([
+        'community_event_id' => $eventId,
+        'sender_user_id' => $senderUserId,
+        'message_type' => trim($messageType),
+        'subject' => trim($subject),
+        'body' => trim($body),
+        'delivered_count' => $deliveredCount,
     ]);
 }
 
@@ -1934,6 +3088,48 @@ function public_sessions_available(): bool
 
     try {
         $statement = db()->query("SHOW TABLES LIKE 'public_sessions'");
+        $available = $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
+function public_radio_stations_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW TABLES LIKE 'public_radio_stations'");
+        $available = $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
+function public_radio_playlist_support_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    if (!public_radio_stations_available()) {
+        $available = false;
+
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW COLUMNS FROM public_radio_stations LIKE 'youtube_playlist_id'");
         $available = $statement->fetch() !== false;
     } catch (Throwable $exception) {
         $available = false;

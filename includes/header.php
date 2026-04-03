@@ -12,16 +12,6 @@ $currentPageUrl = app_url($currentRequestUri === '' ? '/' : ltrim($currentReques
 $metaTitle = page_title($pageTitle);
 $appThemeOptions = app_theme_options();
 $defaultAppTheme = normalize_app_theme(null);
-$themeMetaColors = [];
-
-foreach ($appThemeOptions as $option) {
-    $themeMetaColors[(string) ($option['value'] ?? '')] = (string) ($option['meta_color'] ?? '#22333b');
-}
-
-$themeMetaColorsJson = json_encode(
-    $themeMetaColors,
-    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
-);
 $shareImagePath = 'assets/images/good-news-app.png';
 $shareImageFile = dirname(__DIR__) . '/' . $shareImagePath;
 $shareImageUrl = app_url($shareImagePath, true);
@@ -67,31 +57,7 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
     <meta name="twitter:description" content="<?= e($pageDescription); ?>">
     <meta name="twitter:image" content="<?= e($shareImageUrl); ?>">
     <meta name="twitter:image:alt" content="Good News Bible app icon showing a glowing cross above an open Bible with the Good News Bible name.">
-    <script>
-        (() => {
-            const themeMetaColors = <?= is_string($themeMetaColorsJson) ? $themeMetaColorsJson : '{"good-news":"#22333b"}'; ?>;
-            const defaultTheme = <?= json_encode($defaultAppTheme, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-            let activeTheme = defaultTheme;
-
-            try {
-                const savedTheme = window.localStorage.getItem('app-theme');
-
-                if (savedTheme && Object.prototype.hasOwnProperty.call(themeMetaColors, savedTheme)) {
-                    activeTheme = savedTheme;
-                }
-            } catch (error) {
-                activeTheme = defaultTheme;
-            }
-
-            document.documentElement.setAttribute('data-theme', activeTheme);
-
-            const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-
-            if (themeColorMeta && Object.prototype.hasOwnProperty.call(themeMetaColors, activeTheme)) {
-                themeColorMeta.setAttribute('content', themeMetaColors[activeTheme]);
-            }
-        })();
-    </script>
+    <script src="<?= e(asset_url('assets/js/theme-bootstrap.js')); ?>"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -116,133 +82,169 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                 <nav class="primary-nav" id="primary-nav">
                     <a class="<?= $activePage === 'home' ? 'is-active' : ''; ?>" href="<?= e(app_url('index.php')); ?>">Home</a>
                     <a class="<?= $activePage === 'good-news' ? 'is-active' : ''; ?>" href="<?= e(app_url('good-news.php')); ?>">Good News</a>
-                    <a class="<?= $activePage === 'bible' ? 'is-active' : ''; ?>" href="<?= e(app_url('bible.php')); ?>">Bible</a>
-                    <a class="<?= $activePage === 'community' ? 'is-active' : ''; ?>" href="<?= e(app_url('community.php')); ?>">Community</a>
-                    <a class="<?= $activePage === 'sessions' ? 'is-active' : ''; ?>" href="<?= e(app_url('sessions.php')); ?>">Sessions</a>
                     <?php
-                    $morePages = ['planner', 'dashboard', 'friends', 'bookmarks', 'notes', 'prayer', 'profile', 'admin'];
+                    $bibleActivePages = ['bible', 'bookmarks', 'notes'];
+                    $communityActivePages = ['community', 'sessions', 'friends', 'prayer'];
+                    $dashboardActivePages = ['dashboard', 'planner'];
+                    ?>
+                    <a class="<?= in_array($activePage, $bibleActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('bible.php')); ?>">Bible</a>
+                    <a class="<?= in_array($activePage, $communityActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('community.php')); ?>">Community</a>
+                    <?php
+                    $morePages = ['dashboard', 'planner', 'profile', 'admin'];
                     $moreIsActive = in_array($activePage, $morePages, true);
-                    $moreLinks = [
-                        [
-                            'label' => 'Planner',
-                            'href' => app_url('planner.php'),
-                            'active' => $activePage === 'planner',
-                            'class' => '',
-                        ],
-                    ];
+                    $moreSections = [];
 
                     if (is_logged_in()) {
-                        $moreLinks[] = [
+                        $moreSections[] = [
                             'label' => 'Dashboard',
-                            'href' => app_url('dashboard.php'),
-                            'active' => $activePage === 'dashboard',
-                            'class' => '',
+                            'links' => [
+                                [
+                                    'label' => 'Dashboard',
+                                    'href' => app_url('dashboard.php'),
+                                    'active' => $activePage === 'dashboard',
+                                    'class' => '',
+                                ],
+                                [
+                                    'label' => 'Planner',
+                                    'href' => app_url('planner.php'),
+                                    'active' => $activePage === 'planner',
+                                    'class' => '',
+                                ],
+                            ],
                         ];
-                        $moreLinks[] = [
-                            'label' => 'Friends',
-                            'href' => app_url('friends.php'),
-                            'active' => $activePage === 'friends',
-                            'class' => '',
+                        $moreSections[] = [
+                            'label' => 'Bible',
+                            'links' => [
+                                [
+                                    'label' => 'Saved',
+                                    'href' => app_url('bookmarks.php'),
+                                    'active' => $activePage === 'bookmarks',
+                                    'class' => '',
+                                ],
+                                [
+                                    'label' => 'Notes',
+                                    'href' => app_url('notes.php'),
+                                    'active' => $activePage === 'notes',
+                                    'class' => '',
+                                ],
+                            ],
                         ];
-                        $moreLinks[] = [
-                            'label' => 'Saved',
-                            'href' => app_url('bookmarks.php'),
-                            'active' => $activePage === 'bookmarks',
-                            'class' => '',
+                        $moreSections[] = [
+                            'label' => 'Community',
+                            'links' => [
+                                [
+                                    'label' => 'Sessions',
+                                    'href' => app_url('sessions.php'),
+                                    'active' => $activePage === 'sessions',
+                                    'class' => '',
+                                ],
+                                [
+                                    'label' => 'Friends',
+                                    'href' => app_url('friends.php'),
+                                    'active' => $activePage === 'friends',
+                                    'class' => '',
+                                ],
+                                [
+                                    'label' => 'Prayer',
+                                    'href' => app_url('prayer.php'),
+                                    'active' => $activePage === 'prayer',
+                                    'class' => '',
+                                ],
+                            ],
                         ];
-                        $moreLinks[] = [
-                            'label' => 'Notes',
-                            'href' => app_url('notes.php'),
-                            'active' => $activePage === 'notes',
-                            'class' => '',
+
+                        $accountLinks = [
+                            [
+                                'label' => 'Profile',
+                                'href' => app_url('profile.php'),
+                                'active' => $activePage === 'profile',
+                                'class' => '',
+                            ],
                         ];
-                        $moreLinks[] = [
-                            'label' => 'Prayer',
-                            'href' => app_url('prayer.php'),
-                            'active' => $activePage === 'prayer',
-                            'class' => '',
-                        ];
-                        $moreLinks[] = [
-                            'label' => 'Profile',
-                            'href' => app_url('profile.php'),
-                            'active' => $activePage === 'profile',
-                            'class' => '',
-                        ];
+
                         if (current_user_has_role(['admin'])) {
-                            $moreLinks[] = [
+                            $accountLinks[] = [
                                 'label' => 'Admin',
                                 'href' => app_url('admin/index.php'),
                                 'active' => $activePage === 'admin',
                                 'class' => '',
                             ];
                         }
-                        $moreLinks[] = [
+
+                        $accountLinks[] = [
                             'label' => 'Logout',
                             'href' => app_url('logout.php'),
                             'active' => false,
                             'class' => 'nav-action',
                         ];
-                    } else {
-                        $moreLinks[] = [
-                            'label' => 'Login',
-                            'href' => app_url('login.php'),
-                            'active' => false,
-                            'class' => '',
+
+                        $moreSections[] = [
+                            'label' => 'Account',
+                            'links' => $accountLinks,
                         ];
-                        $moreLinks[] = [
-                            'label' => 'Create Account',
-                            'href' => app_url('register.php'),
-                            'active' => false,
-                            'class' => 'nav-action',
+                    } else {
+                        $moreSections[] = [
+                            'label' => 'Community',
+                            'links' => [
+                                [
+                                    'label' => 'Sessions',
+                                    'href' => app_url('sessions.php'),
+                                    'active' => $activePage === 'sessions',
+                                    'class' => '',
+                                ],
+                            ],
+                        ];
+                        $moreSections[] = [
+                            'label' => 'Account',
+                            'links' => [
+                                [
+                                    'label' => 'Login',
+                                    'href' => app_url('login.php'),
+                                    'active' => false,
+                                    'class' => '',
+                                ],
+                                [
+                                    'label' => 'Create Account',
+                                    'href' => app_url('register.php'),
+                                    'active' => false,
+                                    'class' => 'nav-action',
+                                ],
+                            ],
                         ];
                     }
                     ?>
                     <details class="more-nav">
                         <summary class="<?= $moreIsActive ? 'is-active' : ''; ?>">More</summary>
                         <div class="more-nav-menu">
-                            <div class="theme-picker-nav">
-                                <label class="theme-picker-inline" for="nav-theme-select">
-                                    <span>Theme</span>
-                                    <select id="nav-theme-select" data-app-theme-select aria-label="Select site theme">
-                                        <?php foreach ($appThemeOptions as $themeOption): ?>
-                                            <option value="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>">
-                                                <?= e((string) ($themeOption['label'] ?? 'Theme')); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </label>
-                            </div>
-                            <?php foreach ($moreLinks as $link): ?>
-                                <a
-                                    class="<?= e(trim(($link['active'] ? 'is-active ' : '') . $link['class'])); ?>"
-                                    href="<?= e($link['href']); ?>"
-                                >
-                                    <?= e($link['label']); ?>
-                                </a>
+                            <?php foreach ($moreSections as $section): ?>
+                                <div class="more-nav-group">
+                                    <p class="more-nav-group-label"><?= e((string) ($section['label'] ?? 'More')); ?></p>
+                                    <?php foreach (($section['links'] ?? []) as $link): ?>
+                                        <a
+                                            class="<?= e(trim(($link['active'] ? 'is-active ' : '') . $link['class'])); ?>"
+                                            href="<?= e($link['href']); ?>"
+                                        >
+                                            <?= e($link['label']); ?>
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
                             <?php endforeach; ?>
                         </div>
                     </details>
 
                     <div class="more-nav-mobile" aria-label="More">
-                        <div class="theme-picker-nav theme-picker-nav-mobile">
-                            <label class="theme-picker-inline" for="mobile-theme-select">
-                                <span>Theme</span>
-                                <select id="mobile-theme-select" data-app-theme-select aria-label="Select site theme">
-                                    <?php foreach ($appThemeOptions as $themeOption): ?>
-                                        <option value="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>">
-                                            <?= e((string) ($themeOption['label'] ?? 'Theme')); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </label>
-                        </div>
-                        <?php foreach ($moreLinks as $link): ?>
-                            <a
-                                class="<?= e(trim(($link['active'] ? 'is-active ' : '') . $link['class'])); ?>"
-                                href="<?= e($link['href']); ?>"
-                            >
-                                <?= e($link['label']); ?>
-                            </a>
+                        <?php foreach ($moreSections as $section): ?>
+                            <div class="more-nav-group">
+                                <p class="more-nav-group-label"><?= e((string) ($section['label'] ?? 'More')); ?></p>
+                                <?php foreach (($section['links'] ?? []) as $link): ?>
+                                    <a
+                                        class="<?= e(trim(($link['active'] ? 'is-active ' : '') . $link['class'])); ?>"
+                                        href="<?= e($link['href']); ?>"
+                                    >
+                                        <?= e($link['label']); ?>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
                         <?php endforeach; ?>
                     </div>
                 </nav>
