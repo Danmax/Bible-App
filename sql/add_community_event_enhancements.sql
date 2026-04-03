@@ -27,9 +27,6 @@ CREATE TABLE IF NOT EXISTS community_event_items (
     CONSTRAINT fk_community_event_items_claimed_by FOREIGN KEY (claimed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-ALTER TABLE community_event_rsvps
-    ADD CONSTRAINT fk_community_event_rsvps_item FOREIGN KEY (bring_item_id) REFERENCES community_event_items(id) ON DELETE SET NULL;
-
 CREATE TABLE IF NOT EXISTS community_event_messages (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     community_event_id BIGINT UNSIGNED NOT NULL,
