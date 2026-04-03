@@ -1,12 +1,12 @@
 ALTER TABLE community_events
-    ADD COLUMN settings_json LONGTEXT NULL AFTER event_type;
+    ADD COLUMN IF NOT EXISTS settings_json LONGTEXT NULL AFTER event_type;
 
 ALTER TABLE community_event_rsvps
-    ADD COLUMN bring_item_id BIGINT UNSIGNED NULL AFTER response,
-    ADD COLUMN bring_item_label VARCHAR(160) NULL AFTER bring_item_id,
-    ADD COLUMN bring_item_note VARCHAR(255) NULL AFTER bring_item_label,
-    ADD COLUMN remind_three_days TINYINT(1) NOT NULL DEFAULT 1 AFTER bring_item_note,
-    ADD COLUMN remind_same_day TINYINT(1) NOT NULL DEFAULT 1 AFTER remind_three_days;
+    ADD COLUMN IF NOT EXISTS bring_item_id BIGINT UNSIGNED NULL AFTER response,
+    ADD COLUMN IF NOT EXISTS bring_item_label VARCHAR(160) NULL AFTER bring_item_id,
+    ADD COLUMN IF NOT EXISTS bring_item_note VARCHAR(255) NULL AFTER bring_item_label,
+    ADD COLUMN IF NOT EXISTS remind_three_days TINYINT(1) NOT NULL DEFAULT 1 AFTER bring_item_note,
+    ADD COLUMN IF NOT EXISTS remind_same_day TINYINT(1) NOT NULL DEFAULT 1 AFTER remind_three_days;
 
 CREATE TABLE IF NOT EXISTS community_event_items (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
