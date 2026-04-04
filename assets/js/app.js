@@ -216,6 +216,16 @@ if (appThemeSelects.length > 0 || appThemeSwatches.length > 0) {
             if (nextTheme) {
                 applyAppTheme(nextTheme, { announce: true });
             }
+
+            const themeNav = buttonNode.closest('[data-theme-nav]');
+
+            if (themeNav instanceof HTMLDetailsElement && themeNav.open) {
+                themeNav.classList.add('is-closing');
+                window.setTimeout(() => {
+                    themeNav.open = false;
+                    themeNav.classList.remove('is-closing');
+                }, 150);
+            }
         });
     });
 }
@@ -234,6 +244,7 @@ goodNewsRadioSections.forEach((section) => {
     const nameNode = section.querySelector('[data-radio-name]');
     const taglineNode = section.querySelector('[data-radio-tagline]');
     const linkNode = section.querySelector('[data-radio-link]');
+    const liveIndicatorNode = section.querySelector('[data-radio-live-indicator]');
     const stationButtons = Array.from(section.querySelectorAll('[data-radio-station]'));
 
     if (!(audioNode instanceof HTMLAudioElement) || stationButtons.length === 0) {
@@ -251,11 +262,17 @@ goodNewsRadioSections.forEach((section) => {
         const kind = String(buttonNode.dataset.kind || '').trim();
         const tagline = String(buttonNode.dataset.tagline || '').trim();
         const youtubePlaylistId = String(buttonNode.dataset.youtubePlaylistId || '').trim();
+        const isLive = buttonNode.dataset.isLive === '1';
+        const liveVideoId = String(buttonNode.dataset.liveVideoId || '').trim();
         const shouldResumePlayback = autoplay || !audioNode.paused;
         const streamChanged = audioNode.currentSrc !== streamUrl && audioNode.getAttribute('src') !== streamUrl;
         const playlistEmbedUrl = youtubePlaylistId !== ''
             ? `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(youtubePlaylistId)}`
             : '';
+        const liveEmbedUrl = isLive && liveVideoId !== ''
+            ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(liveVideoId)}`
+            : '';
+        const activeEmbedUrl = liveEmbedUrl !== '' ? liveEmbedUrl : playlistEmbedUrl;
 
         stationButtons.forEach((stationButton) => {
             stationButton.classList.toggle('is-active', stationButton === buttonNode);
@@ -278,15 +295,19 @@ goodNewsRadioSections.forEach((section) => {
             linkNode.href = listenUrl;
         }
 
-        if (playlistEmbedUrl !== '') {
+        if (liveIndicatorNode instanceof HTMLElement) {
+            liveIndicatorNode.hidden = !isLive;
+        }
+
+        if (activeEmbedUrl !== '') {
             audioNode.pause();
 
             if (videoWrapperNode instanceof HTMLElement) {
                 videoWrapperNode.hidden = false;
             }
 
-            if (videoNode instanceof HTMLIFrameElement && videoNode.src !== playlistEmbedUrl) {
-                videoNode.src = playlistEmbedUrl;
+            if (videoNode instanceof HTMLIFrameElement && videoNode.src !== activeEmbedUrl) {
+                videoNode.src = activeEmbedUrl;
             }
 
             audioNode.hidden = true;
@@ -637,6 +658,9 @@ const createVoiceRecorder = ({
     listeningMessage,
     successMessage,
     unsupportedMessage,
+    maxDurationMs = 0,
+    maxDurationReachedMessage = 'Recording limit reached. Turning your words into text...',
+    onDurationTick = null,
 }) => {
     const MediaRecorderApi = window.MediaRecorder;
     const mediaDevices = navigator.mediaDevices;
@@ -644,6 +668,8 @@ const createVoiceRecorder = ({
     let mediaRecorder = null;
     let mediaStream = null;
     let audioChunks = [];
+    let maxDurationTimeoutId = null;
+    let durationIntervalId = null;
 
     const setStatus = (message) => {
         if (statusNode instanceof HTMLElement) {
@@ -657,6 +683,18 @@ const createVoiceRecorder = ({
         }
 
         mediaStream = null;
+    };
+
+    const clearMaxDurationTimer = () => {
+        if (maxDurationTimeoutId !== null) {
+            window.clearTimeout(maxDurationTimeoutId);
+            maxDurationTimeoutId = null;
+        }
+
+        if (durationIntervalId !== null) {
+            window.clearInterval(durationIntervalId);
+            durationIntervalId = null;
+        }
     };
 
     const setRecordingState = (isRecording) => {
@@ -673,6 +711,10 @@ const createVoiceRecorder = ({
 
         if (typeof onRecordingStateChange === 'function') {
             onRecordingStateChange(isRecording);
+        }
+
+        if (!isRecording) {
+            clearMaxDurationTimer();
         }
     };
 
@@ -796,8 +838,35 @@ const createVoiceRecorder = ({
             setRecordingState(true);
             setStatus(listeningMessage);
             mediaRecorder.start();
+
+            if (Number.isFinite(maxDurationMs) && maxDurationMs > 0) {
+                clearMaxDurationTimer();
+                const startedAt = Date.now();
+
+                if (typeof onDurationTick === 'function') {
+                    onDurationTick(Math.ceil(maxDurationMs / 1000));
+                }
+
+                durationIntervalId = window.setInterval(() => {
+                    if (typeof onDurationTick !== 'function') {
+                        return;
+                    }
+
+                    const elapsedMs = Date.now() - startedAt;
+                    const remainingMs = Math.max(0, maxDurationMs - elapsedMs);
+                    onDurationTick(Math.ceil(remainingMs / 1000));
+                }, 250);
+
+                maxDurationTimeoutId = window.setTimeout(() => {
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        setStatus(maxDurationReachedMessage);
+                        mediaRecorder.stop();
+                    }
+                }, maxDurationMs);
+            }
         } catch (error) {
             stopMediaTracks();
+            clearMaxDurationTimer();
             const message = error instanceof Error ? error.message : 'Microphone access was not granted yet.';
             setStatus(message);
             setRecordingState(false);
@@ -1029,6 +1098,7 @@ document.querySelectorAll('[data-community-event-form]').forEach((communityEvent
     const formatField = communityEventForm.querySelector('[data-community-event-format]');
     const potluckPanel = communityEventForm.querySelector('[data-community-potluck-options]');
     const potluckSeedBuilder = communityEventForm.querySelector('[data-community-potluck-seed-builder]');
+    const potluckPresetButtons = communityEventForm.querySelectorAll('[data-potluck-preset]');
     const potluckSeedList = communityEventForm.querySelector('[data-potluck-seed-list]');
     const potluckSeedOutput = communityEventForm.querySelector('[data-potluck-seed-output]');
     const potluckSeedAddButton = communityEventForm.querySelector('[data-potluck-seed-add]');
@@ -1040,6 +1110,90 @@ document.querySelectorAll('[data-community-event-form]').forEach((communityEvent
 
     const potluckFields = potluckPanel.querySelectorAll('input, textarea, select');
     let isSyncingPotluckRows = false;
+    const potluckPresets = {
+        community: [
+            ['Main dish', 'Lasagna'],
+            ['Side', 'Garden salad'],
+            ['Dessert', 'Brownies'],
+            ['Drinks', 'Lemonade and water'],
+            ['Supplies', 'Plates and napkins'],
+            ['Utensils', 'Forks and serving spoons'],
+        ],
+        bbq: [
+            ['Main dish', 'Burgers'],
+            ['Main dish', 'Hot dogs'],
+            ['Side', 'Potato salad'],
+            ['Appetizer', 'Chips and dip'],
+            ['Drinks', 'Soda and water'],
+            ['Condiments', 'Ketchup, mustard, and relish'],
+            ['Ice', 'Cooler ice'],
+            ['Supplies', 'Plates, napkins, and utensils'],
+        ],
+        picnic: [
+            ['Main dish', 'Sandwich tray'],
+            ['Side', 'Pasta salad'],
+            ['Fruit', 'Watermelon slices'],
+            ['Snacks', 'Chips'],
+            ['Dessert', 'Cookies'],
+            ['Drinks', 'Tea and bottled water'],
+            ['Supplies', 'Cups, plates, and napkins'],
+        ],
+        thanksgiving: [
+            ['Main dish', 'Turkey'],
+            ['Side', 'Dressing'],
+            ['Side', 'Mashed potatoes'],
+            ['Vegetable', 'Green bean casserole'],
+            ['Bread', 'Dinner rolls'],
+            ['Dessert', 'Pumpkin pie'],
+            ['Drinks', 'Sweet tea and cider'],
+            ['Supplies', 'Serving trays and utensils'],
+        ],
+        christmas: [
+            ['Main dish', 'Ham'],
+            ['Side', 'Mac and cheese'],
+            ['Side', 'Roasted vegetables'],
+            ['Bread', 'Dinner rolls'],
+            ['Dessert', 'Christmas cookies'],
+            ['Dessert', 'Cake'],
+            ['Drinks', 'Punch and water'],
+            ['Supplies', 'Plates, napkins, and serving spoons'],
+        ],
+        brunch: [
+            ['Main dish', 'Breakfast casserole'],
+            ['Pastry', 'Muffins'],
+            ['Fruit', 'Fresh fruit tray'],
+            ['Side', 'Bagels and cream cheese'],
+            ['Drinks', 'Coffee'],
+            ['Drinks', 'Orange juice'],
+            ['Supplies', 'Cups, plates, and napkins'],
+        ],
+        chili: [
+            ['Chili entry', 'Classic beef chili'],
+            ['Chili entry', 'White chicken chili'],
+            ['Toppings', 'Cheese, onions, and sour cream'],
+            ['Side', 'Cornbread'],
+            ['Dessert', 'Cookies'],
+            ['Drinks', 'Tea and water'],
+            ['Supplies', 'Bowls, spoons, and napkins'],
+        ],
+        pizza: [
+            ['Main dish', 'Pepperoni pizza'],
+            ['Main dish', 'Cheese pizza'],
+            ['Main dish', 'Veggie pizza'],
+            ['Side', 'Garden salad'],
+            ['Dessert', 'Brownie bites'],
+            ['Drinks', 'Soda and water'],
+            ['Supplies', 'Plates, cups, and napkins'],
+        ],
+        celebration: [
+            ['Main dish', 'Party tray'],
+            ['Appetizer', 'Veggie tray'],
+            ['Dessert', 'Celebration cake'],
+            ['Dessert', 'Cupcakes'],
+            ['Drinks', 'Punch and water'],
+            ['Supplies', 'Plates, napkins, and candles'],
+        ],
+    };
 
     const createPotluckSeedRow = (typeValue = '', detailValue = '') => {
         const row = document.createElement('div');
@@ -1153,11 +1307,34 @@ document.querySelectorAll('[data-community-event-form]').forEach((communityEvent
         ensureMinimumPotluckRows();
     };
 
+    const applyPotluckPreset = (presetKey) => {
+        if (!(potluckSeedList instanceof HTMLElement) || !(presetKey in potluckPresets)) {
+            return;
+        }
+
+        potluckSeedList.innerHTML = '';
+        potluckPresets[presetKey].forEach(([typeValue, detailValue]) => {
+            potluckSeedList.append(createPotluckSeedRow(typeValue, detailValue));
+        });
+        ensureMinimumPotluckRows();
+        syncPotluckSeedOutput();
+    };
+
     if (potluckSeedAddButton instanceof HTMLButtonElement && potluckSeedList instanceof HTMLElement) {
         potluckSeedAddButton.addEventListener('click', () => {
             potluckSeedList.append(createPotluckSeedRow());
         });
     }
+
+    potluckPresetButtons.forEach((buttonNode) => {
+        buttonNode.addEventListener('click', () => {
+            const presetKey = buttonNode.getAttribute('data-potluck-preset');
+
+            if (presetKey) {
+                applyPotluckPreset(presetKey);
+            }
+        });
+    });
 
     if (potluckSeedOutput instanceof HTMLTextAreaElement) {
         syncPotluckSeedRowsFromOutput();
@@ -1446,11 +1623,47 @@ voiceComposeGroups.forEach((group) => {
     const containerLabel = group.closest('label');
     const textarea = containerLabel?.querySelector('textarea');
     const SpeechRecognitionApi = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const maxDurationSeconds = Number(group.getAttribute('data-voice-compose-max-seconds') || '0') || 0;
+    const maxDurationMs = maxDurationSeconds > 0 ? maxDurationSeconds * 1000 : 0;
     let recognition = null;
+    let recognitionTimeoutId = null;
+    let isListening = false;
+    let statusMessageBase = maxDurationSeconds > 0
+        ? `Speak for up to ${maxDurationSeconds} seconds and we will place your words into the prayer details.`
+        : 'Listening now. Share your note in your own words.';
 
     const setStatus = (message) => {
         if (statusNode instanceof HTMLElement) {
             statusNode.textContent = message;
+        }
+    };
+
+    const setCountdownStatus = (remainingSeconds) => {
+        if (maxDurationSeconds <= 0) {
+            return;
+        }
+
+        const normalizedSeconds = Math.max(0, Math.ceil(Number(remainingSeconds) || 0));
+        setStatus(`${statusMessageBase} ${normalizedSeconds}s left.`);
+    };
+
+    const clearRecognitionTimer = () => {
+        if (recognitionTimeoutId !== null) {
+            window.clearTimeout(recognitionTimeoutId);
+            recognitionTimeoutId = null;
+        }
+    };
+
+    const setComposeListeningState = (listening) => {
+        isListening = listening;
+        startButton.classList.toggle('is-recording', listening);
+        startButton.setAttribute('aria-pressed', listening ? 'true' : 'false');
+
+        if (stopButton instanceof HTMLButtonElement) {
+            startButton.hidden = listening;
+            stopButton.hidden = !listening;
+        } else {
+            startButton.hidden = false;
         }
     };
 
@@ -1472,6 +1685,15 @@ voiceComposeGroups.forEach((group) => {
         listeningMessage: 'Listening now. Share your note in your own words.',
         successMessage: (payload) => `Your note was captured with ${payload.model || 'OpenAI'}. Keep shaping it or save when you are ready.`,
         unsupportedMessage: 'Voice notes are not available in this browser yet.',
+        maxDurationMs,
+        maxDurationReachedMessage: maxDurationSeconds > 0
+            ? `${maxDurationSeconds}-second limit reached. Turning your words into text...`
+            : 'Recording limit reached. Turning your words into text...',
+        onDurationTick: maxDurationSeconds > 0
+            ? (remainingSeconds) => {
+                setCountdownStatus(remainingSeconds);
+            }
+            : null,
     });
 
     if (!SpeechRecognitionApi) {
@@ -1491,13 +1713,17 @@ voiceComposeGroups.forEach((group) => {
 
     recognition.addEventListener('start', () => {
         transcriptBase = textarea.value.trim();
-        startButton.hidden = true;
+        setComposeListeningState(true);
 
-        if (stopButton instanceof HTMLButtonElement) {
-            stopButton.hidden = false;
+        setCountdownStatus(maxDurationSeconds);
+
+        if (maxDurationMs > 0) {
+            clearRecognitionTimer();
+            recognitionTimeoutId = window.setTimeout(() => {
+                setStatus(`${maxDurationSeconds}-second limit reached. Finishing your voice note...`);
+                recognition?.stop();
+            }, maxDurationMs);
         }
-
-        setStatus('Listening now. Share your note in your own words.');
     });
 
     recognition.addEventListener('result', (event) => {
@@ -1510,20 +1736,25 @@ voiceComposeGroups.forEach((group) => {
     });
 
     recognition.addEventListener('end', () => {
-        startButton.hidden = false;
-
-        if (stopButton instanceof HTMLButtonElement) {
-            stopButton.hidden = true;
-        }
+        clearRecognitionTimer();
+        setComposeListeningState(false);
 
         setStatus('Your note is ready. Keep editing it or save when you are ready.');
     });
 
     recognition.addEventListener('error', (event) => {
+        clearRecognitionTimer();
+        setComposeListeningState(false);
         setStatus(`Voice note ran into an issue: ${event.error}`);
     });
 
     startButton.addEventListener('click', () => {
+        if (isListening) {
+            clearRecognitionTimer();
+            recognition?.stop();
+            return;
+        }
+
         textarea.focus();
         try {
             recognition?.start();
@@ -1534,8 +1765,11 @@ voiceComposeGroups.forEach((group) => {
     });
 
     stopButton?.addEventListener('click', () => {
+        clearRecognitionTimer();
         recognition?.stop();
     });
+
+    setComposeListeningState(false);
 });
 
 const profileForm = document.querySelector('[data-profile-form]');

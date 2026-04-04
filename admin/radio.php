@@ -41,6 +41,59 @@ function admin_public_radio_url(string $value, bool $allowEmpty = false): ?strin
     return $trimmed;
 }
 
+function admin_extract_youtube_video_id(string $value): ?string
+{
+    $trimmed = trim($value);
+
+    if ($trimmed === '') {
+        return null;
+    }
+
+    // Direct video ID (exactly 11 chars)
+    if (preg_match('/^[A-Za-z0-9_-]{11}$/', $trimmed) === 1) {
+        return $trimmed;
+    }
+
+    $parsedUrl = parse_url($trimmed);
+
+    if (!is_array($parsedUrl)) {
+        return null;
+    }
+
+    $host = strtolower((string) ($parsedUrl['host'] ?? ''));
+    $path = trim((string) ($parsedUrl['path'] ?? ''), '/');
+
+    // youtu.be/VIDEO_ID
+    if (str_contains($host, 'youtu.be')) {
+        $segment = explode('/', $path)[0] ?? '';
+        if (preg_match('/^[A-Za-z0-9_-]{11}$/', $segment) === 1) {
+            return $segment;
+        }
+    }
+
+    // ?v=VIDEO_ID
+    parse_str((string) ($parsedUrl['query'] ?? ''), $query);
+    $videoId = trim((string) ($query['v'] ?? ''));
+
+    if ($videoId === '') {
+        // /embed/ID or /live/ID path segments
+        $segments = explode('/', $path);
+        foreach (['embed', 'live', 'shorts'] as $prefix) {
+            $idx = array_search($prefix, $segments, true);
+            if ($idx !== false && isset($segments[$idx + 1])) {
+                $videoId = $segments[$idx + 1];
+                break;
+            }
+        }
+    }
+
+    if ($videoId === '' || preg_match('/^[A-Za-z0-9_-]{11}$/', $videoId) !== 1) {
+        return null;
+    }
+
+    return $videoId;
+}
+
 function admin_extract_youtube_playlist_id(string $value): ?string
 {
     $trimmed = trim($value);
@@ -86,6 +139,8 @@ $formValues = [
     'stream_url' => '',
     'listen_url' => '',
     'youtube_playlist' => '',
+    'youtube_live_video' => '',
+    'is_live' => '0',
     'sort_order' => '0',
     'is_featured' => '0',
     'status' => 'published',
@@ -103,6 +158,8 @@ if (public_radio_stations_available() && $_SERVER['REQUEST_METHOD'] === 'POST') 
         'stream_url' => trim((string) ($_POST['stream_url'] ?? '')),
         'listen_url' => trim((string) ($_POST['listen_url'] ?? '')),
         'youtube_playlist' => trim((string) ($_POST['youtube_playlist'] ?? '')),
+        'youtube_live_video' => trim((string) ($_POST['youtube_live_video'] ?? '')),
+        'is_live' => trim((string) ($_POST['is_live'] ?? '0')) === '1' ? '1' : '0',
         'sort_order' => trim((string) ($_POST['sort_order'] ?? '0')),
         'is_featured' => trim((string) ($_POST['is_featured'] ?? '0')) === '1' ? '1' : '0',
         'status' => trim((string) ($_POST['status'] ?? 'published')),
@@ -133,6 +190,7 @@ if (public_radio_stations_available() && $_SERVER['REQUEST_METHOD'] === 'POST') 
         $listenUrl = admin_public_radio_url($formValues['listen_url']);
         $streamUrl = admin_public_radio_url($formValues['stream_url'], true);
         $youtubePlaylistId = admin_extract_youtube_playlist_id($formValues['youtube_playlist']);
+        $youtubeLiveVideoId = admin_extract_youtube_video_id($formValues['youtube_live_video']);
 
         if ($listenUrl === null) {
             throw new RuntimeException('Enter a valid official listening URL.');
@@ -144,6 +202,10 @@ if (public_radio_stations_available() && $_SERVER['REQUEST_METHOD'] === 'POST') 
 
         if ($formValues['youtube_playlist'] !== '' && $youtubePlaylistId === null) {
             throw new RuntimeException('Enter a valid YouTube playlist URL or playlist ID.');
+        }
+
+        if ($formValues['youtube_live_video'] !== '' && $youtubeLiveVideoId === null) {
+            throw new RuntimeException('Enter a valid YouTube video URL or video ID for the live stream.');
         }
 
         $sortOrder = (int) $formValues['sort_order'];
@@ -167,7 +229,9 @@ if (public_radio_stations_available() && $_SERVER['REQUEST_METHOD'] === 'POST') 
                 $youtubePlaylistId,
                 $sortOrder,
                 $formValues['is_featured'] === '1',
-                $formValues['status']
+                $formValues['status'],
+                $youtubeLiveVideoId,
+                $formValues['is_live'] === '1'
             );
             record_audit_event((int) current_user()['id'], 'public_radio_station.updated', null, [
                 'public_radio_station_id' => $stationId,
@@ -187,7 +251,9 @@ if (public_radio_stations_available() && $_SERVER['REQUEST_METHOD'] === 'POST') 
             $youtubePlaylistId,
             $sortOrder,
             $formValues['is_featured'] === '1',
-            $formValues['status']
+            $formValues['status'],
+            $youtubeLiveVideoId,
+            $formValues['is_live'] === '1'
         );
         record_audit_event((int) current_user()['id'], 'public_radio_station.created', null, [
             'public_radio_station_id' => $createdStationId,
@@ -222,6 +288,8 @@ if (public_radio_stations_available()) {
                     'stream_url' => (string) ($editingStation['stream_url'] ?? ''),
                     'listen_url' => (string) ($editingStation['listen_url'] ?? ''),
                     'youtube_playlist' => (string) ($editingStation['youtube_playlist_id'] ?? ''),
+                    'youtube_live_video' => (string) ($editingStation['youtube_live_video_id'] ?? ''),
+                    'is_live' => (int) ($editingStation['is_live'] ?? 0) === 1 ? '1' : '0',
                     'sort_order' => isset($editingStation['sort_order']) ? (string) $editingStation['sort_order'] : '0',
                     'is_featured' => (int) ($editingStation['is_featured'] ?? 0) === 1 ? '1' : '0',
                     'status' => (string) ($editingStation['status'] ?? 'published'),
@@ -248,8 +316,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
 
             <div class="hero-actions">
                 <a class="button button-primary" href="<?= e(app_url('good-news.php#christian-radio')); ?>">Open Public Page</a>
-                <a class="button button-secondary" href="<?= e(app_url('divine-radio.php')); ?>">Open Divine Radio</a>
-                <a class="button button-secondary" href="<?= e(app_url('admin/index.php')); ?>">Back to Admin</a>
+<a class="button button-secondary" href="<?= e(app_url('admin/index.php')); ?>">Back to Admin</a>
             </div>
         </div>
 
@@ -323,6 +390,21 @@ require_once dirname(__DIR__) . '/includes/header.php';
 
                         <div class="two-column">
                             <label>
+                                <span>YouTube live video URL or ID</span>
+                                <input type="text" name="youtube_live_video" value="<?= e($formValues['youtube_live_video']); ?>" placeholder="11-char ID or https://youtube.com/watch?v=...">
+                            </label>
+
+                            <label>
+                                <span>Live now</span>
+                                <select name="is_live">
+                                    <option value="0" <?= $formValues['is_live'] === '0' ? 'selected' : ''; ?>>Off Air</option>
+                                    <option value="1" <?= $formValues['is_live'] === '1' ? 'selected' : ''; ?>>Live Now</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="two-column">
+                            <label>
                                 <span>Sort order</span>
                                 <input type="number" min="0" name="sort_order" value="<?= e($formValues['sort_order']); ?>">
                             </label>
@@ -362,6 +444,8 @@ require_once dirname(__DIR__) . '/includes/header.php';
                                 $stationStatus = (string) ($station['status'] ?? 'published');
                                 $isStreamable = trim((string) ($station['stream_url'] ?? '')) !== '';
                                 $hasPlaylist = trim((string) ($station['youtube_playlist_id'] ?? '')) !== '';
+                                $hasLiveVideo = trim((string) ($station['youtube_live_video_id'] ?? '')) !== '';
+                                $stationIsLive = (int) ($station['is_live'] ?? 0) === 1;
                                 ?>
                                 <div class="list-card">
                                     <div>
@@ -372,7 +456,13 @@ require_once dirname(__DIR__) . '/includes/header.php';
                                             <span class="pill pill-dark"><?= e((string) ($station['kind'] ?? 'Music')); ?></span>
                                             <span class="pill"><?= $isStreamable ? 'Caster' : 'Link Only'; ?></span>
                                             <?php if ($hasPlaylist): ?>
-                                                <span class="pill">YouTube</span>
+                                                <span class="pill">Playlist</span>
+                                            <?php endif; ?>
+                                            <?php if ($hasLiveVideo): ?>
+                                                <span class="pill">Live Video</span>
+                                            <?php endif; ?>
+                                            <?php if ($stationIsLive): ?>
+                                                <span class="radio-live-badge">Live</span>
                                             <?php endif; ?>
                                         </div>
                                     </div>

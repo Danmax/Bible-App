@@ -213,6 +213,24 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                         ];
                     }
                     ?>
+                    <details class="theme-nav more-nav" data-theme-nav>
+                        <summary>Theme</summary>
+                        <div class="more-nav-menu theme-nav-menu">
+                            <div class="theme-nav-swatches">
+                                <?php foreach ($appThemeOptions as $themeOption): ?>
+                                    <button
+                                        class="theme-swatch theme-swatch-sm"
+                                        type="button"
+                                        data-app-theme-option="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>"
+                                        title="<?= e((string) ($themeOption['label'] ?? 'Theme')); ?>"
+                                    >
+                                        <span><?= e((string) ($themeOption['label'] ?? 'Theme')); ?></span>
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </details>
+
                     <details class="more-nav">
                         <summary class="<?= $moreIsActive ? 'is-active' : ''; ?>">More</summary>
                         <div class="more-nav-menu">
@@ -233,6 +251,21 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                     </details>
 
                     <div class="more-nav-mobile" aria-label="More">
+                        <div class="more-nav-group">
+                            <p class="more-nav-group-label">Appearance</p>
+                            <div class="theme-mobile-swatches">
+                                <?php foreach ($appThemeOptions as $themeOption): ?>
+                                    <button
+                                        class="theme-swatch theme-swatch-sm"
+                                        type="button"
+                                        data-app-theme-option="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>"
+                                        title="<?= e((string) ($themeOption['label'] ?? 'Theme')); ?>"
+                                    >
+                                        <span><?= e((string) ($themeOption['label'] ?? 'Theme')); ?></span>
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
                         <?php foreach ($moreSections as $section): ?>
                             <div class="more-nav-group">
                                 <p class="more-nav-group-label"><?= e((string) ($section['label'] ?? 'More')); ?></p>

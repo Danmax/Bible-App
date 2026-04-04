@@ -162,6 +162,10 @@ try {
                 static fn(array $station): bool => (
                     trim((string) ($station['stream_url'] ?? '')) !== ''
                     || trim((string) ($station['youtube_playlist_id'] ?? '')) !== ''
+                    || (
+                        (int) ($station['is_live'] ?? 0) === 1
+                        && trim((string) ($station['youtube_live_video_id'] ?? '')) !== ''
+                    )
                 )
             ));
             $radioLinks = array_values(array_filter(
@@ -169,6 +173,10 @@ try {
                 static fn(array $station): bool => (
                     trim((string) ($station['stream_url'] ?? '')) === ''
                     && trim((string) ($station['youtube_playlist_id'] ?? '')) === ''
+                    && !(
+                        (int) ($station['is_live'] ?? 0) === 1
+                        && trim((string) ($station['youtube_live_video_id'] ?? '')) !== ''
+                    )
                 )
             ));
             $defaultRadioStation = $radioStations[0] ?? null;
@@ -272,9 +280,6 @@ require_once __DIR__ . '/includes/header.php';
                         <h2>Listen to worship, gospel, and Bible teaching</h2>
                         <p class="muted-copy">Keep Scripture and Christ-centered encouragement playing while you read, pray, or reflect.</p>
                     </div>
-                    <div class="hero-actions">
-                        <a class="button button-secondary" href="<?= e(app_url('divine-radio.php')); ?>">Open Divine Radio</a>
-                    </div>
                 </div>
 
                 <?php if ($defaultRadioStation !== null): ?>
@@ -283,10 +288,23 @@ require_once __DIR__ . '/includes/header.php';
                     $defaultPlaylistEmbedUrl = $defaultPlaylistId !== ''
                         ? 'https://www.youtube-nocookie.com/embed/videoseries?list=' . rawurlencode($defaultPlaylistId)
                         : '';
+                    $defaultIsLive = (int) ($defaultRadioStation['is_live'] ?? 0) === 1;
+                    $defaultLiveVideoId = trim((string) ($defaultRadioStation['youtube_live_video_id'] ?? ''));
+                    $defaultLiveEmbedUrl = $defaultIsLive && $defaultLiveVideoId !== ''
+                        ? 'https://www.youtube-nocookie.com/embed/' . rawurlencode($defaultLiveVideoId)
+                        : '';
+                    $defaultActiveEmbedUrl = $defaultLiveEmbedUrl !== '' ? $defaultLiveEmbedUrl : $defaultPlaylistEmbedUrl;
                     ?>
                     <div class="good-news-radio-player top-gap-sm" data-good-news-radio>
                         <div class="good-news-radio-now">
-                            <span class="pill pill-dark" data-radio-kind><?= e((string) $defaultRadioStation['kind']); ?></span>
+                            <div class="radio-now-header">
+                                <span class="pill pill-dark" data-radio-kind><?= e((string) $defaultRadioStation['kind']); ?></span>
+                                <?php if ($defaultIsLive): ?>
+                                    <span class="radio-live-badge" data-radio-live-indicator>Live</span>
+                                <?php else: ?>
+                                    <span class="radio-live-badge" data-radio-live-indicator hidden>Live</span>
+                                <?php endif; ?>
+                            </div>
                             <h3 data-radio-name><?= e((string) $defaultRadioStation['name']); ?></h3>
                             <p data-radio-tagline><?= e((string) $defaultRadioStation['tagline']); ?></p>
                             <audio
@@ -295,14 +313,14 @@ require_once __DIR__ . '/includes/header.php';
                                 preload="none"
                                 data-radio-audio
                                 src="<?= e((string) $defaultRadioStation['stream_url']); ?>"
-                                <?= $defaultPlaylistId !== '' ? 'hidden' : ''; ?>
+                                <?= $defaultActiveEmbedUrl !== '' ? 'hidden' : ''; ?>
                             ></audio>
-                            <div class="good-news-radio-video" data-radio-video-wrapper <?= $defaultPlaylistId === '' ? 'hidden' : ''; ?>>
+                            <div class="good-news-radio-video" data-radio-video-wrapper <?= $defaultActiveEmbedUrl === '' ? 'hidden' : ''; ?>>
                                 <iframe
                                     class="good-news-radio-video-frame"
                                     data-radio-video
-                                    src="<?= e($defaultPlaylistEmbedUrl); ?>"
-                                    title="YouTube playlist player"
+                                    src="<?= e($defaultActiveEmbedUrl); ?>"
+                                    title="<?= $defaultIsLive ? 'YouTube live stream player' : 'YouTube playlist player'; ?>"
                                     loading="lazy"
                                     referrerpolicy="strict-origin-when-cross-origin"
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -316,6 +334,7 @@ require_once __DIR__ . '/includes/header.php';
 
                         <div class="good-news-radio-stations">
                             <?php foreach ($radioStations as $index => $station): ?>
+                                <?php $stationIsLive = (int) ($station['is_live'] ?? 0) === 1; ?>
                                 <button
                                     class="good-news-radio-station <?= $index === 0 ? 'is-active' : ''; ?>"
                                     type="button"
@@ -326,8 +345,15 @@ require_once __DIR__ . '/includes/header.php';
                                     data-stream-url="<?= e((string) $station['stream_url']); ?>"
                                     data-listen-url="<?= e((string) $station['listen_url']); ?>"
                                     data-youtube-playlist-id="<?= e((string) ($station['youtube_playlist_id'] ?? '')); ?>"
+                                    data-live-video-id="<?= e((string) ($station['youtube_live_video_id'] ?? '')); ?>"
+                                    data-is-live="<?= $stationIsLive ? '1' : '0'; ?>"
                                 >
-                                    <span class="pill"><?= e((string) $station['kind']); ?></span>
+                                    <div class="radio-station-header">
+                                        <span class="pill"><?= e((string) $station['kind']); ?></span>
+                                        <?php if ($stationIsLive): ?>
+                                            <span class="radio-live-badge">Live</span>
+                                        <?php endif; ?>
+                                    </div>
                                     <strong><?= e((string) $station['name']); ?></strong>
                                     <span><?= e((string) $station['tagline']); ?></span>
                                 </button>

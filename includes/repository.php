@@ -1929,7 +1929,9 @@ function create_public_radio_station(
     ?string $youtubePlaylistId,
     int $sortOrder,
     bool $isFeatured,
-    string $status
+    string $status,
+    ?string $youtubeLiveVideoId = null,
+    bool $isLive = false
 ): int {
     $columns = [
         'created_by_user_id',
@@ -1960,6 +1962,15 @@ function create_public_radio_station(
         $columns[] = 'youtube_playlist_id';
         $placeholders[] = ':youtube_playlist_id';
         $params['youtube_playlist_id'] = normalize_optional_text((string) $youtubePlaylistId);
+    }
+
+    if (public_radio_live_support_available()) {
+        $columns[] = 'youtube_live_video_id';
+        $columns[] = 'is_live';
+        $placeholders[] = ':youtube_live_video_id';
+        $placeholders[] = ':is_live';
+        $params['youtube_live_video_id'] = normalize_optional_text((string) $youtubeLiveVideoId);
+        $params['is_live'] = $isLive ? 1 : 0;
     }
 
     $columns[] = 'sort_order';
@@ -1994,7 +2005,9 @@ function update_public_radio_station(
     ?string $youtubePlaylistId,
     int $sortOrder,
     bool $isFeatured,
-    string $status
+    string $status,
+    ?string $youtubeLiveVideoId = null,
+    bool $isLive = false
 ): void {
     $assignments = [
         'name = :name',
@@ -2015,6 +2028,13 @@ function update_public_radio_station(
     if (public_radio_playlist_support_available()) {
         $assignments[] = 'youtube_playlist_id = :youtube_playlist_id';
         $params['youtube_playlist_id'] = normalize_optional_text((string) $youtubePlaylistId);
+    }
+
+    if (public_radio_live_support_available()) {
+        $assignments[] = 'youtube_live_video_id = :youtube_live_video_id';
+        $assignments[] = 'is_live = :is_live';
+        $params['youtube_live_video_id'] = normalize_optional_text((string) $youtubeLiveVideoId);
+        $params['is_live'] = $isLive ? 1 : 0;
     }
 
     $assignments[] = 'sort_order = :sort_order';
@@ -3130,6 +3150,30 @@ function public_radio_playlist_support_available(): bool
 
     try {
         $statement = db()->query("SHOW COLUMNS FROM public_radio_stations LIKE 'youtube_playlist_id'");
+        $available = $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
+function public_radio_live_support_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    if (!public_radio_stations_available()) {
+        $available = false;
+
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW COLUMNS FROM public_radio_stations LIKE 'is_live'");
         $available = $statement->fetch() !== false;
     } catch (Throwable $exception) {
         $available = false;
