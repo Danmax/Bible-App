@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/openai.php';
 
 require_login();
 
@@ -18,7 +17,6 @@ $prayerForm = [
     'details' => '',
     'status' => 'active',
 ];
-$prayerAiEnabled = openai_event_drafts_enabled();
 
 if ($user === null) {
     set_flash('Sign in again to continue.', 'warning');
@@ -94,7 +92,7 @@ require_once __DIR__ . '/includes/header.php';
             <div>
                 <p class="eyebrow">Prayer Requests</p>
                 <h1>Capture burdens, answers, and ongoing prayer needs</h1>
-                <p>Speak a request, let the model shape it, and keep active and answered prayers in one place.</p>
+                <p>Keep active and answered prayer requests in one place so you can return to them with clarity and faith.</p>
             </div>
 
             <div class="quick-stat-row">
@@ -127,62 +125,42 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="panel-heading">
                     <div>
                         <h2>New prayer request</h2>
-                        <p class="muted-copy">Use voice and the model to draft a request, then save it for ongoing prayer.</p>
+                        <p class="muted-copy">Write it out or tap the mic, then save it.</p>
                     </div>
-                    <span class="mini-card"><?= e($prayerAiEnabled ? strtoupper(openai_event_model()) : 'AI OFF'); ?></span>
                 </div>
 
                 <?php if ($prayerError): ?>
                     <div class="flash flash-warning top-gap-sm"><?= e($prayerError); ?></div>
                 <?php endif; ?>
 
-                <div
-                    class="community-ai-panel planner-ai-panel top-gap-sm"
-                    data-ai-event-builder
-                    data-ai-endpoint="<?= e(app_url('prayer-ai-draft.php')); ?>"
-                >
-                    <div class="panel-heading">
-                        <div>
-                            <h3>Prayer draft</h3>
-                            <p class="muted-copy">Speak or type a prayer need and let the model shape it into a request you can save.</p>
-                        </div>
-                    </div>
-
-                    <label>
-                        Prompt
-                        <textarea rows="3" placeholder="Please pray for wisdom, healing, and peace for our family this week." data-ai-prompt></textarea>
-                    </label>
-
-                    <div class="inline-actions">
-                        <button class="button button-secondary" type="button" data-ai-voice-start <?= $prayerAiEnabled ? '' : 'disabled'; ?>>Start Voice</button>
-                        <button class="button button-secondary" type="button" data-ai-voice-stop hidden>Stop</button>
-                        <button class="button button-primary" type="button" data-ai-generate <?= $prayerAiEnabled ? '' : 'disabled'; ?>>Create Draft</button>
-                    </div>
-
-                    <p class="muted-copy" data-ai-status>
-                        <?= $prayerAiEnabled
-                            ? 'Ready to draft a prayer request.'
-                            : 'Add OPENAI_API_KEY to enable prayer drafting.'; ?>
-                    </p>
-                </div>
-
-                <form class="form-stack compact-form" method="post" data-ai-event-form>
+                <form class="form-stack compact-form top-gap-sm" method="post">
                     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                     <input type="hidden" name="action" value="create-prayer">
 
                     <label>
                         <span>Title</span>
-                        <input type="text" name="title" value="<?= e($prayerForm['title']); ?>" placeholder="Healing and peace for our family" required data-ai-field="title">
+                        <input type="text" name="title" value="<?= e($prayerForm['title']); ?>" placeholder="Healing and peace for our family" required>
                     </label>
 
                     <label>
                         <span>Details</span>
-                        <textarea name="details" rows="6" placeholder="Share the burden, need, or praise report..." data-ai-field="details"><?= e($prayerForm['details']); ?></textarea>
+                        <textarea name="details" rows="6" placeholder="Share the burden, need, or praise report..."><?= e($prayerForm['details']); ?></textarea>
+                        <div class="inline-actions top-gap-sm" data-voice-compose data-voice-compose-max-seconds="30">
+                            <button class="button button-secondary voice-search-button" type="button" data-voice-compose-start aria-label="Speak your prayer request details">
+                                <svg class="voice-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z" />
+                                    <path d="M19 11a7 7 0 0 1-14 0" />
+                                    <path d="M12 18v3" />
+                                    <path d="M9 21h6" />
+                                </svg>
+                            </button>
+                            <span class="muted-copy" data-voice-compose-status>Tap mic. 30s max.</span>
+                        </div>
                     </label>
 
                     <label>
                         <span>Status</span>
-                        <select name="status" data-ai-field="status">
+                        <select name="status">
                             <option value="active" <?= $prayerForm['status'] === 'active' ? 'selected' : ''; ?>>Active</option>
                             <option value="answered" <?= $prayerForm['status'] === 'answered' ? 'selected' : ''; ?>>Answered</option>
                         </select>

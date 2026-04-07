@@ -73,10 +73,11 @@ function send_security_headers(): void
     header(
         "Content-Security-Policy: default-src 'self'; " .
         "img-src 'self' https: data:; " .
+        "media-src 'self' https: blob:; " .
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " .
         "font-src 'self' https://fonts.gstatic.com data:; " .
         "script-src 'self'; " .
-        "connect-src 'self' https://api.nlt.to; " .
+        "connect-src 'self' https://api.nlt.to https://playerservices.streamtheworld.com; " .
         "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; " .
         "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     );
@@ -105,6 +106,40 @@ function rate_limit_key(string $action, ?string $identity = null): string
 function enforce_rate_limit(string $key, int $maxAttempts, int $windowSeconds): void
 {
     $now = time();
+
+    try {
+        $pdo = db();
+        $statement = $pdo->prepare('SELECT attempts, window_started_at FROM rate_limits WHERE action_key = :key LIMIT 1');
+        $statement->execute(['key' => $key]);
+        $row = $statement->fetch();
+
+        if ($row !== false) {
+            $windowStartedAt = (int) $row['window_started_at'];
+            $attempts = (int) $row['attempts'];
+
+            if (($now - $windowStartedAt) >= $windowSeconds) {
+                $updateStmt = $pdo->prepare('UPDATE rate_limits SET attempts = 1, window_started_at = :now WHERE action_key = :key');
+                $updateStmt->execute(['now' => $now, 'key' => $key]);
+            } else {
+                if ($attempts >= $maxAttempts) {
+                    $retryAfter = max(1, $windowSeconds - ($now - $windowStartedAt));
+                    throw new RuntimeException('Too many attempts. Wait ' . $retryAfter . ' seconds and try again.');
+                }
+
+                $updateStmt = $pdo->prepare('UPDATE rate_limits SET attempts = attempts + 1 WHERE action_key = :key');
+                $updateStmt->execute(['key' => $key]);
+            }
+        } else {
+            $insertStmt = $pdo->prepare('INSERT IGNORE INTO rate_limits (action_key, attempts, window_started_at) VALUES (:key, 1, :now)');
+            $insertStmt->execute(['key' => $key, 'now' => $now]);
+        }
+        return;
+    } catch (Throwable $exception) {
+        if ($exception instanceof RuntimeException && str_starts_with($exception->getMessage(), 'Too many attempts.')) {
+            throw $exception;
+        }
+    }
+
     $state = $_SESSION['rate_limits'][$key] ?? [
         'count' => 0,
         'window_started_at' => $now,
@@ -128,6 +163,12 @@ function enforce_rate_limit(string $key, int $maxAttempts, int $windowSeconds): 
 
 function clear_rate_limit(string $key): void
 {
+    try {
+        db()->prepare('DELETE FROM rate_limits WHERE action_key = :key')->execute(['key' => $key]);
+    } catch (Throwable $exception) {
+        // Ignore database errors if the table hasn't been created yet.
+    }
+
     unset($_SESSION['rate_limits'][$key]);
 }
 

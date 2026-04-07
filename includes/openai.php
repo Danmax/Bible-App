@@ -16,7 +16,7 @@ function openai_event_model(): string
     return $model !== '' ? $model : 'gpt-5-mini';
 }
 
-function openai_generate_event_draft(string $prompt, array $categories): array
+function openai_generate_event_draft(string $prompt, array $categories, array $context = []): array
 {
     if (!openai_event_drafts_enabled()) {
         throw new RuntimeException('OpenAI event drafting is not configured yet.');
@@ -36,6 +36,7 @@ function openai_generate_event_draft(string $prompt, array $categories): array
         ],
         $categories
     );
+    $requestedEventFormat = trim((string) ($context['event_format'] ?? ''));
 
     $systemPrompt = implode("\n", [
         'You convert a church or community event request into a structured JSON draft.',
@@ -60,18 +61,30 @@ function openai_generate_event_draft(string $prompt, array $categories): array
         'Rules:',
         '- category_id must match one of the provided category ids, or be an empty string if none fit.',
         '- event_format must match the event described in the prompt.',
+        '- If the request context says event_format is potluck, set event_format to potluck unless the user clearly asks for something else.',
         '- start_at and end_at must use local datetime format YYYY-MM-DDTHH:MM when the prompt gives enough information.',
         '- If timing is unclear, leave start_at or end_at as an empty string.',
         '- meeting_url must be empty unless the prompt explicitly contains or clearly implies a URL.',
         '- potluck_items_text must be empty unless the event_format is potluck.',
         '- For potluck drafts, include starter items in potluck_items_text using one line per item in the format "Type | Detail".',
-        '- Potluck starter items should reflect the prompt when possible, otherwise use church-friendly defaults like Main dish | Lasagna, Side | Salad, Dessert | Brownies, Drinks | Lemonade, Supplies | Plates and napkins.',
+        '- Potluck starter items should reflect the gathering style in the prompt. Infer the potluck profile when possible, such as BBQ, picnic, community potluck, 4th of July block party, Thanksgiving dinner, Christmas dinner, lunch, brunch, chili cook-off, pizza party, birthday, anniversary, or celebration meal.',
+        '- For potluck drafts, generate a practical starter list with common categories when they fit the gathering, such as Main dish, Side, Appetizer, Dessert, Drinks, Utensils, Plates, Napkins, Condiments, Ice, or Serving table.',
+        '- For BBQ or block party prompts, prefer grill items, sides, drinks, condiments, ice, plates, utensils, and desserts.',
+        '- For picnic or lunch prompts, prefer sandwiches or mains, fruit, salads, chips, drinks, blankets or serving supplies, and desserts.',
+        '- For brunch prompts, prefer egg dishes, pastries, fruit, coffee, juice, and paper goods.',
+        '- For Thanksgiving or Christmas dinner prompts, prefer turkey or ham, dressing, mashed potatoes, vegetables, rolls, dessert, drinks, and serving supplies.',
+        '- For chili contest prompts, prefer Chili entry rows, toppings, cornbread, drinks, tasting spoons, and score sheets or table supplies.',
+        '- For pizza party prompts, prefer Pizza, Salad, Drinks, Dessert, Plates, and Napkins.',
+        '- Keep potluck_items_text to useful bringable items only, usually around 6 to 12 lines, and do not include placeholders or meta-instructions.',
         '- Keep title concise and description usable as an event summary.',
         '- Do not invent precise street addresses or links.',
     ]);
 
     $userPrompt = implode("\n\n", [
         'Available categories: ' . json_encode($categorySummaries, JSON_UNESCAPED_SLASHES),
+        'Request context: ' . json_encode([
+            'requested_event_format' => $requestedEventFormat,
+        ], JSON_UNESCAPED_SLASHES),
         'User event request:',
         $normalizedPrompt,
     ]);
@@ -493,7 +506,6 @@ function openai_transcribe_audio_upload(string $filePath, string $filename, stri
     $rawBody = curl_exec($ch);
     $statusCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     $curlError = curl_error($ch);
-    curl_close($ch);
 
     if (!is_string($rawBody)) {
         throw new RuntimeException($curlError !== '' ? $curlError : 'The OpenAI transcription request failed.');

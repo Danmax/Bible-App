@@ -41,7 +41,10 @@ if ($prompt === '') {
 
 try {
     $categories = fetch_event_categories();
-    $draft = openai_generate_event_draft($prompt, $categories);
+    $context = [
+        'event_format' => trim((string) ($_POST['event_format'] ?? '')),
+    ];
+    $draft = openai_generate_event_draft($prompt, $categories, $context);
     $categoryIds = array_map(
         static fn(array $category): string => (string) ($category['id'] ?? ''),
         $categories

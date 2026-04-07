@@ -41,6 +41,40 @@ if (menuToggle && primaryNav) {
     });
 }
 
+const siteHeader = document.querySelector('.site-header');
+
+if (siteHeader) {
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+    let hideTimer = null;
+
+    const updateHeader = () => {
+        const currentScrollY = window.scrollY;
+        const scrolledDown = currentScrollY > lastScrollY;
+        const pastThreshold = currentScrollY > 80;
+
+        if (scrolledDown && pastThreshold) {
+            clearTimeout(hideTimer);
+            hideTimer = setTimeout(() => {
+                siteHeader.classList.add('is-hidden');
+            }, 120);
+        } else {
+            clearTimeout(hideTimer);
+            siteHeader.classList.remove('is-hidden');
+        }
+
+        lastScrollY = currentScrollY;
+        ticking = false;
+    };
+
+    window.addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(updateHeader);
+            ticking = true;
+        }
+    }, { passive: true });
+}
+
 const moreMenus = document.querySelectorAll('.more-nav');
 
 moreMenus.forEach((moreMenu) => {
@@ -585,6 +619,133 @@ document.querySelectorAll('[data-panel-modal]').forEach((modalPanel) => {
     });
 });
 
+// ── Edit-event modal ───────────────────────────────────────────────────────
+(function () {
+    const getPanelGroup = (el) =>
+        el?.closest('[data-community-panels]') || document.querySelector('[data-community-panels]');
+
+    const openComposePanel = (panelGroup, openerBtn) => {
+        const composePanel = panelGroup?.querySelector('[data-community-panel="compose"]');
+        const composeToggle = panelGroup?.querySelector('[data-community-panel-toggle="compose"]');
+        if (!composePanel) return;
+
+        if (composePanel.hidden) {
+            if (openerBtn) rememberModalOpener(composePanel, openerBtn);
+            composeToggle?.click();
+        } else {
+            const content = composePanel.querySelector('[data-panel-modal-content]');
+            if (content) content.scrollTop = 0;
+        }
+    };
+
+    const setField = (form, name, value) => {
+        const field = form.querySelector(`[name="${name}"]`);
+        if (!field) return;
+        if (field.type === 'checkbox') {
+            field.checked = Boolean(value);
+        } else {
+            field.value = value ?? '';
+        }
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    const getOrCreateHidden = (form, name) => {
+        let field = form.querySelector(`[name="${name}"]`);
+        if (!field) {
+            field = document.createElement('input');
+            field.type = 'hidden';
+            field.name = name;
+            form.prepend(field);
+        }
+        return field;
+    };
+
+    const resetToCreateMode = (panelGroup) => {
+        const form = panelGroup?.querySelector('[data-community-event-form]');
+        const composePanel = panelGroup?.querySelector('[data-community-panel="compose"]');
+        const composeToggle = panelGroup?.querySelector('[data-community-panel-toggle="compose"]');
+        if (!form) return;
+
+        getOrCreateHidden(form, 'action').value = 'create-event';
+
+        const eventIdField = form.querySelector('[name="event_id"]');
+        if (eventIdField) eventIdField.remove();
+
+        const title = composePanel?.querySelector('#community-compose-modal-title');
+        if (title) title.textContent = 'Create event';
+
+        const submit = form.querySelector('[type="submit"]');
+        if (submit) submit.textContent = 'Create Event';
+
+        if (composeToggle) composeToggle.textContent = 'Create Event';
+    };
+
+    // Reset form to create mode when "Create Event" button opens the modal
+    document.querySelectorAll('[data-compose-create]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const panelGroup = getPanelGroup(btn);
+            const composePanel = panelGroup?.querySelector('[data-community-panel="compose"]');
+            // Only reset when we're about to open (currently hidden)
+            if (composePanel?.hidden) {
+                resetToCreateMode(panelGroup);
+            }
+        });
+    });
+
+    // Open and populate the compose modal with event data for editing
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-edit-event]');
+        if (!btn) return;
+
+        let data;
+        try {
+            data = JSON.parse(btn.getAttribute('data-edit-event') || '{}');
+        } catch {
+            return;
+        }
+
+        const panelGroup = getPanelGroup(btn);
+        const form = panelGroup?.querySelector('[data-community-event-form]');
+        const composePanel = panelGroup?.querySelector('[data-community-panel="compose"]');
+        if (!form || !composePanel) return;
+
+        // Switch to update mode
+        getOrCreateHidden(form, 'action').value = 'update-event';
+        getOrCreateHidden(form, 'event_id').value = String(data.id ?? '');
+
+        // Populate all fields
+        const fields = [
+            'title', 'category_id', 'event_type', 'event_format', 'visibility',
+            'image_url', 'location_name', 'location_address', 'meeting_url',
+            'start_at', 'end_at', 'description', 'status',
+            'custom_options_text', 'potluck_items_text',
+        ];
+        fields.forEach((name) => setField(form, name, data[name] ?? ''));
+
+        const checkboxes = [
+            'is_featured', 'reminder_three_days', 'reminder_same_day',
+            'potluck_allow_self_pick', 'potluck_allow_custom_items', 'potluck_allow_host_assign',
+        ];
+        checkboxes.forEach((name) => setField(form, name, data[name] ?? false));
+
+        // Update modal heading and submit button text
+        const title = composePanel.querySelector('#community-compose-modal-title');
+        if (title) title.textContent = 'Edit event';
+
+        const submit = form.querySelector('[type="submit"]');
+        if (submit) submit.textContent = 'Update Event';
+
+        // Close the manage panel if open, then open compose
+        const managePanel = panelGroup?.querySelector('[data-community-panel="manage"]');
+        if (managePanel && !managePanel.hidden) {
+            panelGroup?.querySelector('[data-community-panel-close="manage"]')?.click();
+        }
+
+        openComposePanel(panelGroup, btn);
+    });
+}());
+
+// ── Keyboard navigation ─────────────────────────────────────────────────────
 document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') {
         if (event.key !== 'Tab') {
@@ -1780,7 +1941,7 @@ if (profileForm && passwordForm) {
     const profileCancelButton = profileForm.querySelector('[data-profile-edit-cancel]');
     const profileSaveButton = profileForm.querySelector('[data-profile-save]');
     const profileFields = profileForm.querySelector('[data-profile-fields]');
-    const profileEditableFields = profileForm.querySelectorAll('input[name="name"], input[name="email"], input[name="city"], input[name="avatar_url"]');
+    const profileEditableFields = profileForm.querySelectorAll('input[name="name"], input[name="email"], input[name="city"], input[name="avatar_url"], input[name="primary_flag"]');
 
     const passwordEditButton = passwordForm.querySelector('[data-password-edit-toggle]');
     const passwordCancelButton = passwordForm.querySelector('[data-password-edit-cancel]');
@@ -1854,6 +2015,39 @@ if (profileForm && passwordForm) {
 
     renderAccountModes();
 }
+
+// ── Flag picker ─────────────────────────────────────────────────────────────
+(function () {
+    const grid = document.querySelector('[data-flag-grid]');
+    if (!grid) return;
+
+    const input = document.querySelector('[data-flag-input="primary"]');
+
+    const syncHighlights = () => {
+        const current = input?.value?.trim() || '';
+        grid.querySelectorAll('.flag-option').forEach((btn) => {
+            btn.classList.toggle('is-primary', btn.getAttribute('data-flag-option') === current && current !== '');
+        });
+    };
+
+    // Tap to set; tap same flag again to clear
+    grid.addEventListener('click', (e) => {
+        const btn = e.target.closest('.flag-option');
+        if (!btn || !input) return;
+        const flag = btn.getAttribute('data-flag-option') || '';
+        input.value = input.value.trim() === flag ? '' : flag;
+        syncHighlights();
+    });
+
+    // Clear button
+    document.querySelector('[data-flag-clear="primary"]')?.addEventListener('click', () => {
+        if (input) input.value = '';
+        syncHighlights();
+    });
+
+    input?.addEventListener('input', syncHighlights);
+    syncHighlights();
+}());
 
 const readerNav = document.querySelector('[data-reader-nav]');
 

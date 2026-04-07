@@ -33,7 +33,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $city = trim($_POST['city'] ?? '');
             $avatarUrl = trim($_POST['avatar_url'] ?? '');
             $primaryFlag = trim($_POST['primary_flag'] ?? '');
-            $secondaryFlag = trim($_POST['secondary_flag'] ?? '');
             $normalizedRequestedEmail = mb_strtolower($email);
             $normalizedCurrentEmail = mb_strtolower((string) ($user['email'] ?? ''));
 
@@ -43,8 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pageError = 'Enter a valid email address.';
             } elseif ($avatarUrl !== '' && filter_var($avatarUrl, FILTER_VALIDATE_URL) === false) {
                 $pageError = 'Avatar must be a valid image URL.';
-            } elseif (mb_strlen($primaryFlag) > 24 || mb_strlen($secondaryFlag) > 24) {
-                $pageError = 'Primary and secondary flags must stay under 24 characters.';
+            } elseif (mb_strlen($primaryFlag) > 24) {
+                $pageError = 'Flag must stay under 24 characters.';
             } else {
                 $user = update_user_profile_record(
                     (int) $user['id'],
@@ -52,8 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (string) $user['email'],
                     $city,
                     $avatarUrl,
-                    $primaryFlag,
-                    $secondaryFlag
+                    $primaryFlag
                 );
                 log_in_user($user);
 
@@ -232,20 +230,14 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="profile-hero-copy">
                     <span class="profile-badge">Member Profile</span>
                     <div class="profile-hero-heading">
-                        <h2><?= e($user['name'] ?? 'Member'); ?></h2>
+                        <h2>
+                            <?= e($user['name'] ?? 'Member'); ?>
+                            <?php if (!empty($user['primary_flag'])): ?>
+                                <span class="profile-flag-inline" title="Flag"><?= e((string) $user['primary_flag']); ?></span>
+                            <?php endif; ?>
+                        </h2>
                         <p class="muted-copy"><?= e($user['city'] ?: 'City not set yet'); ?></p>
                     </div>
-
-                    <?php if (!empty($user['primary_flag']) || !empty($user['secondary_flag'])): ?>
-                        <div class="profile-flag-row">
-                            <?php if (!empty($user['primary_flag'])): ?>
-                                <span class="profile-badge profile-flag-badge">Primary: <?= e((string) $user['primary_flag']); ?></span>
-                            <?php endif; ?>
-                            <?php if (!empty($user['secondary_flag'])): ?>
-                                <span class="profile-badge profile-flag-badge">Secondary: <?= e((string) $user['secondary_flag']); ?></span>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
 
                     <div class="profile-meta-grid">
                         <div class="profile-meta-card">
@@ -304,16 +296,51 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="text" name="city" value="<?= e($user['city'] ?? ''); ?>" placeholder="Charlotte" <?= $profileEditMode ? '' : 'disabled'; ?>>
                         </label>
 
-                        <div class="two-column">
-                            <label>
-                                <span>Primary Flag</span>
-                                <input type="text" name="primary_flag" value="<?= e($user['primary_flag'] ?? ''); ?>" placeholder="🇺🇸" maxlength="24" <?= $profileEditMode ? '' : 'disabled'; ?>>
-                            </label>
+                        <?php
+                        $flagOptions = [
+                            '🇺🇸','🇬🇧','🇨🇦','🇦🇺','🇳🇿',
+                            '🇲🇽','🇧🇷','🇦🇷','🇨🇴','🇵🇪','🇨🇱','🇻🇪','🇩🇴','🇵🇷','🇨🇺',
+                            '🇬🇹','🇭🇳','🇸🇻','🇳🇮','🇨🇷','🇵🇦','🇧🇴','🇵🇾','🇺🇾','🇪🇨',
+                            '🇪🇸','🇫🇷','🇩🇪','🇮🇹','🇵🇹','🇳🇱','🇧🇪','🇨🇭','🇸🇪','🇳🇴',
+                            '🇩🇰','🇫🇮','🇵🇱','🇺🇦','🇷🇺','🇬🇷','🇷🇴','🇭🇺','🇨🇿','🇦🇹',
+                            '🇵🇭','🇰🇷','🇯🇵','🇨🇳','🇮🇳','🇮🇩','🇻🇳','🇹🇭','🇲🇾','🇸🇬',
+                            '🇰🇪','🇳🇬','🇬🇭','🇿🇦','🇪🇹','🇹🇿','🇺🇬','🇨🇲','🇸🇳','🇨🇮',
+                            '🇮🇱','🇸🇦','🇦🇪','🇪🇬','🇯🇴','🇱🇧','🇮🇶','🇮🇷','🇵🇰','🇧🇩',
+                        ];
+                        ?>
+                        <div class="flag-picker-group">
+                            <div class="flag-picker-fields">
+                                <div class="flag-picker-field">
+                                    <label>
+                                        <span>Flag</span>
+                                        <div class="flag-input-wrap">
+                                            <input
+                                                class="flag-input"
+                                                type="text"
+                                                name="primary_flag"
+                                                value="<?= e($user['primary_flag'] ?? ''); ?>"
+                                                placeholder="🇺🇸"
+                                                maxlength="24"
+                                                <?= $profileEditMode ? '' : 'disabled'; ?>
+                                                data-flag-input="primary"
+                                            >
+                                            <button class="flag-clear-btn" type="button" data-flag-clear="primary" title="Clear">&times;</button>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
 
-                            <label>
-                                <span>Secondary Flag</span>
-                                <input type="text" name="secondary_flag" value="<?= e($user['secondary_flag'] ?? ''); ?>" placeholder="🇲🇽" maxlength="24" <?= $profileEditMode ? '' : 'disabled'; ?>>
-                            </label>
+                            <div class="flag-grid" data-flag-grid>
+                                <?php foreach ($flagOptions as $flag): ?>
+                                    <button
+                                        class="flag-option"
+                                        type="button"
+                                        data-flag-option="<?= e($flag); ?>"
+                                        title="<?= e($flag); ?>"
+                                    ><?= e($flag); ?></button>
+                                <?php endforeach; ?>
+                            </div>
+                            <p class="muted-copy" style="font-size:0.8rem">Tap a flag to select it · tap again to clear</p>
                         </div>
 
                         <label>

@@ -15,6 +15,7 @@ Good News Bible is a PHP + MySQL Bible study app focused on reading, prayer, not
 - Planner with calendar views, modal event creation, and goal tracking
 - Community events with AI-assisted drafting, modal management panels, and calendar `.ics` export
 - Public sessions page with admin-managed publishing controls
+- Christian radio player with YouTube playlist support, live stream detection, and admin station management
 - Local authentication with profile management, password reset, and active sessions
 - Friends, saved verses, dashboard, and notes surfaces
 
@@ -49,6 +50,7 @@ Default translation: `MSB`
 - `friends.php`: friend invites and connections
 - `profile.php`: profile, password, and sessions
 - `admin/sessions.php`: admin session management
+- `admin/radio.php`: admin Christian radio station management
 
 ## Local Setup
 
@@ -152,6 +154,12 @@ Recent migrations:
 - `sql/add_phase2_authorization_audit.sql`
 - `sql/add_phase3_user_sessions.sql`
 - `sql/add_public_sessions.sql`
+- `sql/add_public_radio_stations.sql`
+- `sql/add_public_radio_playlist_support.sql`
+- `sql/add_radio_live_support.sql`
+- `sql/add_community_event_enhancements.sql`
+- `sql/add_community_event_images.sql`
+- `sql/add_user_profile_flags.sql`
 
 ## Bible Import Scripts
 
@@ -230,14 +238,26 @@ See:
 
 - `DEPLOY_HOSTINGER.md`
 
+## Christian Radio
+
+The app includes a Christian radio feature with:
+
+- curated public radio stations managed by admins
+- YouTube-embedded playlist support with video display
+- live stream detection and live badge indicators
+- admin station management at `admin/radio.php`
+
 ## Current Direction
 
 Current work has focused on:
 
 - Good News Bible branding, icons, and social preview metadata
 - Bible reader UX, mobile controls, and share-post tooling
-- seasonal site themes and browser-saved appearance controls
+- seasonal site themes and global theme switcher
 - Good News and prayer surfaces
+- Christian radio with YouTube playlist and live stream support
+- community event enhancements including images and calendar improvements
+- user profile flags and expanded profile controls
 - planner and community AI workflows with shared modal management patterns
 - profile and session controls
 - public sessions publishing

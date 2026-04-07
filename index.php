@@ -33,19 +33,51 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         </div>
 
-        <aside class="showcase-card">
-            <div class="showcase-top">
-                <span class="pill">Featured Verse</span>
-                <span class="pill pill-dark"><?= e(APP_DEFAULT_TRANSLATION); ?></span>
+        <?php
+        $landscapeImages = [
+            // Mountain peaks at golden hour
+            ['id' => '1506905925346-21bda4d32df4', 'position' => 'center 55%'],
+            ['id' => '1464822759023-fed622ff2c3b', 'position' => 'center 40%'],
+            // Misty forest with sunlight rays
+            ['id' => '1448375240586-882707db888b', 'position' => 'center 30%'],
+            ['id' => '1511497584788-876760111969', 'position' => 'center 50%'],
+            // Rolling green valley
+            ['id' => '1500534314209-a25ddb2bd429', 'position' => 'center 45%'],
+            ['id' => '1501854140801-50d01698950b', 'position' => 'center 40%'],
+            // Ocean at sunrise
+            ['id' => '1507525428034-b723cf961d3e', 'position' => 'center 60%'],
+            ['id' => '1519125323398-675f0ddb6308', 'position' => 'center 50%'],
+            // Desert cliffs / biblical landscapes
+            ['id' => '1469474968028-56623f02e42e', 'position' => 'center 45%'],
+            ['id' => '1499343162213-848e3c5e1fef', 'position' => 'center 50%'],
+        ];
+        $landscape = $landscapeImages[array_rand($landscapeImages)];
+        $landscapeSrc = 'https://images.unsplash.com/photo-' . $landscape['id'] . '?w=900&q=80&auto=format&fit=crop';
+        ?>
+        <aside class="showcase-card showcase-card-landscape">
+            <div class="showcase-landscape" aria-hidden="true">
+                <img
+                    class="showcase-landscape-img"
+                    src="<?= e($landscapeSrc); ?>"
+                    alt=""
+                    loading="eager"
+                    draggable="false"
+                    style="object-position: <?= e($landscape['position']); ?>"
+                >
+                <div class="showcase-landscape-overlay"></div>
             </div>
-            <blockquote>
+            <div class="showcase-top">
+                <span class="pill showcase-pill">Featured Verse</span>
+                <span class="pill showcase-pill"><?= e(APP_DEFAULT_TRANSLATION); ?></span>
+            </div>
+            <blockquote class="showcase-quote">
                 "Trust in the Lord with all thine heart; and lean not unto thine own understanding."
             </blockquote>
-            <p>Proverbs 3:5</p>
+            <p class="showcase-reference">Proverbs 3:5</p>
             <div class="showcase-actions">
-                <a class="mini-card" href="<?= e(app_url('bible.php?q=' . urlencode('Proverbs 3:5-6') . '&translation=' . urlencode(APP_DEFAULT_TRANSLATION))); ?>">Open Verse</a>
-                <a class="mini-card" href="<?= e(app_url('bookmarks.php')); ?>">Bookmarks</a>
-                <a class="mini-card" href="<?= e(app_url('notes.php')); ?>">Study Note</a>
+                <a class="mini-card showcase-action" href="<?= e(app_url('bible.php?q=' . urlencode('Proverbs 3:5-6') . '&translation=' . urlencode(APP_DEFAULT_TRANSLATION))); ?>">Open Verse</a>
+                <a class="mini-card showcase-action" href="<?= e(app_url('bookmarks.php')); ?>">Bookmarks</a>
+                <a class="mini-card showcase-action" href="<?= e(app_url('notes.php')); ?>">Study Note</a>
             </div>
         </aside>
     </div>

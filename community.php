@@ -171,7 +171,7 @@ function community_response_label(string $response): string
         'going' => 'Going',
         'interested' => 'Interested',
         'maybe' => 'Maybe',
-        'not-going' => 'Can’t go',
+        'not-going' => "Can't go",
         default => ucfirst(str_replace('-', ' ', $response)),
     };
 }
@@ -866,6 +866,7 @@ require_once __DIR__ . '/includes/header.php';
                         class="button button-primary"
                         type="button"
                         data-community-panel-toggle="compose"
+                        data-compose-create
                         aria-expanded="<?= $showComposePanel ? 'true' : 'false'; ?>"
                     >
                         <?= $editingEvent ? 'Edit Event' : 'Create Event'; ?>
@@ -941,7 +942,7 @@ require_once __DIR__ . '/includes/header.php';
                         <form
                             class="form-stack top-gap"
                             method="post"
-                            action="<?= e(app_url('community.php' . ($editingEvent ? '?edit=' . (int) $editingEvent['id'] : ''))); ?>"
+                            action="<?= e(app_url('community.php')); ?>"
                             data-community-event-form
                             data-ai-event-form
                         >
@@ -979,7 +980,7 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="community-form-grid">
                                 <label>
                                     Event Format
-                                    <select name="event_format" data-ai-field="event_format" data-community-event-format>
+                                    <select name="event_format" data-ai-field="event_format" data-ai-context-field="event_format" data-community-event-format>
                                         <?php foreach ($eventFormatOptions as $value => $label): ?>
                                             <option value="<?= e($value); ?>" <?= $formData['event_format'] === $value ? 'selected' : ''; ?>>
                                                 <?= e($label); ?>
@@ -1097,6 +1098,27 @@ require_once __DIR__ . '/includes/header.php';
                                 <label>
                                     Potluck item list
                                     <div class="community-potluck-seed-builder" data-community-potluck-seed-builder>
+                                        <div class="community-potluck-preset-row" data-potluck-preset-row>
+                                            <?php foreach ([
+                                                'community' => 'Community',
+                                                'bbq' => 'BBQ',
+                                                'picnic' => 'Picnic',
+                                                'thanksgiving' => 'Thanksgiving',
+                                                'christmas' => 'Christmas',
+                                                'brunch' => 'Brunch',
+                                                'chili' => 'Chili',
+                                                'pizza' => 'Pizza',
+                                                'celebration' => 'Celebration',
+                                            ] as $presetValue => $presetLabel): ?>
+                                                <button
+                                                    class="button button-secondary"
+                                                    type="button"
+                                                    data-potluck-preset="<?= e($presetValue); ?>"
+                                                >
+                                                    <?= e($presetLabel); ?>
+                                                </button>
+                                            <?php endforeach; ?>
+                                        </div>
                                         <div class="community-potluck-seed-list" data-potluck-seed-list></div>
                                         <div class="inline-actions">
                                             <button class="button button-secondary" type="button" data-potluck-seed-add>Add item row</button>
@@ -1109,7 +1131,7 @@ require_once __DIR__ . '/includes/header.php';
                                             data-ai-field="potluck_items_text"
                                         ><?= e($formData['potluck_items_text']); ?></textarea>
                                     </div>
-                                    <span class="muted-copy">Use a short type and detail, like `Main dish` and `Lasagna`, then add rows as needed.</span>
+                                    <span class="muted-copy">Choose a preset or use a short type and detail, like `Main dish` and `Lasagna`, then edit the rows as needed.</span>
                                 </label>
                             </section>
 
@@ -1177,7 +1199,35 @@ require_once __DIR__ . '/includes/header.php';
                                                 <?php endif; ?>
                                             </span>
                                         </div>
-                                        <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug, (int) $manageableEvent['id'])); ?>">Edit</a>
+                                        <?php $manageEditPayload = [
+                                            'id' => (int) $manageableEvent['id'],
+                                            'title' => (string) ($manageableEvent['title'] ?? ''),
+                                            'category_id' => (string) ($manageableEvent['category_id'] ?? ''),
+                                            'event_type' => (string) ($manageableEvent['event_type'] ?? ''),
+                                            'event_format' => (string) ($manageableSettings['format'] ?? 'standard'),
+                                            'visibility' => (string) ($manageableEvent['visibility'] ?? 'public'),
+                                            'image_url' => (string) ($manageableEvent['image_url'] ?? ''),
+                                            'location_name' => (string) ($manageableEvent['location_name'] ?? ''),
+                                            'location_address' => (string) ($manageableEvent['location_address'] ?? ''),
+                                            'meeting_url' => (string) ($manageableEvent['meeting_url'] ?? ''),
+                                            'start_at' => community_format_datetime_input($manageableEvent['start_at'] ?? null),
+                                            'end_at' => community_format_datetime_input($manageableEvent['end_at'] ?? null),
+                                            'description' => (string) ($manageableEvent['description'] ?? ''),
+                                            'status' => (string) ($manageableEvent['status'] ?? 'published'),
+                                            'is_featured' => !empty($manageableEvent['is_featured']),
+                                            'reminder_three_days' => !empty($manageableSettings['reminders']['three_days']),
+                                            'reminder_same_day' => !empty($manageableSettings['reminders']['same_day']),
+                                            'custom_options_text' => implode("\n", array_filter(array_map('trim', $manageableSettings['custom_options'] ?? []))),
+                                            'potluck_items_text' => community_potluck_items_text($manageableEvent['items'] ?? []),
+                                            'potluck_allow_self_pick' => !empty($manageableSettings['potluck']['allow_self_pick']),
+                                            'potluck_allow_custom_items' => !empty($manageableSettings['potluck']['allow_custom_items']),
+                                            'potluck_allow_host_assign' => !empty($manageableSettings['potluck']['allow_host_assign']),
+                                        ]; ?>
+                                        <button
+                                            class="button button-secondary"
+                                            type="button"
+                                            data-edit-event="<?= e(json_encode($manageEditPayload)); ?>"
+                                        >Edit</button>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -1230,6 +1280,33 @@ require_once __DIR__ . '/includes/header.php';
                         static fn(array $attendee): bool => in_array((string) ($attendee['response'] ?? ''), ['going', 'interested', 'maybe'], true)
                     ));
                     ?>
+                    <?php
+                    $editPayload = $canManageThisEvent ? [
+                        'id' => (int) $event['id'],
+                        'title' => (string) ($event['title'] ?? ''),
+                        'category_id' => (string) ($event['category_id'] ?? ''),
+                        'event_type' => (string) ($event['event_type'] ?? ''),
+                        'event_format' => (string) ($settings['format'] ?? 'standard'),
+                        'visibility' => (string) ($event['visibility'] ?? 'public'),
+                        'image_url' => (string) ($event['image_url'] ?? ''),
+                        'location_name' => (string) ($event['location_name'] ?? ''),
+                        'location_address' => (string) ($event['location_address'] ?? ''),
+                        'meeting_url' => (string) ($event['meeting_url'] ?? ''),
+                        'start_at' => community_format_datetime_input($event['start_at'] ?? null),
+                        'end_at' => community_format_datetime_input($event['end_at'] ?? null),
+                        'description' => (string) ($event['description'] ?? ''),
+                        'status' => (string) ($event['status'] ?? 'published'),
+                        'is_featured' => !empty($event['is_featured']),
+                        'reminder_three_days' => !empty($settings['reminders']['three_days']),
+                        'reminder_same_day' => !empty($settings['reminders']['same_day']),
+                        'custom_options_text' => implode("\n", array_filter(array_map('trim', $settings['custom_options'] ?? []))),
+                        'potluck_items_text' => community_potluck_items_text($event['items'] ?? []),
+                        'potluck_allow_self_pick' => !empty($settings['potluck']['allow_self_pick']),
+                        'potluck_allow_custom_items' => !empty($settings['potluck']['allow_custom_items']),
+                        'potluck_allow_host_assign' => !empty($settings['potluck']['allow_host_assign']),
+                    ] : null;
+                    $totalRsvp = (int) ($event['going_count'] ?? 0) + (int) ($event['interested_count'] ?? 0) + (int) ($event['maybe_count'] ?? 0);
+                    ?>
                     <article class="event-card community-event-card">
                         <?php if (!empty($event['image_url'])): ?>
                             <div class="community-event-image-wrap">
@@ -1245,7 +1322,6 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="community-card-top">
                             <div class="community-pill-row">
                                 <span class="pill"><?= e((string) ($event['category_label'] ?: 'Community')); ?></span>
-                                <span class="pill"><?= e($eventFormatLabel); ?></span>
                                 <?php if (!empty($event['is_featured'])): ?>
                                     <span class="pill pill-dark">Featured</span>
                                 <?php endif; ?>
@@ -1253,70 +1329,30 @@ require_once __DIR__ . '/includes/header.php';
                                     <span class="pill pill-dark"><?= e(ucfirst((string) $event['status'])); ?></span>
                                 <?php endif; ?>
                             </div>
-                            <?php if ($canManageThisEvent): ?>
-                                <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug, (int) $event['id'])); ?>">Edit</a>
+                            <?php if ($canManageThisEvent && $editPayload !== null): ?>
+                                <button
+                                    class="button button-secondary button-sm"
+                                    type="button"
+                                    data-edit-event="<?= e(json_encode($editPayload)); ?>"
+                                >Edit</button>
                             <?php endif; ?>
                         </div>
 
-                        <div class="community-event-headline">
-                            <div class="community-event-copy">
-                                <h3><?= e((string) $event['title']); ?></h3>
-                                <p><?= e((string) $event['description']); ?></p>
-                            </div>
-
-                            <div class="community-rsvp-summary community-rsvp-summary-inline">
-                                <span class="pill pill-dark"><?= e((string) $event['going_count']); ?> going</span>
-                                <span class="pill pill-dark"><?= e((string) $event['interested_count']); ?> interested</span>
-                                <span class="pill pill-dark"><?= e((string) $event['maybe_count']); ?> maybe</span>
-                                <?php if ($potluckEnabled): ?>
-                                    <span class="pill pill-dark"><?= e((string) ($event['claimed_item_count'] ?? 0)); ?>/<?= e((string) ($event['potluck_item_count'] ?? 0)); ?> items covered</span>
+                        <div class="community-card-summary">
+                            <h3><?= e((string) $event['title']); ?></h3>
+                            <p class="community-card-meta">
+                                <?= e($eventDateLabel); ?>
+                                <?php if ($eventLocationLabel !== ''): ?>
+                                    <span class="community-card-meta-sep">·</span><?= e($eventLocationLabel); ?>
+                                <?php elseif (!empty($event['meeting_url'])): ?>
+                                    <span class="community-card-meta-sep">·</span>Online
                                 <?php endif; ?>
-                            </div>
+                            </p>
                         </div>
-
-                        <div class="community-event-facts">
-                            <div class="community-event-fact">
-                                <span class="community-event-fact-label">When</span>
-                                <strong><?= e($eventDateLabel); ?></strong>
-                            </div>
-                            <div class="community-event-fact">
-                                <span class="community-event-fact-label">Focus</span>
-                                <strong><?= e((string) $event['event_type']); ?></strong>
-                            </div>
-                            <div class="community-event-fact">
-                                <span class="community-event-fact-label">Place</span>
-                                <strong><?= e($eventLocationLabel !== '' ? $eventLocationLabel : $eventModeLabel); ?></strong>
-                            </div>
-                            <?php if ($eventHostLabel !== ''): ?>
-                                <div class="community-event-fact">
-                                    <span class="community-event-fact-label">Host</span>
-                                    <strong><?= e($eventHostLabel); ?></strong>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="inline-actions">
-                            <a class="button button-secondary" href="<?= e(app_url('community-event-calendar.php?event_id=' . (int) $event['id'])); ?>">Add to Calendar</a>
-                            <?php if (!empty($event['meeting_url'])): ?>
-                                <a class="button button-secondary" href="<?= e((string) $event['meeting_url']); ?>" target="_blank" rel="noreferrer">Open Link</a>
-                            <?php endif; ?>
-                        </div>
-
-                        <?php if (($settings['custom_options'] ?? []) !== []): ?>
-                            <div class="community-option-list">
-                                <?php foreach ($settings['custom_options'] as $option): ?>
-                                    <span class="community-option-chip"><?= e((string) $option); ?></span>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php endif; ?>
-
-                        <?php if (!empty($event['location_address'])): ?>
-                            <p class="community-event-address"><?= e((string) $event['location_address']); ?></p>
-                        <?php endif; ?>
 
                         <?php if ($user !== null): ?>
                             <div class="community-rsvp-row">
-                                <?php foreach (['going' => 'Going', 'interested' => 'Interested', 'maybe' => 'Maybe', 'not-going' => 'Can’t Go'] as $responseValue => $responseLabel): ?>
+                                <?php foreach (['going' => 'Going', 'interested' => 'Interested', 'maybe' => 'Maybe', 'not-going' => "Can't Go"] as $responseValue => $responseLabel): ?>
                                     <form method="post" action="<?= e(app_url('community.php')); ?>">
                                         <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                                         <input type="hidden" name="action" value="rsvp">
@@ -1324,28 +1360,81 @@ require_once __DIR__ . '/includes/header.php';
                                         <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
                                         <input type="hidden" name="response" value="<?= e($responseValue); ?>">
                                         <button
-                                            class="filter-chip <?= (string) ($event['current_user_rsvp'] ?? '') === $responseValue ? 'is-active' : ''; ?>"
+                                            class="filter-chip <?= $currentUserResponse === $responseValue ? 'is-active' : ''; ?>"
                                             type="submit"
-                                        >
-                                            <?= e($responseLabel); ?>
-                                        </button>
+                                        ><?= e($responseLabel); ?></button>
                                     </form>
                                 <?php endforeach; ?>
-
-                                <?php if (!empty($event['current_user_rsvp'])): ?>
+                                <?php if ($currentUserResponse !== ''): ?>
                                     <form method="post" action="<?= e(app_url('community.php')); ?>">
                                         <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                                         <input type="hidden" name="action" value="rsvp">
                                         <input type="hidden" name="event_id" value="<?= e((string) $event['id']); ?>">
                                         <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
                                         <input type="hidden" name="response" value="clear">
-                                        <button class="button button-secondary" type="submit">Clear RSVP</button>
+                                        <button class="button button-secondary button-sm" type="submit">Clear</button>
                                     </form>
                                 <?php endif; ?>
                             </div>
                         <?php else: ?>
-                            <p class="muted-copy">Sign in to RSVP, track attendance, and manage your events.</p>
+                            <p class="muted-copy">Sign in to RSVP and manage your attendance.</p>
                         <?php endif; ?>
+
+                        <details class="community-card-details">
+                            <summary class="community-card-details-toggle">
+                                <?php
+                                $detailParts = [];
+                                if ($totalRsvp > 0) $detailParts[] = $totalRsvp . ' attending';
+                                if ($potluckEnabled) $detailParts[] = ($event['claimed_item_count'] ?? 0) . '/' . ($event['potluck_item_count'] ?? 0) . ' items';
+                                echo e($detailParts !== [] ? implode(' · ', $detailParts) : 'Details');
+                                ?>
+                            </summary>
+
+                            <div class="community-card-details-body">
+                                <p class="community-event-description"><?= e((string) $event['description']); ?></p>
+
+                                <div class="community-event-facts">
+                                    <div class="community-event-fact">
+                                        <span class="community-event-fact-label">When</span>
+                                        <strong><?= e($eventDateLabel); ?></strong>
+                                    </div>
+                                    <div class="community-event-fact">
+                                        <span class="community-event-fact-label">Focus</span>
+                                        <strong><?= e((string) $event['event_type']); ?></strong>
+                                    </div>
+                                    <div class="community-event-fact">
+                                        <span class="community-event-fact-label">Place</span>
+                                        <strong><?= e($eventLocationLabel !== '' ? $eventLocationLabel : $eventModeLabel); ?></strong>
+                                    </div>
+                                    <?php if ($eventHostLabel !== ''): ?>
+                                        <div class="community-event-fact">
+                                            <span class="community-event-fact-label">Host</span>
+                                            <strong><?= e($eventHostLabel); ?></strong>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+
+                                <?php if (($settings['custom_options'] ?? []) !== []): ?>
+                                    <div class="community-option-list">
+                                        <?php foreach ($settings['custom_options'] as $option): ?>
+                                            <span class="community-option-chip"><?= e((string) $option); ?></span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+
+                                <?php if (!empty($event['location_address'])): ?>
+                                    <p class="community-event-address"><?= e((string) $event['location_address']); ?></p>
+                                <?php endif; ?>
+
+                                <div class="inline-actions">
+                                    <a class="button button-secondary button-sm" href="<?= e(app_url('community-event-calendar.php?event_id=' . (int) $event['id'])); ?>">Add to Calendar</a>
+                                    <?php if (!empty($event['meeting_url'])): ?>
+                                        <a class="button button-secondary button-sm" href="<?= e((string) $event['meeting_url']); ?>" target="_blank" rel="noreferrer">Open Link</a>
+                                    <?php endif; ?>
+                                </div>
+
+                            </div>
+                        </details>
 
                         <?php if ($potluckEnabled): ?>
                             <section class="community-event-subpanel">
@@ -1358,12 +1447,12 @@ require_once __DIR__ . '/includes/header.php';
 
                                 <?php if ($currentUserItem !== null): ?>
                                     <div class="community-current-item">
-                                        <strong>You’re bringing:</strong> <?= e((string) $currentUserItem['label']); ?>
+                                        <strong>You're bringing:</strong> <?= e((string) $currentUserItem['label']); ?>
                                         <span class="muted-copy">RSVP: <?= e(community_response_label($currentUserResponse !== '' ? $currentUserResponse : 'going')); ?></span>
                                     </div>
                                 <?php elseif ($currentUserBringItemLabel !== ''): ?>
                                     <div class="community-current-item">
-                                        <strong>You’re bringing:</strong> <?= e($currentUserBringItemLabel); ?>
+                                        <strong>You're bringing:</strong> <?= e($currentUserBringItemLabel); ?>
                                         <span class="muted-copy">RSVP: <?= e(community_response_label($currentUserResponse !== '' ? $currentUserResponse : 'going')); ?></span>
                                     </div>
                                 <?php endif; ?>
@@ -1554,6 +1643,8 @@ require_once __DIR__ . '/includes/header.php';
                         <?php endif; ?>
 
                         <?php if ($canManageThisEvent): ?>
+                            <details class="community-host-details">
+                                <summary class="community-host-summary">Host tools</summary>
                             <section class="community-event-subpanel">
                                 <div class="panel-heading">
                                     <div>
@@ -1642,15 +1733,15 @@ require_once __DIR__ . '/includes/header.php';
                                     </div>
                                 </div>
                             </section>
+                            </details>
 
                             <div class="inline-actions">
-                                <a class="button button-secondary" href="<?= e(community_redirect_url($activeCategorySlug, (int) $event['id'])); ?>">Manage Event</a>
                                 <form method="post" action="<?= e(app_url('community.php')); ?>">
                                     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                                     <input type="hidden" name="action" value="delete-event">
                                     <input type="hidden" name="event_id" value="<?= e((string) $event['id']); ?>">
                                     <input type="hidden" name="category" value="<?= e($activeCategorySlug); ?>">
-                                    <button class="button button-secondary" type="submit">Delete</button>
+                                    <button class="button button-secondary" type="submit">Delete event</button>
                                 </form>
                             </div>
                         <?php endif; ?>
