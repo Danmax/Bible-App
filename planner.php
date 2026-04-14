@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/openai.php';
 
 require_login();
 
@@ -62,8 +63,8 @@ function planner_calendar_range(string $view, string $date): array
     $timestamp = strtotime($date) ?: time();
 
     if ($view === 'week') {
-        $dayOfWeek = (int) date('N', $timestamp);
-        $startTimestamp = strtotime('-' . ($dayOfWeek - 1) . ' days', $timestamp);
+        $dayOfWeek = (int) date('w', $timestamp);
+        $startTimestamp = strtotime('-' . $dayOfWeek . ' days', $timestamp);
         $endTimestamp = strtotime('+7 days', $startTimestamp);
 
         return [
@@ -76,7 +77,7 @@ function planner_calendar_range(string $view, string $date): array
     }
 
     $monthStart = strtotime(date('Y-m-01', $timestamp));
-    $calendarStart = strtotime('-' . ((int) date('N', $monthStart) - 1) . ' days', $monthStart);
+    $calendarStart = strtotime('-' . (int) date('w', $monthStart) . ' days', $monthStart);
     $calendarEndExclusive = strtotime('+42 days', $calendarStart);
 
     return [
@@ -125,6 +126,27 @@ function planner_parse_datetime_input(?string $value): ?string
     }
 
     return date('Y-m-d H:i:s', $timestamp);
+}
+
+function planner_quick_event_datetime(string $date): string
+{
+    $baseTimestamp = strtotime($date . ' 19:00');
+
+    if ($baseTimestamp === false) {
+        $baseTimestamp = strtotime('today 19:00') ?: time();
+    }
+
+    if ($date === date('Y-m-d')) {
+        $roundedHour = (int) date('G') + 1;
+        $roundedHour = max(8, min($roundedHour, 21));
+        $todayTimestamp = strtotime($date . sprintf(' %02d:00', $roundedHour));
+
+        if ($todayTimestamp !== false) {
+            $baseTimestamp = $todayTimestamp;
+        }
+    }
+
+    return date('Y-m-d\TH:i', $baseTimestamp);
 }
 
 function planner_goal_form_defaults(int $year, ?array $goal = null): array
@@ -250,6 +272,8 @@ $goals = [];
 $schedule = [];
 $editingGoal = null;
 $editingEvent = null;
+$showGoalPanel = false;
+$showEventPanel = false;
 $goalFormData = planner_goal_form_defaults($activeYear);
 $eventFormData = planner_event_form_defaults();
 $calendarRange = planner_calendar_range($calendarView, $calendarDate);
@@ -283,9 +307,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($goalFormError === null && $payload !== null) {
                 if ($action === 'create-goal') {
-                    $goalId = create_yearly_goal_record((int) $user['id'], $payload);
+                    create_yearly_goal_record((int) $user['id'], $payload);
                     set_flash('Planner goal created.', 'success');
-                    redirect(planner_build_url((int) $payload['year'], $calendarView, $calendarDate, $goalId, $editingEventId ?: null));
+                    redirect(planner_build_url((int) $payload['year'], $calendarView, $calendarDate));
                 }
 
                 $goalId = (int) ($_POST['goal_id'] ?? 0);
@@ -296,7 +320,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 update_yearly_goal_record($goalId, (int) $user['id'], $payload);
                 set_flash('Planner goal updated.', 'success');
-                redirect(planner_build_url((int) $payload['year'], $calendarView, $calendarDate, $goalId, $editingEventId ?: null));
+                redirect(planner_build_url((int) $payload['year'], $calendarView, $calendarDate));
             }
 
             $editingGoalId = (int) ($_POST['goal_id'] ?? $editingGoalId ?? 0);
@@ -305,9 +329,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($eventFormError === null && $payload !== null) {
                 if ($action === 'create-event') {
-                    $eventId = create_planner_event_record((int) $user['id'], $payload);
+                    create_planner_event_record((int) $user['id'], $payload);
                     set_flash('Planner event created.', 'success');
-                    redirect(planner_build_url($activeYear, $calendarView, $calendarDate, $editingGoalId ?: null, $eventId));
+                    redirect(planner_build_url($activeYear, $calendarView, $calendarDate));
                 }
 
                 $eventId = (int) ($_POST['event_id'] ?? 0);
@@ -318,7 +342,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 update_planner_event_record($eventId, (int) $user['id'], $payload);
                 set_flash('Planner event updated.', 'success');
-                redirect(planner_build_url($activeYear, $calendarView, $calendarDate, $editingGoalId ?: null, $eventId));
+                redirect(planner_build_url($activeYear, $calendarView, $calendarDate));
             }
 
             $editingEventId = (int) ($_POST['event_id'] ?? $editingEventId ?? 0);
@@ -356,6 +380,10 @@ if ($editingGoal !== null && $goalFormError === null && $_SERVER['REQUEST_METHOD
 if ($editingEvent !== null && $eventFormError === null && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     $eventFormData = planner_event_form_defaults($editingEvent);
 }
+
+$showGoalPanel = $editingGoal !== null || $goalFormError !== null;
+$showEventPanel = $editingEvent !== null || $eventFormError !== null;
+$plannerAiEnabled = openai_event_drafts_enabled();
 
 $summary = summarize_yearly_goals($goals);
 $yearOptions = [$activeYear - 1, $activeYear, $activeYear + 1];
@@ -409,17 +437,27 @@ require_once __DIR__ . '/includes/header.php';
                 <span class="mini-card"><?= e($calendarRange['label']); ?></span>
             </div>
 
-            <div class="filter-row top-gap-sm">
-                <a class="filter-chip <?= $calendarView === 'month' ? 'is-active' : ''; ?>" href="<?= e(planner_build_url($activeYear, 'month', $calendarDate, $editingGoalId ?: null, $editingEventId ?: null)); ?>">Month</a>
-                <a class="filter-chip <?= $calendarView === 'week' ? 'is-active' : ''; ?>" href="<?= e(planner_build_url($activeYear, 'week', $calendarDate, $editingGoalId ?: null, $editingEventId ?: null)); ?>">Week</a>
-                <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarRange['previous_date'], $editingGoalId ?: null, $editingEventId ?: null)); ?>">Previous</a>
-                <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, date('Y-m-d'), $editingGoalId ?: null, $editingEventId ?: null)); ?>">Today</a>
-                <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarRange['next_date'], $editingGoalId ?: null, $editingEventId ?: null)); ?>">Next</a>
+            <div class="planner-calendar-toolbar top-gap-sm">
+                <div class="planner-view-switch">
+                    <a class="filter-chip <?= $calendarView === 'month' ? 'is-active' : ''; ?>" href="<?= e(planner_build_url($activeYear, 'month', $calendarDate, $editingGoalId ?: null, $editingEventId ?: null)); ?>">Month</a>
+                    <a class="filter-chip <?= $calendarView === 'week' ? 'is-active' : ''; ?>" href="<?= e(planner_build_url($activeYear, 'week', $calendarDate, $editingGoalId ?: null, $editingEventId ?: null)); ?>">Week</a>
+                </div>
+                <div class="planner-nav-switch">
+                    <a class="button button-secondary planner-nav-link" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarRange['previous_date'], $editingGoalId ?: null, $editingEventId ?: null)); ?>">
+                        <span class="planner-nav-icon" aria-hidden="true">&#8249;</span>
+                        <span class="planner-nav-label">Prev</span>
+                    </a>
+                    <a class="button button-secondary planner-nav-link" href="<?= e(planner_build_url($activeYear, $calendarView, date('Y-m-d'), $editingGoalId ?: null, $editingEventId ?: null)); ?>">Today</a>
+                    <a class="button button-secondary planner-nav-link" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarRange['next_date'], $editingGoalId ?: null, $editingEventId ?: null)); ?>">
+                        <span class="planner-nav-label">Next</span>
+                        <span class="planner-nav-icon" aria-hidden="true">&#8250;</span>
+                    </a>
+                </div>
             </div>
 
             <?php if ($calendarView === 'month'): ?>
                 <div class="planner-month-grid top-gap-sm">
-                    <?php foreach (['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as $weekdayLabel): ?>
+                    <?php foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $weekdayLabel): ?>
                         <div class="planner-calendar-head"><?= e($weekdayLabel); ?></div>
                     <?php endforeach; ?>
 
@@ -432,7 +470,32 @@ require_once __DIR__ . '/includes/header.php';
                         $dayEvents = $calendarEventsByDay[$dayKey] ?? [];
                     ?>
                         <div class="planner-calendar-cell <?= $isCurrentMonth ? '' : 'is-muted'; ?> <?= $isToday ? 'is-today' : ''; ?>">
-                            <div class="planner-calendar-day"><?= e(date('j', strtotime($dayKey))); ?></div>
+                            <div class="planner-day-head">
+                                <div class="planner-calendar-day-group">
+                                    <span class="planner-mobile-weekday"><?= e(date('D', strtotime($dayKey))); ?></span>
+                                    <div class="planner-calendar-day"><?= e(date('j', strtotime($dayKey))); ?></div>
+                                    <span class="planner-mobile-date"><?= e(date('M j', strtotime($dayKey))); ?></span>
+                                </div>
+                                <div class="planner-day-quick-actions">
+                                    <?php if ($plannerAiEnabled): ?>
+                                        <button
+                                            class="planner-quick-trigger planner-quick-trigger-voice"
+                                            type="button"
+                                            data-planner-quick-event
+                                            data-planner-quick-mode="voice"
+                                            data-planner-event-date="<?= e(planner_quick_event_datetime($dayKey)); ?>"
+                                            aria-label="Draft event with voice for <?= e(date('F j, Y', strtotime($dayKey))); ?>"
+                                        >
+                                            <svg class="planner-quick-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                <path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z" />
+                                                <path d="M19 11a7 7 0 0 1-14 0" />
+                                                <path d="M12 18v3" />
+                                                <path d="M9 21h6" />
+                                            </svg>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
                             <div class="planner-calendar-events">
                                 <?php if ($dayEvents === []): ?>
                                     <span class="planner-calendar-empty">No events</span>
@@ -465,8 +528,29 @@ require_once __DIR__ . '/includes/header.php';
                     ?>
                         <div class="planner-week-day <?= $isToday ? 'is-today' : ''; ?>">
                             <div class="planner-week-head">
-                                <strong><?= e(date('D', strtotime($dayKey))); ?></strong>
-                                <span><?= e(date('M j', strtotime($dayKey))); ?></span>
+                                <div>
+                                    <strong><?= e(date('D', strtotime($dayKey))); ?></strong>
+                                    <span><?= e(date('M j', strtotime($dayKey))); ?></span>
+                                </div>
+                                <div class="planner-day-quick-actions">
+                                    <?php if ($plannerAiEnabled): ?>
+                                        <button
+                                            class="planner-quick-trigger planner-quick-trigger-voice"
+                                            type="button"
+                                            data-planner-quick-event
+                                            data-planner-quick-mode="voice"
+                                            data-planner-event-date="<?= e(planner_quick_event_datetime($dayKey)); ?>"
+                                            aria-label="Draft event with voice for <?= e(date('F j, Y', strtotime($dayKey))); ?>"
+                                        >
+                                            <svg class="planner-quick-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                <path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z" />
+                                                <path d="M19 11a7 7 0 0 1-14 0" />
+                                                <path d="M12 18v3" />
+                                                <path d="M9 21h6" />
+                                            </svg>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
                             </div>
 
                             <div class="planner-week-events">
@@ -490,8 +574,238 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
         </section>
 
-        <div class="community-layout top-gap">
-            <div class="stack-list">
+        <div class="stack-list top-gap" data-community-panels data-planner-page>
+                <div class="community-action-bar">
+                    <button class="button button-primary" type="button" data-community-panel-toggle="goal" aria-expanded="<?= $showGoalPanel ? 'true' : 'false'; ?>">
+                        <?= $editingGoal ? 'Edit Goal' : 'Create Goal'; ?>
+                    </button>
+                    <button class="button button-secondary" type="button" data-community-panel-toggle="event" aria-expanded="<?= $showEventPanel ? 'true' : 'false'; ?>">
+                        <?= $editingEvent ? 'Edit Event' : '+ Add Event'; ?>
+                    </button>
+                </div>
+
+                <section
+                    class="panel-modal"
+                    data-community-panel="goal"
+                    data-panel-modal
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="planner-goal-modal-title"
+                    <?= $showGoalPanel ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>
+                >
+                    <div class="panel community-manager-panel panel-modal-card" data-panel-modal-content>
+                        <div class="panel-heading">
+                            <div>
+                                <h2 id="planner-goal-modal-title"><?= $editingGoal ? 'Edit goal' : 'Create goal'; ?></h2>
+                                <p class="muted-copy">Set the target, record current progress, and keep the year measurable.</p>
+                            </div>
+                            <button class="button button-secondary" type="button" data-community-panel-close="goal">Close</button>
+                        </div>
+
+                        <?php if ($goalFormError): ?>
+                            <div class="flash flash-warning"><?= e($goalFormError); ?></div>
+                        <?php endif; ?>
+
+                        <?php if ($plannerAiEnabled): ?>
+                            <div
+                                class="community-ai-panel planner-ai-panel"
+                                data-ai-event-builder
+                                data-ai-endpoint="<?= e(app_url('planner-ai-goal.php')); ?>"
+                            >
+                                <div class="panel-heading">
+                                    <div>
+                                        <h3>Quick goal draft</h3>
+                                        <p class="muted-copy">Speak or type a goal prompt and let the planner fill the goal details for review.</p>
+                                    </div>
+                                    <span class="pill pill-dark"><?= e(strtoupper(openai_event_model())); ?></span>
+                                </div>
+
+                                <label>
+                                    Prompt
+                                    <textarea rows="3" placeholder="Read the New Testament this year with a target of 260 reading days" data-ai-prompt></textarea>
+                                </label>
+
+                                <div class="inline-actions">
+                                    <button class="button button-secondary" type="button" data-ai-voice-start>Start Voice</button>
+                                    <button class="button button-secondary" type="button" data-ai-voice-stop hidden>Stop</button>
+                                    <button class="button button-primary" type="button" data-ai-generate>Create Draft</button>
+                                </div>
+
+                                <p class="muted-copy" data-ai-status>Ready to draft a planner goal.</p>
+                            </div>
+                        <?php endif; ?>
+
+                        <form class="form-stack compact-form" method="post" data-ai-event-form>
+                            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                            <input type="hidden" name="action" value="<?= e($editingGoal ? 'update-goal' : 'create-goal'); ?>">
+                            <?php if ($editingGoal): ?>
+                                <input type="hidden" name="goal_id" value="<?= e((string) $editingGoal['id']); ?>">
+                            <?php endif; ?>
+
+                            <label>
+                                Goal title
+                                <input type="text" name="goal_title" value="<?= e($goalFormData['goal_title']); ?>" placeholder="Read the New Testament" required data-ai-field="goal_title">
+                            </label>
+
+                            <label>
+                                Goal type
+                                <select name="goal_type" data-ai-field="goal_type">
+                                    <?php foreach (['reading', 'attendance', 'devotion', 'prayer', 'service', 'custom'] as $goalType): ?>
+                                        <option value="<?= e($goalType); ?>" <?= $goalFormData['goal_type'] === $goalType ? 'selected' : ''; ?>>
+                                            <?= e(ucfirst($goalType)); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+
+                            <label>
+                                Year
+                                <input type="number" name="year" min="2000" max="2100" value="<?= e($goalFormData['year']); ?>" required data-ai-field="year" data-ai-context-field="year">
+                            </label>
+
+                            <label>
+                                Target value
+                                <input type="number" name="target_value" min="0" value="<?= e($goalFormData['target_value']); ?>" placeholder="260" data-ai-field="target_value">
+                            </label>
+
+                            <label>
+                                Current progress
+                                <input type="number" name="current_value" min="0" value="<?= e($goalFormData['current_value']); ?>" required data-ai-field="current_value">
+                            </label>
+
+                            <label>
+                                Status
+                                <select name="status" data-ai-field="status">
+                                    <?php foreach (['active', 'paused', 'completed'] as $status): ?>
+                                        <option value="<?= e($status); ?>" <?= $goalFormData['status'] === $status ? 'selected' : ''; ?>>
+                                            <?= e(ucfirst($status)); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+
+                            <div class="inline-actions">
+                                <button class="button button-primary" type="submit"><?= $editingGoal ? 'Update Goal' : 'Create Goal'; ?></button>
+                                <button class="button button-secondary" type="button" data-community-panel-close="goal">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <section
+                    class="panel-modal"
+                    data-community-panel="event"
+                    data-panel-modal
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="planner-event-modal-title"
+                    <?= $showEventPanel ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>
+                >
+                    <div class="panel community-manager-panel panel-modal-card" data-panel-modal-content>
+                        <div class="panel-heading">
+                            <div>
+                                <h2 id="planner-event-modal-title" data-planner-event-heading><?= $editingEvent ? 'Edit planner event' : 'Add planner event'; ?></h2>
+                                <p class="muted-copy">Capture reminders, study sessions, and family plans on your personal schedule.</p>
+                            </div>
+                            <button class="button button-secondary" type="button" data-community-panel-close="event">Close</button>
+                        </div>
+
+                        <?php if ($eventFormError): ?>
+                            <div class="flash flash-warning"><?= e($eventFormError); ?></div>
+                        <?php endif; ?>
+
+                        <?php if ($plannerAiEnabled): ?>
+                            <div
+                                class="community-ai-panel planner-ai-panel"
+                                data-ai-event-builder
+                                data-ai-endpoint="<?= e(app_url('planner-ai-event.php')); ?>"
+                            >
+                                <div class="panel-heading">
+                                    <div>
+                                        <h3>Quick event draft</h3>
+                                        <p class="muted-copy">Speak or type a short prompt and the planner will draft the event for the selected date.</p>
+                                    </div>
+                                    <span class="pill pill-dark"><?= e(strtoupper(openai_event_model())); ?></span>
+                                </div>
+
+                                <label>
+                                    Prompt
+                                    <textarea rows="3" placeholder="Team prayer huddle next Wednesday at 7pm in the fellowship hall" data-ai-prompt></textarea>
+                                </label>
+
+                                <div class="inline-actions">
+                                    <button class="button button-secondary" type="button" data-ai-voice-start>Start Voice</button>
+                                    <button class="button button-secondary" type="button" data-ai-voice-stop hidden>Stop</button>
+                                    <button class="button button-primary" type="button" data-ai-generate>Create Draft</button>
+                                </div>
+
+                                <p class="muted-copy" data-ai-status>Ready to draft a planner event.</p>
+                            </div>
+                        <?php endif; ?>
+
+                        <form class="form-stack compact-form" method="post" data-ai-event-form data-planner-event-form>
+                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                        <input
+                            type="hidden"
+                            name="action"
+                            value="<?= e($editingEvent ? 'update-event' : 'create-event'); ?>"
+                            data-planner-event-action
+                            data-create-value="create-event"
+                            data-update-value="update-event"
+                        >
+                        <input type="hidden" name="year" value="<?= e((string) $activeYear); ?>">
+                        <input type="hidden" name="event_id" value="<?= e($editingEvent ? (string) $editingEvent['id'] : ''); ?>" data-planner-event-id>
+
+                        <label>
+                            Event title
+                            <input
+                                type="text"
+                                name="title"
+                                value="<?= e($eventFormData['title']); ?>"
+                                placeholder="Family devotion night"
+                                required
+                                data-ai-field="title"
+                                data-default-value=""
+                            >
+                        </label>
+
+                        <label>
+                            Event type
+                            <select name="event_type" data-ai-field="event_type" data-default-value="study">
+                                <?php foreach (['study', 'prayer', 'service', 'family', 'community', 'goal', 'reminder'] as $eventType): ?>
+                                    <option value="<?= e($eventType); ?>" <?= $eventFormData['event_type'] === $eventType ? 'selected' : ''; ?>>
+                                        <?= e(ucfirst($eventType)); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+
+                        <label>
+                            Date and time
+                            <input
+                                type="datetime-local"
+                                name="event_date"
+                                value="<?= e($eventFormData['event_date']); ?>"
+                                required
+                                data-ai-field="event_date"
+                                data-ai-context-field="event_date"
+                                data-default-value="<?= e(planner_quick_event_datetime($calendarDate)); ?>"
+                            >
+                        </label>
+
+                        <label>
+                            Notes
+                            <textarea name="description" rows="4" placeholder="What should you remember for this event?" data-ai-field="description" data-default-value=""><?= e($eventFormData['description']); ?></textarea>
+                        </label>
+
+                            <div class="inline-actions">
+                                <button class="button button-primary" type="submit" data-planner-event-submit><?= $editingEvent ? 'Update Event' : 'Add Event'; ?></button>
+                                <button class="button button-secondary" type="button" data-community-panel-close="event">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
                 <section class="panel">
                     <div class="panel-heading">
                         <div>
@@ -601,130 +915,6 @@ require_once __DIR__ . '/includes/header.php';
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </section>
-            </div>
-
-            <div class="stack-list community-manager-panel">
-                <section class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <h2><?= $editingGoal ? 'Edit goal' : 'Create goal'; ?></h2>
-                            <p class="muted-copy">Set the target, record current progress, and keep the year measurable.</p>
-                        </div>
-                        <?php if ($editingGoal): ?>
-                            <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarDate, null, $editingEventId ?: null)); ?>">New Goal</a>
-                        <?php endif; ?>
-                    </div>
-
-                    <?php if ($goalFormError): ?>
-                        <div class="flash flash-warning"><?= e($goalFormError); ?></div>
-                    <?php endif; ?>
-
-                    <form class="form-stack compact-form" method="post">
-                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                        <input type="hidden" name="action" value="<?= e($editingGoal ? 'update-goal' : 'create-goal'); ?>">
-                        <?php if ($editingGoal): ?>
-                            <input type="hidden" name="goal_id" value="<?= e((string) $editingGoal['id']); ?>">
-                        <?php endif; ?>
-
-                        <label>
-                            Goal title
-                            <input type="text" name="goal_title" value="<?= e($goalFormData['goal_title']); ?>" placeholder="Read the New Testament" required>
-                        </label>
-
-                        <label>
-                            Goal type
-                            <select name="goal_type">
-                                <?php foreach (['reading', 'attendance', 'devotion', 'prayer', 'service', 'custom'] as $goalType): ?>
-                                    <option value="<?= e($goalType); ?>" <?= $goalFormData['goal_type'] === $goalType ? 'selected' : ''; ?>>
-                                        <?= e(ucfirst($goalType)); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-
-                        <label>
-                            Year
-                            <input type="number" name="year" min="2000" max="2100" value="<?= e($goalFormData['year']); ?>" required>
-                        </label>
-
-                        <label>
-                            Target value
-                            <input type="number" name="target_value" min="0" value="<?= e($goalFormData['target_value']); ?>" placeholder="260">
-                        </label>
-
-                        <label>
-                            Current progress
-                            <input type="number" name="current_value" min="0" value="<?= e($goalFormData['current_value']); ?>" required>
-                        </label>
-
-                        <label>
-                            Status
-                            <select name="status">
-                                <?php foreach (['active', 'paused', 'completed'] as $status): ?>
-                                    <option value="<?= e($status); ?>" <?= $goalFormData['status'] === $status ? 'selected' : ''; ?>>
-                                        <?= e(ucfirst($status)); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-
-                        <button class="button button-primary" type="submit"><?= $editingGoal ? 'Update Goal' : 'Create Goal'; ?></button>
-                    </form>
-                </section>
-
-                <section class="panel">
-                    <div class="panel-heading">
-                        <div>
-                            <h2><?= $editingEvent ? 'Edit planner event' : 'Add planner event'; ?></h2>
-                            <p class="muted-copy">Capture reminders, study sessions, and family plans on your personal schedule.</p>
-                        </div>
-                        <?php if ($editingEvent): ?>
-                            <a class="button button-secondary" href="<?= e(planner_build_url($activeYear, $calendarView, $calendarDate, $editingGoalId ?: null, null)); ?>">New Event</a>
-                        <?php endif; ?>
-                    </div>
-
-                    <?php if ($eventFormError): ?>
-                        <div class="flash flash-warning"><?= e($eventFormError); ?></div>
-                    <?php endif; ?>
-
-                    <form class="form-stack compact-form" method="post">
-                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                        <input type="hidden" name="action" value="<?= e($editingEvent ? 'update-event' : 'create-event'); ?>">
-                        <input type="hidden" name="year" value="<?= e((string) $activeYear); ?>">
-                        <?php if ($editingEvent): ?>
-                            <input type="hidden" name="event_id" value="<?= e((string) $editingEvent['id']); ?>">
-                        <?php endif; ?>
-
-                        <label>
-                            Event title
-                            <input type="text" name="title" value="<?= e($eventFormData['title']); ?>" placeholder="Family devotion night" required>
-                        </label>
-
-                        <label>
-                            Event type
-                            <select name="event_type">
-                                <?php foreach (['study', 'prayer', 'service', 'family', 'community', 'goal', 'reminder'] as $eventType): ?>
-                                    <option value="<?= e($eventType); ?>" <?= $eventFormData['event_type'] === $eventType ? 'selected' : ''; ?>>
-                                        <?= e(ucfirst($eventType)); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-
-                        <label>
-                            Date and time
-                            <input type="datetime-local" name="event_date" value="<?= e($eventFormData['event_date']); ?>" required>
-                        </label>
-
-                        <label>
-                            Notes
-                            <textarea name="description" rows="4" placeholder="What should you remember for this event?"><?= e($eventFormData['description']); ?></textarea>
-                        </label>
-
-                        <button class="button button-primary" type="submit"><?= $editingEvent ? 'Update Event' : 'Add Event'; ?></button>
-                    </form>
-                </section>
-            </div>
         </div>
     </div>
 </section>

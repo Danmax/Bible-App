@@ -15,11 +15,69 @@ function app_url(string $path = '', bool $absolute = false): string
 
     $baseUrl = normalized_base_url(BASE_URL);
 
-    if ($baseUrl === '') {
+    if ($baseUrl === '' && is_local_environment()) {
         $baseUrl = current_request_base_url();
     }
 
     return $baseUrl === '' ? $relativePath : $baseUrl . $relativePath;
+}
+
+function app_environment(): string
+{
+    $configured = strtolower(trim((string) APP_ENV));
+
+    if ($configured !== '') {
+        return $configured;
+    }
+
+    $host = strtolower(trim((string) ($_SERVER['HTTP_HOST'] ?? '')));
+
+    if ($host === '' || str_contains($host, 'localhost') || str_contains($host, '127.0.0.1')) {
+        return 'local';
+    }
+
+    return 'production';
+}
+
+function is_local_environment(): bool
+{
+    return in_array(app_environment(), ['local', 'development', 'dev', 'test'], true);
+}
+
+function debug_links_enabled(): bool
+{
+    $configured = strtolower(trim((string) (getenv('APP_DEBUG_LINKS') ?: '')));
+
+    if ($configured !== '') {
+        return in_array($configured, ['1', 'true', 'yes', 'on'], true);
+    }
+
+    return is_local_environment();
+}
+
+function app_primary_email(): string
+{
+    return trim((string) APP_PRIMARY_EMAIL);
+}
+
+function app_support_email(): string
+{
+    return trim((string) APP_SUPPORT_EMAIL);
+}
+
+function app_info_email(): string
+{
+    return trim((string) APP_INFO_EMAIL);
+}
+
+function app_mail_from_email(): string
+{
+    return trim((string) APP_MAIL_FROM_EMAIL);
+}
+
+function app_mail_from_name(): string
+{
+    return trim((string) APP_MAIL_FROM_NAME);
 }
 
 function normalized_base_url(?string $value): string
@@ -69,6 +127,25 @@ function current_request_base_url(): string
     return $scheme . '://' . $host;
 }
 
+function asset_url(string $path): string
+{
+    $relativePath = ltrim($path, '/');
+    $url = app_url($relativePath);
+    $filePath = dirname(__DIR__) . '/' . $relativePath;
+
+    if (!is_file($filePath)) {
+        return $url;
+    }
+
+    $version = filemtime($filePath);
+
+    if ($version === false) {
+        return $url;
+    }
+
+    return $url . '?v=' . $version;
+}
+
 function e(?string $value): string
 {
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
@@ -82,6 +159,73 @@ function page_title(?string $title): string
 function current_year(): string
 {
     return date('Y');
+}
+
+function app_theme_options(): array
+{
+    return [
+        [
+            'value' => 'good-news',
+            'label' => 'Good News',
+            'meta_color' => '#22333b',
+        ],
+        [
+            'value' => 'spring',
+            'label' => 'Spring',
+            'meta_color' => '#5f8f52',
+        ],
+        [
+            'value' => 'summer',
+            'label' => 'Summer',
+            'meta_color' => '#1d6fa3',
+        ],
+        [
+            'value' => 'fall',
+            'label' => 'Fall',
+            'meta_color' => '#8c4b22',
+        ],
+        [
+            'value' => 'winter',
+            'label' => 'Winter',
+            'meta_color' => '#496c88',
+        ],
+        [
+            'value' => 'wood-cabin',
+            'label' => 'Wood Cabin',
+            'meta_color' => '#6b4423',
+        ],
+        [
+            'value' => 'swordsman',
+            'label' => 'Swordsman',
+            'meta_color' => '#4d6275',
+        ],
+        [
+            'value' => 'dark-mode',
+            'label' => 'Dark Mode',
+            'meta_color' => '#15181d',
+        ],
+    ];
+}
+
+function normalize_app_theme(?string $theme): string
+{
+    $normalized = strtolower(trim((string) $theme));
+    $allowedThemes = array_column(app_theme_options(), 'value');
+
+    return in_array($normalized, $allowedThemes, true) ? $normalized : 'good-news';
+}
+
+function app_theme_meta_color(string $theme): string
+{
+    $normalizedTheme = normalize_app_theme($theme);
+
+    foreach (app_theme_options() as $option) {
+        if (($option['value'] ?? '') === $normalizedTheme) {
+            return (string) ($option['meta_color'] ?? '#22333b');
+        }
+    }
+
+    return '#22333b';
 }
 
 function profile_initials(string $name): string
@@ -116,11 +260,21 @@ function render_verse_text_with_highlights(string $verseText, array $highlights 
     }
 
     $segments = [];
+    $fullVerseClass = null;
 
     foreach ($highlights as $highlight) {
         $start = isset($highlight['selection_start']) ? (int) $highlight['selection_start'] : null;
         $end = isset($highlight['selection_end']) ? (int) $highlight['selection_end'] : null;
         $selectedText = trim((string) ($highlight['selected_text'] ?? ''));
+        $highlightClass = highlight_class((string) ($highlight['highlight_color'] ?? 'neon-yellow'));
+
+        if ($selectedText === '' && $start === null && $end === null) {
+            if (!empty($highlight['highlight_color'])) {
+                $fullVerseClass = $highlightClass;
+            }
+
+            continue;
+        }
 
         if ($start === null || $end === null || $end <= $start) {
             if ($selectedText === '') {
@@ -144,11 +298,15 @@ function render_verse_text_with_highlights(string $verseText, array $highlights 
         $segments[] = [
             'start' => $start,
             'end' => $end,
-            'class' => highlight_class((string) ($highlight['highlight_color'] ?? 'neon-yellow')),
+            'class' => $highlightClass,
         ];
     }
 
     if ($segments === []) {
+        if ($fullVerseClass !== null) {
+            return '<mark class="verse-highlight ' . e($fullVerseClass) . '">' . e($verseText) . '</mark>';
+        }
+
         return e($verseText);
     }
 
@@ -173,6 +331,10 @@ function render_verse_text_with_highlights(string $verseText, array $highlights 
     }
 
     $output .= e(mb_substr($verseText, $cursor));
+
+    if ($fullVerseClass !== null) {
+        return '<span class="verse-highlight ' . e($fullVerseClass) . '">' . $output . '</span>';
+    }
 
     return $output;
 }

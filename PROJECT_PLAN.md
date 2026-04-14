@@ -1,4 +1,4 @@
-# Bible App Project Plan
+# Good News Bible Project Plan
 
 ## 1. Core Direction
 

@@ -16,16 +16,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $email = trim($_POST['email'] ?? '');
     $password = trim($_POST['password'] ?? '');
+    $rateLimitKey = rate_limit_key('login', mb_strtolower($email));
 
     if ($email === '' || $password === '') {
         $errorMessage = 'Enter both email and password.';
     } else {
         try {
+            enforce_rate_limit($rateLimitKey, 8, 900);
             $user = find_user_for_login($email, $password);
 
             if ($user === null) {
                 $errorMessage = 'We could not match that email and password.';
             } else {
+                clear_rate_limit($rateLimitKey);
                 session_regenerate_id(true);
                 log_in_user($user);
                 set_flash('You are signed in.', 'success');
@@ -43,35 +46,51 @@ $activePage = '';
 require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
-    <div class="container narrow">
-        <div class="panel">
-            <p class="eyebrow">Account Access</p>
-            <h1>Sign in</h1>
-            <p>Use your saved account to open bookmarks, notes, planner items, and profile tools.</p>
+    <div class="container">
+        <div class="auth-shell">
+            <aside class="auth-rail">
+                <div>
+                    <p class="eyebrow">Account Access</p>
+                    <h2>Pick up where your study left off.</h2>
+                    <p>Sign in to reopen your saved verses, personal notes, planner rhythms, and community tools.</p>
+                </div>
 
-            <?php if ($errorMessage): ?>
-                <div class="flash flash-warning"><?= e($errorMessage); ?></div>
-            <?php endif; ?>
+                <ul class="auth-feature-list">
+                    <li><span class="auth-feature-mark">1</span><span>Open the Bible reader with your saved context.</span></li>
+                    <li><span class="auth-feature-mark">2</span><span>Manage bookmarks, notes, planner goals, and profile settings.</span></li>
+                    <li><span class="auth-feature-mark">3</span><span>Use stronger session controls across your devices.</span></li>
+                </ul>
+            </aside>
 
-            <form class="form-stack" method="post">
-                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+            <div class="auth-panel">
+                <p class="eyebrow">Sign In</p>
+                <h1>Welcome back</h1>
+                <p>Use your saved account to open bookmarks, notes, planner items, and profile tools.</p>
 
-                <label>
-                    <span>Email</span>
-                    <input type="email" name="email" value="<?= e($email); ?>" placeholder="you@example.com" required>
-                </label>
+                <?php if ($errorMessage): ?>
+                    <div class="flash flash-warning"><?= e($errorMessage); ?></div>
+                <?php endif; ?>
 
-                <label>
-                    <span>Password</span>
-                    <input type="password" name="password" placeholder="Enter your password" required>
-                </label>
+                <form class="form-stack" method="post">
+                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
 
-                <button class="button button-primary" type="submit">Sign In</button>
-            </form>
+                    <label>
+                        <span>Email</span>
+                        <input type="email" name="email" value="<?= e($email); ?>" placeholder="you@example.com" required>
+                    </label>
 
-            <div class="inline-actions top-gap-sm">
-                <a class="button button-secondary" href="<?= e(app_url('forgot-password.php')); ?>">Forgot password</a>
-                <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create account</a>
+                    <label>
+                        <span>Password</span>
+                        <input type="password" name="password" placeholder="Enter your password" required>
+                    </label>
+
+                    <button class="button button-primary" type="submit">Sign In</button>
+                </form>
+
+                <div class="auth-helper-links top-gap-sm">
+                    <a class="button button-secondary" href="<?= e(app_url('forgot-password.php')); ?>">Forgot password</a>
+                    <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create account</a>
+                </div>
             </div>
         </div>
     </div>

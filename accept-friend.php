@@ -42,37 +42,47 @@ $activePage = '';
 require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
-    <div class="container narrow">
-        <div class="panel">
-            <p class="eyebrow">Friend Invite</p>
-            <h1>Accept connection</h1>
+    <div class="container">
+        <div class="auth-shell">
+            <aside class="auth-rail">
+                <div>
+                    <p class="eyebrow">Friend Invite</p>
+                    <h2>Grow your circle intentionally.</h2>
+                    <p>Accept shared study connections only when the invite matches the email and relationship you expect.</p>
+                </div>
+            </aside>
 
-            <?php if ($pageError): ?>
-                <div class="flash flash-warning"><?= e($pageError); ?></div>
-            <?php endif; ?>
+            <div class="auth-panel">
+                <p class="eyebrow">Friend Invite</p>
+                <h1>Accept connection</h1>
 
-            <?php if ($invite === null): ?>
-                <p>This friend invite is missing, invalid, or expired.</p>
-                <a class="button button-secondary" href="<?= e(app_url('friends.php')); ?>">Open Friends</a>
-            <?php else: ?>
-                <p>
-                    <strong><?= e((string) $invite['sender_name']); ?></strong>
-                    invited
-                    <strong><?= e((string) $invite['recipient_email']); ?></strong>
-                    to connect.
-                </p>
-
-                <?php if ($user === null): ?>
-                    <p>Sign in with the invited email address to accept this connection.</p>
-                    <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In</a>
-                <?php else: ?>
-                    <form class="form-stack" method="post">
-                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                        <input type="hidden" name="token" value="<?= e($token); ?>">
-                        <button class="button button-primary" type="submit">Accept Invite</button>
-                    </form>
+                <?php if ($pageError): ?>
+                    <div class="flash flash-warning"><?= e($pageError); ?></div>
                 <?php endif; ?>
-            <?php endif; ?>
+
+                <?php if ($invite === null): ?>
+                    <p>This friend invite is missing, invalid, or expired.</p>
+                    <a class="button button-secondary" href="<?= e(app_url('friends.php')); ?>">Open Friends</a>
+                <?php else: ?>
+                    <p>
+                        <strong><?= e((string) $invite['sender_name']); ?></strong>
+                        invited
+                        <strong><?= e((string) $invite['recipient_email']); ?></strong>
+                        to connect.
+                    </p>
+
+                    <?php if ($user === null): ?>
+                        <p>Sign in with the invited email address to accept this connection.</p>
+                        <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In</a>
+                    <?php else: ?>
+                        <form class="form-stack" method="post">
+                            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                            <input type="hidden" name="token" value="<?= e($token); ?>">
+                            <button class="button button-primary" type="submit">Accept Invite</button>
+                        </form>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 </section>

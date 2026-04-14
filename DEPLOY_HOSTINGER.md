@@ -7,7 +7,7 @@ This app is a plain PHP + MySQL site. It is not a Node app and it does not need 
 The repo now matches the shape you can deploy directly into Hostinger `public_html`:
 
 ```text
-Bible App/
+Good News Bible/
   .htaccess
   index.php
   bible.php

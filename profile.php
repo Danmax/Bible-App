@@ -12,6 +12,7 @@ $user = refresh_current_user();
 $pageError = null;
 $emailChangeLink = null;
 $pendingEmailChange = null;
+$activeSessions = [];
 $profileEditMode = false;
 $passwordEditMode = false;
 
@@ -31,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $email = trim($_POST['email'] ?? '');
             $city = trim($_POST['city'] ?? '');
             $avatarUrl = trim($_POST['avatar_url'] ?? '');
+            $primaryFlag = trim($_POST['primary_flag'] ?? '');
             $normalizedRequestedEmail = mb_strtolower($email);
             $normalizedCurrentEmail = mb_strtolower((string) ($user['email'] ?? ''));
 
@@ -40,8 +42,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pageError = 'Enter a valid email address.';
             } elseif ($avatarUrl !== '' && filter_var($avatarUrl, FILTER_VALIDATE_URL) === false) {
                 $pageError = 'Avatar must be a valid image URL.';
+            } elseif (mb_strlen($primaryFlag) > 24) {
+                $pageError = 'Flag must stay under 24 characters.';
             } else {
-                $user = update_user_profile_record((int) $user['id'], $name, (string) $user['email'], $city, $avatarUrl);
+                $user = update_user_profile_record(
+                    (int) $user['id'],
+                    $name,
+                    (string) $user['email'],
+                    $city,
+                    $avatarUrl,
+                    $primaryFlag
+                );
                 log_in_user($user);
 
                 if ($normalizedRequestedEmail !== $normalizedCurrentEmail) {
@@ -51,9 +62,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $pageError = 'That email address is already in use.';
                     } else {
                         $token = create_email_change_token((int) $user['id'], $email);
-                        $emailChangeLink = app_url('confirm-email.php', true) . '?token=' . urlencode($token);
+                        $confirmationLink = app_url('confirm-email.php', true) . '?token=' . urlencode($token);
+
+                        if (debug_links_enabled()) {
+                            $emailChangeLink = $confirmationLink;
+                        }
+
+                        $deliverySent = false;
+
+                        if (mailer_enabled()) {
+                            try {
+                                send_email_change_confirmation_email(
+                                    (string) ($user['name'] ?? ''),
+                                    $email,
+                                    (string) ($user['email'] ?? ''),
+                                    $confirmationLink
+                                );
+                                $deliverySent = true;
+                            } catch (Throwable $mailException) {
+                                $deliverySent = false;
+                            }
+                        }
+
                         $pendingEmailChange = fetch_pending_email_change_request((int) $user['id']);
-                        set_flash('Profile updated. Confirm the new email from the approval link below before it becomes active.', 'success');
+                        set_flash(
+                            $deliverySent
+                                ? 'Profile updated. Confirm the new email from your inbox before it becomes active.'
+                                : (
+                                    debug_links_enabled()
+                                        ? 'Profile updated. Confirm the new email from the approval link below before it becomes active.'
+                                        : 'Profile updated. The email change request was created, but delivery is not configured yet.'
+                                ),
+                            $deliverySent || debug_links_enabled() ? 'success' : 'warning'
+                        );
                     }
                 } else {
                     set_flash('Profile updated.', 'success');
@@ -74,9 +115,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pageError = 'Password confirmation does not match.';
             } else {
                 update_user_password_record((int) $user['id'], $password);
+                if (user_sessions_available()) {
+                    revoke_other_user_sessions((int) $user['id'], session_id());
+                }
+                record_audit_event((int) $user['id'], 'password_change.completed', (int) $user['id'], [
+                    'source' => 'profile',
+                    'other_sessions_revoked' => user_sessions_available(),
+                ]);
                 set_flash('Password updated.', 'success');
                 redirect('profile.php');
             }
+        }
+
+        if ($action === 'revoke-other-sessions') {
+            if (!user_sessions_available()) {
+                throw new RuntimeException('Session controls are not available yet.');
+            }
+
+            revoke_other_user_sessions((int) $user['id'], session_id());
+            record_audit_event((int) $user['id'], 'session.revoke_others', (int) $user['id'], [
+                'source' => 'profile',
+            ]);
+            set_flash('Other devices have been signed out.', 'success');
+            redirect('profile.php');
+        }
+
+        if ($action === 'revoke-session') {
+            if (!user_sessions_available()) {
+                throw new RuntimeException('Session controls are not available yet.');
+            }
+
+            $sessionRecordId = (int) ($_POST['session_record_id'] ?? 0);
+
+            if ($sessionRecordId <= 0) {
+                throw new RuntimeException('Select a valid session.');
+            }
+
+            $revoked = revoke_user_session_record_by_id((int) $user['id'], $sessionRecordId);
+
+            if (!$revoked) {
+                throw new RuntimeException('That session could not be revoked.');
+            }
+
+            record_audit_event((int) $user['id'], 'session.revoked_by_user', (int) $user['id'], [
+                'source' => 'profile',
+                'session_record_id' => $sessionRecordId,
+            ]);
+            set_flash('Selected device signed out.', 'success');
+            redirect('profile.php');
         }
     } catch (PDOException $exception) {
         $pageError = $exception->getCode() === '23000'
@@ -101,6 +187,16 @@ if ($pendingEmailChange === null) {
     } catch (Throwable $exception) {
         if ($pageError === null) {
             $pageError = 'Profile changes could not be loaded because the database is unavailable.';
+        }
+    }
+}
+
+if (user_sessions_available()) {
+    try {
+        $activeSessions = fetch_user_session_records((int) $user['id'], session_id());
+    } catch (Throwable $exception) {
+        if ($pageError === null) {
+            $pageError = 'Active sessions could not be loaded because the database is unavailable.';
         }
     }
 }
@@ -134,7 +230,12 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="profile-hero-copy">
                     <span class="profile-badge">Member Profile</span>
                     <div class="profile-hero-heading">
-                        <h2><?= e($user['name'] ?? 'Member'); ?></h2>
+                        <h2>
+                            <?= e($user['name'] ?? 'Member'); ?>
+                            <?php if (!empty($user['primary_flag'])): ?>
+                                <span class="profile-flag-inline" title="Flag"><?= e((string) $user['primary_flag']); ?></span>
+                            <?php endif; ?>
+                        </h2>
                         <p class="muted-copy"><?= e($user['city'] ?: 'City not set yet'); ?></p>
                     </div>
 
@@ -146,10 +247,6 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="profile-meta-card">
                             <span>Email</span>
                             <strong><?= e((string) ($user['email'] ?? '')); ?></strong>
-                        </div>
-                        <div class="profile-meta-card">
-                            <span>Email changes</span>
-                            <strong>Approval required</strong>
                         </div>
                     </div>
                 </div>
@@ -167,7 +264,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="panel-heading">
                     <div>
                         <h3>Edit profile</h3>
-                        <p class="muted-copy">Update your name, city, avatar, and request an email change.</p>
+                        <p class="muted-copy">Update your name, city, flags, avatar, and request an email change.</p>
                     </div>
                 </div>
 
@@ -176,9 +273,7 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="action" value="profile">
 
                     <div class="inline-actions profile-actions">
-                        <button class="button button-secondary" type="button" data-profile-edit-toggle <?= $profileEditMode ? 'hidden' : ''; ?>>Edit Profile</button>
-                        <button class="button button-secondary" type="button" data-profile-edit-cancel <?= $profileEditMode ? '' : 'hidden'; ?>>Cancel</button>
-                        <button class="button button-primary" type="submit" data-profile-save <?= $profileEditMode ? '' : 'hidden'; ?>>Save Profile</button>
+                        <button class="button button-secondary" type="button" data-profile-edit-toggle <?= $profileEditMode ? '' : 'aria-hidden="false"'; ?> <?= $profileEditMode ? 'hidden style="display: none;" aria-hidden="true"' : ''; ?>>Edit Profile</button>
                     </div>
 
                     <div
@@ -201,21 +296,136 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="text" name="city" value="<?= e($user['city'] ?? ''); ?>" placeholder="Charlotte" <?= $profileEditMode ? '' : 'disabled'; ?>>
                         </label>
 
+                        <?php
+                        $flagOptions = [
+                            '🇺🇸','🇬🇧','🇨🇦','🇦🇺','🇳🇿',
+                            '🇲🇽','🇧🇷','🇦🇷','🇨🇴','🇵🇪','🇨🇱','🇻🇪','🇩🇴','🇵🇷','🇨🇺',
+                            '🇬🇹','🇭🇳','🇸🇻','🇳🇮','🇨🇷','🇵🇦','🇧🇴','🇵🇾','🇺🇾','🇪🇨',
+                            '🇪🇸','🇫🇷','🇩🇪','🇮🇹','🇵🇹','🇳🇱','🇧🇪','🇨🇭','🇸🇪','🇳🇴',
+                            '🇩🇰','🇫🇮','🇵🇱','🇺🇦','🇷🇺','🇬🇷','🇷🇴','🇭🇺','🇨🇿','🇦🇹',
+                            '🇵🇭','🇰🇷','🇯🇵','🇨🇳','🇮🇳','🇮🇩','🇻🇳','🇹🇭','🇲🇾','🇸🇬',
+                            '🇰🇪','🇳🇬','🇬🇭','🇿🇦','🇪🇹','🇹🇿','🇺🇬','🇨🇲','🇸🇳','🇨🇮',
+                            '🇮🇱','🇸🇦','🇦🇪','🇪🇬','🇯🇴','🇱🇧','🇮🇶','🇮🇷','🇵🇰','🇧🇩',
+                        ];
+                        ?>
+                        <div class="flag-picker-group">
+                            <div class="flag-picker-fields">
+                                <div class="flag-picker-field">
+                                    <label>
+                                        <span>Flag</span>
+                                        <div class="flag-input-wrap">
+                                            <input
+                                                class="flag-input"
+                                                type="text"
+                                                name="primary_flag"
+                                                value="<?= e($user['primary_flag'] ?? ''); ?>"
+                                                placeholder="🇺🇸"
+                                                maxlength="24"
+                                                <?= $profileEditMode ? '' : 'disabled'; ?>
+                                                data-flag-input="primary"
+                                            >
+                                            <button class="flag-clear-btn" type="button" data-flag-clear="primary" title="Clear">&times;</button>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="flag-grid" data-flag-grid>
+                                <?php foreach ($flagOptions as $flag): ?>
+                                    <button
+                                        class="flag-option"
+                                        type="button"
+                                        data-flag-option="<?= e($flag); ?>"
+                                        title="<?= e($flag); ?>"
+                                    ><?= e($flag); ?></button>
+                                <?php endforeach; ?>
+                            </div>
+                            <p class="muted-copy" style="font-size:0.8rem">Tap a flag to select it · tap again to clear</p>
+                        </div>
+
                         <label>
                             <span>Avatar Image URL</span>
                             <input type="url" name="avatar_url" value="<?= e($user['avatar_url'] ?? ''); ?>" placeholder="https://example.com/avatar.jpg" <?= $profileEditMode ? '' : 'disabled'; ?>>
                         </label>
+
+                        <div class="inline-actions profile-actions profile-action-footer">
+                            <button class="button button-secondary" type="button" data-profile-edit-cancel <?= $profileEditMode ? '' : 'hidden style="display: none;" aria-hidden="true"'; ?>>Cancel</button>
+                            <button class="button button-primary" type="submit" data-profile-save <?= $profileEditMode ? '' : 'hidden style="display: none;" aria-hidden="true"'; ?>>Save Profile</button>
+                        </div>
                     </div>
                 </form>
             </section>
 
-            <?php if ($emailChangeLink): ?>
+            <?php if ($emailChangeLink && debug_links_enabled()): ?>
                 <div class="inline-message top-gap-sm">
-                    <strong>Email approval link</strong>
-                    <p>This build still exposes the approval link directly until outbound email delivery is added.</p>
+                    <strong>Debug email approval link</strong>
+                    <p>This preview is only shown when debug links are enabled.</p>
                     <p><a href="<?= e($emailChangeLink); ?>"><?= e($emailChangeLink); ?></a></p>
                 </div>
             <?php endif; ?>
+
+            <div class="top-gap" data-community-panels>
+                <div class="community-action-bar">
+                    <button
+                        class="button button-secondary"
+                        type="button"
+                        data-community-panel-toggle="appearance"
+                        aria-expanded="false"
+                    >
+                        Appearance Settings
+                    </button>
+                </div>
+
+                <section
+                    class="panel-modal"
+                    data-community-panel="appearance"
+                    data-panel-modal
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="profile-appearance-modal-title"
+                    hidden
+                    aria-hidden="true"
+                    style="display: none;"
+                >
+                    <div class="panel community-manager-panel panel-modal-card" data-panel-modal-content>
+                        <div class="panel-heading">
+                            <div>
+                                <h3 id="profile-appearance-modal-title">Appearance</h3>
+                                <p class="muted-copy">Choose the site theme you want on this browser.</p>
+                            </div>
+                            <button class="button button-secondary" type="button" data-community-panel-close="appearance">Close</button>
+                        </div>
+
+                        <div class="form-stack top-gap-sm">
+                            <label>
+                                <span>Site theme</span>
+                                <select data-app-theme-select aria-label="Select site theme">
+                                    <?php foreach (app_theme_options() as $themeOption): ?>
+                                        <option value="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>">
+                                            <?= e((string) ($themeOption['label'] ?? 'Theme')); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+
+                            <div class="theme-swatch-grid" aria-hidden="true">
+                                <?php foreach (app_theme_options() as $themeOption): ?>
+                                    <button
+                                        class="theme-swatch"
+                                        type="button"
+                                        data-app-theme-option="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>"
+                                        title="<?= e((string) ($themeOption['label'] ?? 'Theme')); ?>"
+                                    >
+                                        <span><?= e((string) ($themeOption['label'] ?? 'Theme')); ?></span>
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+
+                            <p class="muted-copy" data-app-theme-status>Theme changes are saved on this device.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
 
             <section class="account-action-card top-gap">
                 <div class="panel-heading">
@@ -230,9 +440,7 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="action" value="password">
 
                     <div class="inline-actions profile-actions">
-                        <button class="button button-secondary" type="button" data-password-edit-toggle <?= $passwordEditMode ? 'hidden' : ''; ?>>Change Password</button>
-                        <button class="button button-secondary" type="button" data-password-edit-cancel <?= $passwordEditMode ? '' : 'hidden'; ?>>Cancel</button>
-                        <button class="button button-primary" type="submit" data-password-save <?= $passwordEditMode ? '' : 'hidden'; ?>>Update Password</button>
+                        <button class="button button-secondary" type="button" data-password-edit-toggle <?= $passwordEditMode ? '' : 'aria-hidden="false"'; ?> <?= $passwordEditMode ? 'hidden style="display: none;" aria-hidden="true"' : ''; ?>>Change Password</button>
                     </div>
 
                     <div
@@ -249,8 +457,82 @@ require_once __DIR__ . '/includes/header.php';
                             <span>Confirm Password</span>
                             <input type="password" name="password_confirm" minlength="8" required <?= $passwordEditMode ? '' : 'disabled'; ?>>
                         </label>
+
+                        <div class="inline-actions profile-actions profile-action-footer">
+                            <button class="button button-secondary" type="button" data-password-edit-cancel <?= $passwordEditMode ? '' : 'hidden style="display: none;" aria-hidden="true"'; ?>>Cancel</button>
+                            <button class="button button-primary" type="submit" data-password-save <?= $passwordEditMode ? '' : 'hidden style="display: none;" aria-hidden="true"'; ?>>Update Password</button>
+                        </div>
                     </div>
                 </form>
+            </section>
+
+            <section class="account-action-card top-gap">
+                <div class="panel-heading">
+                    <div>
+                        <h3>Active sessions</h3>
+                        <p class="muted-copy">Review the devices signed in to your account and revoke any session you do not recognize.</p>
+                    </div>
+
+                    <?php if (user_sessions_available() && count($activeSessions) > 1): ?>
+                        <form method="post">
+                            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                            <input type="hidden" name="action" value="revoke-other-sessions">
+                            <button class="button button-secondary" type="submit">Sign Out Other Devices</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (!user_sessions_available()): ?>
+                    <div class="inline-message top-gap-sm">
+                        <strong>Session controls pending</strong>
+                        <p>Run the user session migration to enable device-level session management.</p>
+                    </div>
+                <?php elseif ($activeSessions === []): ?>
+                    <p class="muted-copy top-gap-sm">No active session records were found.</p>
+                <?php else: ?>
+                    <div class="session-list top-gap-sm">
+                        <?php foreach ($activeSessions as $session): ?>
+                            <?php $isCurrentSession = (string) ($session['session_id'] ?? '') === session_id(); ?>
+                            <article class="session-card">
+                                <div class="session-card-body">
+                                    <div class="session-card-top">
+                                        <div>
+                                            <strong><?= $isCurrentSession ? 'Current device' : 'Signed-in device'; ?></strong>
+                                            <p class="muted-copy"><?= e((string) ($session['user_agent'] ?: 'Browser details unavailable')); ?></p>
+                                        </div>
+                                        <?php if ($isCurrentSession): ?>
+                                            <span class="profile-badge session-badge">Current</span>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div class="session-meta-grid">
+                                        <div class="profile-meta-card">
+                                            <span>Last active</span>
+                                            <strong><?= e(format_event_datetime((string) $session['last_seen_at'])); ?></strong>
+                                        </div>
+                                        <div class="profile-meta-card">
+                                            <span>Expires</span>
+                                            <strong><?= e(format_event_datetime((string) $session['expires_at'])); ?></strong>
+                                        </div>
+                                        <div class="profile-meta-card">
+                                            <span>IP address</span>
+                                            <strong><?= e((string) ($session['ip_address'] ?: 'Unknown')); ?></strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <?php if (!$isCurrentSession): ?>
+                                    <form method="post" class="session-card-action">
+                                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                                        <input type="hidden" name="action" value="revoke-session">
+                                        <input type="hidden" name="session_record_id" value="<?= e((string) $session['id']); ?>">
+                                        <button class="button button-secondary" type="submit">Sign Out</button>
+                                    </form>
+                                <?php endif; ?>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </section>
         </div>
     </div>

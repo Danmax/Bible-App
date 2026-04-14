@@ -38,17 +38,41 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
     <div class="container">
-        <div class="section-heading">
-            <p class="eyebrow">Personal Dashboard</p>
-            <h1>Welcome back, <?= e($user['name'] ?? 'Member'); ?></h1>
-            <p>Your study life, saved verses, notes, and community rhythm all in one place.</p>
+        <div class="section-heading section-heading-rich">
+            <div>
+                <p class="eyebrow">Personal Dashboard</p>
+                <h1>Welcome back, <?= e($user['name'] ?? 'Member'); ?></h1>
+                <p>Your study life, saved verses, notes, and community rhythm all in one place.</p>
+            </div>
+
+            <div class="quick-stat-row">
+                <div class="quick-stat">
+                    <strong><?= e((string) $stats['bookmarks']); ?></strong>
+                    <span>saved passages</span>
+                </div>
+                <div class="quick-stat">
+                    <strong><?= e((string) $stats['notes']); ?></strong>
+                    <span>study notes</span>
+                </div>
+                <div class="quick-stat">
+                    <strong><?= e((string) $stats['events']); ?></strong>
+                    <span>upcoming events</span>
+                </div>
+            </div>
+
+            <div class="hero-actions">
+                <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Open Bible</a>
+                <a class="button button-secondary" href="<?= e(app_url('good-news.php')); ?>">Open Good News</a>
+                <a class="button button-secondary" href="<?= e(app_url('planner.php')); ?>">Open Planner</a>
+                <a class="button button-secondary" href="<?= e(app_url('community.php')); ?>">Open Community</a>
+            </div>
         </div>
 
         <?php if ($pageError): ?>
             <div class="flash flash-warning"><?= e($pageError); ?></div>
         <?php endif; ?>
 
-        <div class="card-grid card-grid-4">
+        <div class="card-grid card-grid-4 top-gap">
             <article class="dashboard-card">
                 <span class="feature-icon">BM</span>
                 <h3>Bookmarks</h3>
@@ -71,7 +95,7 @@ require_once __DIR__ . '/includes/header.php';
             </article>
         </div>
 
-        <div class="two-column">
+        <div class="two-column top-gap">
             <div class="panel">
                 <div class="panel-heading">
                     <div>

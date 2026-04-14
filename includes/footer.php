@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+
+$pageScripts = isset($pageScripts) && is_array($pageScripts) ? $pageScripts : [];
 ?>
         </main>
 
@@ -8,7 +10,7 @@ declare(strict_types=1);
             <div class="container footer-grid">
                 <div>
                     <h3><?= e(APP_NAME); ?></h3>
-                    <p>Built for Scripture study, verse celebration, and a stronger community rhythm.</p>
+                    <p>Study The Word Bible, save what matters, and stay rooted in a stronger community rhythm.</p>
                 </div>
                 <div>
                     <h4>Core Areas</h4>
@@ -27,6 +29,11 @@ declare(strict_types=1);
         </footer>
     </div>
 
-    <script src="<?= e(app_url('assets/js/app.js')); ?>"></script>
+    <script src="<?= e(asset_url('assets/js/app.js')); ?>"></script>
+    <?php foreach ($pageScripts as $pageScript): ?>
+        <?php if (is_string($pageScript) && trim($pageScript) !== ''): ?>
+            <script src="<?= e(asset_url($pageScript)); ?>"></script>
+        <?php endif; ?>
+    <?php endforeach; ?>
 </body>
 </html>
