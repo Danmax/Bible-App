@@ -83,7 +83,7 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                     <a class="<?= $activePage === 'home' ? 'is-active' : ''; ?>" href="<?= e(app_url('index.php')); ?>">Home</a>
                     <a class="<?= $activePage === 'good-news' ? 'is-active' : ''; ?>" href="<?= e(app_url('good-news.php')); ?>">Good News</a>
                     <?php
-                    $bibleActivePages = ['bible', 'bookmarks', 'notes'];
+                    $bibleActivePages = ['bible', 'bookmarks', 'notes', 'sermon-notes', 'sermon-note-view'];
                     $communityActivePages = ['community', 'sessions', 'friends', 'prayer'];
                     $dashboardActivePages = ['dashboard', 'planner'];
                     ?>
@@ -125,6 +125,12 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                                     'label' => 'Notes',
                                     'href' => app_url('notes.php'),
                                     'active' => $activePage === 'notes',
+                                    'class' => '',
+                                ],
+                                [
+                                    'label' => 'Sermons',
+                                    'href' => app_url('sermon-notes.php'),
+                                    'active' => $activePage === 'sermon-notes' || $activePage === 'sermon-note-view',
                                     'class' => '',
                                 ],
                             ],

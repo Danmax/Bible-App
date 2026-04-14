@@ -142,6 +142,24 @@ function public_radio_live_support_available(): bool
     return $available;
 }
 
+function sermon_notes_available(): bool
+{
+    static $available = null;
+
+    if ($available !== null) {
+        return $available;
+    }
+
+    try {
+        $statement = db()->query("SHOW TABLES LIKE 'sermon_notes'");
+        $available = $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $available = false;
+    }
+
+    return $available;
+}
+
 function record_audit_event(?int $actorUserId, string $eventType, ?int $targetUserId = null, array $context = []): void
 {
     if (!audit_logs_available()) {

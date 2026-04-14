@@ -3110,3 +3110,20 @@ if (shareComposer && shareComposerToggle) {
         shareComposerToggle.setAttribute('hidden', 'hidden');
     }
 }
+
+// ── Bookmark edit-panel toggle (bookmarks.php) ──────────────────────────
+document.querySelectorAll('.bookmark-edit-toggle').forEach(function (toggle) {
+    toggle.addEventListener('click', function () {
+        var panelId = toggle.getAttribute('aria-controls');
+        var panel = panelId ? document.getElementById(panelId) : null;
+
+        if (!panel) {
+            return;
+        }
+
+        var isOpen = !panel.hidden;
+        panel.hidden = isOpen;
+        toggle.setAttribute('aria-expanded', String(!isOpen));
+        toggle.classList.toggle('is-active', !isOpen);
+    });
+});

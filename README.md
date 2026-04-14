@@ -1,13 +1,13 @@
 # Good News Bible
 
-Good News Bible is a PHP + MySQL Bible study app focused on reading, prayer, notes, planning, and community. It is built for straightforward PHP hosting, mobile use, and gradual feature growth without a heavy framework.
+Good News Bible is a PHP + MySQL Bible study app focused on reading, prayer, sermon notes, planning, and community. It is built for straightforward PHP hosting, mobile use, and gradual feature growth without a heavy framework.
 
 ## Overview
 
 - Bible reader with quick reference search like `John 3:16` and `Daniel 6:20-24`
 - Verse view and paragraph view reader modes
 - Compact chapter and verse navigation with previous/next stepping
-- Bookmarks, multi-verse highlights, verse notes, and voice note support
+- Bookmarks, multi-verse highlights, verse notes, and voice note support with collapsible edit panels
 - Public post share composer for verses and passages with portrait and square templates
 - Seasonal site themes with `Spring`, `Summer`, `Fall`, `Winter`, and `Good News`
 - Good News hub for devotionals, events, plans, feed, celebrations, and prayer
@@ -18,6 +18,8 @@ Good News Bible is a PHP + MySQL Bible study app focused on reading, prayer, not
 - Christian radio player with YouTube playlist support, live stream detection, and admin station management
 - Local authentication with profile management, password reset, and active sessions
 - Friends, saved verses, dashboard, and notes surfaces
+- Sermon notes system with rich editor, storm board, verse citations, and AI assistance
+- Redesigned home page with daily verse, quick-access tiles, and new feature highlights
 
 ## Tech Stack
 
@@ -44,8 +46,10 @@ Default translation: `MSB`
 - `sessions.php`: public sessions listing
 - `planner.php`: planner and calendar
 - `prayer.php`: prayer requests
+- `sermon-notes.php`: sermon notes editor and note list
+- `sermon-note-view.php`: public shared sermon note view
 - `dashboard.php`: signed-in overview
-- `bookmarks.php`: saved verses
+- `bookmarks.php`: saved verses with collapsible edit panels
 - `notes.php`: notes
 - `friends.php`: friend invites and connections
 - `profile.php`: profile, password, and sessions
@@ -56,9 +60,10 @@ Default translation: `MSB`
 
 1. Create a MySQL database.
 2. Import `sql/schema.sql`.
-3. Copy `.env.example` to `.env.local`.
-4. Fill in database and app settings.
-5. Start the PHP server from the repo root.
+3. Run any applicable migration files from `sql/`.
+4. Copy `.env.example` to `.env.local`.
+5. Fill in database and app settings.
+6. Start the PHP server from the repo root.
 
 Example `.env.local`:
 
@@ -110,8 +115,33 @@ Optional OpenAI-assisted drafting and browser speech input are used for:
 - Bible search
 - notes
 - bookmark notes
+- sermon note summaries
+- sermon reference tag and verse suggestions
+- verse paraphrases for sermon study
 
-Set `OPENAI_API_KEY` in `.env.local` to enable model-based drafting. Voice input depends on browser speech-recognition support.
+Set `OPENAI_API_KEY` in `.env.local` to enable model-based drafting. Set `OPENAI_EVENT_MODEL` to choose which OpenAI model to use (default: `gpt-4o-mini`). Voice input depends on browser speech-recognition support.
+
+## Sermon Notes
+
+The sermon notes system includes:
+
+- Rich text editor with verse citation linking
+- Storm board for brainstorming and visual idea capture
+- Reference sidebar with verse quotes, character tags, place tags, and theme tags
+- Speaker notes input for transcript or outline capture
+- AI-assisted summary, key points, and application points
+- AI-suggested Bible references and thematic tags from note content
+- AI verse paraphrase for deeper study
+- Voice-to-text transcription for speaker notes
+- Public share links via unique share codes
+- Folder organization
+- Starred notes and draft/published status
+
+Sermon note AI endpoints:
+
+- `sermon-ai-summary.php`: generates structured sermon summary draft
+- `sermon-ai-references.php`: suggests Bible references and reference tags
+- `sermon-ai-paraphrase.php`: produces a study paraphrase of a cited verse
 
 ## Email Delivery
 
@@ -140,9 +170,15 @@ If relay setup is not ready yet, local debug links can still be used during deve
 
 - Passwords are stored with PHP password hashing
 - CSRF protection is enforced on form posts
-- Sensitive auth flows are rate-limited
+- Sensitive auth flows are rate-limited with database and session fallback layers
 - Session records can be tracked and revoked server-side
 - Audit logging exists for sensitive account and community actions
+- All SQL uses PDO prepared statements with `ATTR_EMULATE_PREPARES = false`
+- CSP header enforces `script-src 'self'` — no inline scripts permitted
+- All JavaScript must live in `assets/js/` files
+- `[hidden]` attribute is enforced via `[hidden] { display: none !important }` in the stylesheet
+- Rich HTML content (sermon notes) is sanitized with a DOMDocument whitelist before storage
+- Security headers include HSTS, X-Frame-Options, Referrer-Policy, and Permissions-Policy
 - Production should use a fixed `APP_BASE_URL`
 
 ## Migrations
@@ -160,6 +196,7 @@ Recent migrations:
 - `sql/add_community_event_enhancements.sql`
 - `sql/add_community_event_images.sql`
 - `sql/add_user_profile_flags.sql`
+- `sql/add_sermon_notes.sql`
 
 ## Bible Import Scripts
 
@@ -192,7 +229,7 @@ The source artwork for favicon, app icons, and social share previews is stored a
 assets/images/good-news-app.png
 ```
 
-Shared metadata is rendered from `includes/header.php`, which now includes Open Graph and Twitter image tags for link previews.
+Shared metadata is rendered from `includes/header.php`, which includes Open Graph and Twitter image tags for link previews.
 
 ## Sharing
 
@@ -203,6 +240,8 @@ The Bible reader includes a public-post share composer for chapter, verse, and p
 - selectable fonts and themes
 - optional Good News Bible branding
 - PNG download and native share when supported by the browser
+
+The share composer panel is toggled by the Share Post button below the verse reader and is hidden by default.
 
 The default branded share theme is `Good News Bible`, based on the current app icon palette.
 
@@ -249,8 +288,13 @@ The app includes a Christian radio feature with:
 
 ## Current Direction
 
-Current work has focused on:
+Recent work has focused on:
 
+- Sermon notes system with rich editor, storm board, AI assistance, and public sharing
+- AI-powered sermon summaries, reference suggestions, and verse paraphrases
+- Home page modernization with daily verse, quick-access tiles, and feature highlights
+- Bookmarks UI with collapsible edit panels
+- Security hardening: CSP compliance, `[hidden]` attribute enforcement, AI response error handling
 - Good News Bible branding, icons, and social preview metadata
 - Bible reader UX, mobile controls, and share-post tooling
 - seasonal site themes and global theme switcher

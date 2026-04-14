@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+
+$pageScripts = isset($pageScripts) && is_array($pageScripts) ? $pageScripts : [];
 ?>
         </main>
 
@@ -28,5 +30,10 @@ declare(strict_types=1);
     </div>
 
     <script src="<?= e(asset_url('assets/js/app.js')); ?>"></script>
+    <?php foreach ($pageScripts as $pageScript): ?>
+        <?php if (is_string($pageScript) && trim($pageScript) !== ''): ?>
+            <script src="<?= e(asset_url($pageScript)); ?>"></script>
+        <?php endif; ?>
+    <?php endforeach; ?>
 </body>
 </html>

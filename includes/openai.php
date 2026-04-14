@@ -110,13 +110,7 @@ function openai_generate_event_draft(string $prompt, array $categories, array $c
         throw new RuntimeException('The AI response was empty.');
     }
 
-    $draft = json_decode($text, true);
-
-    if (!is_array($draft)) {
-        throw new RuntimeException('The AI response could not be parsed into an event draft.');
-    }
-
-    return $draft;
+    return openai_decode_json_object($text, 'an event draft');
 }
 
 function openai_generate_planner_event_draft(string $prompt, ?string $eventDateHint = null): array
@@ -179,13 +173,7 @@ function openai_generate_planner_event_draft(string $prompt, ?string $eventDateH
         throw new RuntimeException('The AI response was empty.');
     }
 
-    $draft = json_decode($text, true);
-
-    if (!is_array($draft)) {
-        throw new RuntimeException('The AI response could not be parsed into a planner event draft.');
-    }
-
-    return $draft;
+    return openai_decode_json_object($text, 'a planner event draft');
 }
 
 function openai_generate_planner_goal_draft(string $prompt, ?int $yearHint = null): array
@@ -248,13 +236,7 @@ function openai_generate_planner_goal_draft(string $prompt, ?int $yearHint = nul
         throw new RuntimeException('The AI response was empty.');
     }
 
-    $draft = json_decode($text, true);
-
-    if (!is_array($draft)) {
-        throw new RuntimeException('The AI response could not be parsed into a planner goal draft.');
-    }
-
-    return $draft;
+    return openai_decode_json_object($text, 'a planner goal draft');
 }
 
 function openai_generate_prayer_request_draft(string $prompt): array
@@ -306,13 +288,281 @@ function openai_generate_prayer_request_draft(string $prompt): array
         throw new RuntimeException('The AI response was empty.');
     }
 
-    $draft = json_decode($text, true);
+    return openai_decode_json_object($text, 'a prayer request draft');
+}
 
-    if (!is_array($draft)) {
-        throw new RuntimeException('The AI response could not be parsed into a prayer request draft.');
+function openai_generate_sermon_summary(string $speakerNotes, string $currentNote = ''): array
+{
+    if (!openai_event_drafts_enabled()) {
+        throw new RuntimeException('OpenAI sermon drafting is not configured yet.');
     }
 
-    return $draft;
+    $normalizedSpeakerNotes = trim($speakerNotes);
+    $normalizedCurrentNote = trim($currentNote);
+
+    if ($normalizedSpeakerNotes === '' && $normalizedCurrentNote === '') {
+        throw new RuntimeException('Add speaker notes or sermon content first.');
+    }
+
+    $systemPrompt = implode("\n", [
+        'You summarize sermon notes into structured JSON for a Bible study app.',
+        'Return only valid JSON. Do not wrap it in markdown.',
+        'Use this exact object shape:',
+        '{',
+        '  "summary": string,',
+        '  "key_points": string[],',
+        '  "application_points": string[],',
+        '  "prayer_focus": string,',
+        '  "title": string',
+        '}',
+        'Rules:',
+        '- Keep summary concise and pastoral.',
+        '- key_points should contain 3 to 6 short bullets without numbering.',
+        '- application_points should contain 2 to 5 practical responses.',
+        '- prayer_focus should be one short sentence.',
+        '- title should be concise and usable as a sermon note title.',
+        '- Do not invent Bible references or facts that are not clearly supported.',
+    ]);
+
+    $userPrompt = implode("\n\n", array_filter([
+        $normalizedSpeakerNotes !== '' ? 'Speaker notes or transcript:' . "\n" . $normalizedSpeakerNotes : null,
+        $normalizedCurrentNote !== '' ? 'Current sermon note draft:' . "\n" . $normalizedCurrentNote : null,
+    ]));
+
+    $response = openai_post_responses([
+        'model' => openai_event_model(),
+        'input' => [
+            [
+                'role' => 'system',
+                'content' => $systemPrompt,
+            ],
+            [
+                'role' => 'user',
+                'content' => $userPrompt,
+            ],
+        ],
+        'max_output_tokens' => 900,
+    ]);
+
+    $text = trim(openai_extract_response_text($response));
+
+    if ($text === '') {
+        throw new RuntimeException('The AI response was empty.');
+    }
+
+    return openai_decode_json_object($text, 'a sermon summary');
+}
+
+function openai_generate_sermon_reference_suggestions(string $noteText): array
+{
+    if (!openai_event_drafts_enabled()) {
+        throw new RuntimeException('OpenAI sermon drafting is not configured yet.');
+    }
+
+    $normalizedNoteText = trim($noteText);
+
+    if ($normalizedNoteText === '') {
+        throw new RuntimeException('Add sermon content first.');
+    }
+
+    $systemPrompt = implode("\n", [
+        'You extract structured Bible study metadata from sermon notes.',
+        'Return only valid JSON. Do not wrap it in markdown.',
+        'Use this exact object shape:',
+        '{',
+        '  "verse_queries": string[],',
+        '  "reference_tags": {',
+        '    "character": string[],',
+        '    "place": string[],',
+        '    "item": string[],',
+        '    "scene": string[],',
+        '    "history": string[],',
+        '    "promise": string[],',
+        '    "prophecy": string[],',
+        '    "book": string[],',
+        '    "gospel": string[],',
+        '    "theme": string[]',
+        '  }',
+        '}',
+        'Rules:',
+        '- verse_queries should include 0 to 6 likely Bible references such as "Romans 12:2".',
+        '- Only suggest verse_queries when the notes clearly point toward them.',
+        '- Keep each tag short and specific.',
+        '- Use empty arrays when there is no strong match.',
+        '- Do not invent niche historical claims.',
+    ]);
+
+    $response = openai_post_responses([
+        'model' => openai_event_model(),
+        'input' => [
+            [
+                'role' => 'system',
+                'content' => $systemPrompt,
+            ],
+            [
+                'role' => 'user',
+                'content' => $normalizedNoteText,
+            ],
+        ],
+        'max_output_tokens' => 900,
+    ]);
+
+    $text = trim(openai_extract_response_text($response));
+
+    if ($text === '') {
+        if (is_local_environment()) {
+            $preview = substr(json_encode($response, JSON_UNESCAPED_SLASHES) ?: '{}', 0, 400);
+            throw new RuntimeException('The AI response was empty. Response: ' . $preview);
+        }
+
+        throw new RuntimeException('The AI response was empty.');
+    }
+
+    return openai_decode_json_object($text, 'reference suggestions');
+}
+
+function openai_generate_sermon_paraphrase(string $verseReference, string $verseText, string $context = ''): array
+{
+    if (!openai_event_drafts_enabled()) {
+        throw new RuntimeException('OpenAI sermon drafting is not configured yet.');
+    }
+
+    $normalizedReference = trim($verseReference);
+    $normalizedVerseText = trim($verseText);
+    $normalizedContext = trim($context);
+
+    if ($normalizedReference === '' || $normalizedVerseText === '') {
+        throw new RuntimeException('A verse reference and verse text are required.');
+    }
+
+    $systemPrompt = implode("\n", [
+        'You paraphrase a Bible verse for sermon-note study use.',
+        'Return only valid JSON. Do not wrap it in markdown.',
+        'Use this exact object shape:',
+        '{',
+        '  "paraphrase": string,',
+        '  "summary": string',
+        '}',
+        'Rules:',
+        '- Do not quote the verse exactly.',
+        '- Make the paraphrase clearly derivative rather than a translation.',
+        '- Keep summary to one sentence.',
+        '- Do not add doctrine or claims that are not grounded in the verse.',
+    ]);
+
+    $userPrompt = implode("\n\n", array_filter([
+        'Reference: ' . $normalizedReference,
+        'Verse text: ' . $normalizedVerseText,
+        $normalizedContext !== '' ? 'Sermon context: ' . $normalizedContext : null,
+    ]));
+
+    $response = openai_post_responses([
+        'model' => openai_event_model(),
+        'input' => [
+            [
+                'role' => 'system',
+                'content' => $systemPrompt,
+            ],
+            [
+                'role' => 'user',
+                'content' => $userPrompt,
+            ],
+        ],
+        'max_output_tokens' => 500,
+    ]);
+
+    $text = trim(openai_extract_response_text($response));
+
+    if ($text === '') {
+        throw new RuntimeException('The AI response was empty.');
+    }
+
+    return openai_decode_json_object($text, 'a verse paraphrase');
+}
+
+function openai_decode_json_object(string $text, string $contextLabel): array
+{
+    $trimmed = trim($text);
+
+    if ($trimmed === '') {
+        throw new RuntimeException('The AI response was empty.');
+    }
+
+    $candidates = [$trimmed];
+
+    if (preg_match('/```(?:json)?\s*(.*?)\s*```/is', $trimmed, $matches) === 1) {
+        $fenced = trim((string) ($matches[1] ?? ''));
+
+        if ($fenced !== '') {
+            $candidates[] = $fenced;
+        }
+    }
+
+    $firstBrace = strpos($trimmed, '{');
+    $lastBrace = strrpos($trimmed, '}');
+
+    if ($firstBrace !== false && $lastBrace !== false && $lastBrace > $firstBrace) {
+        $embeddedObject = trim(substr($trimmed, $firstBrace, $lastBrace - $firstBrace + 1));
+
+        if ($embeddedObject !== '') {
+            $candidates[] = $embeddedObject;
+        }
+    }
+
+    $seen = [];
+
+    foreach ($candidates as $candidate) {
+        foreach (openai_json_candidate_variants($candidate) as $variant) {
+            $normalizedVariant = trim($variant);
+
+            if ($normalizedVariant === '' || isset($seen[$normalizedVariant])) {
+                continue;
+            }
+
+            $seen[$normalizedVariant] = true;
+            $decoded = json_decode($normalizedVariant, true);
+
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+    }
+
+    $message = 'The AI response could not be parsed into ' . $contextLabel . '.';
+
+    if (is_local_environment()) {
+        $preview = preg_replace('/\s+/', ' ', $trimmed) ?? $trimmed;
+        $preview = trim(mb_substr($preview, 0, 220));
+
+        if ($preview !== '') {
+            $message .= ' Raw preview: ' . $preview;
+        }
+    }
+
+    throw new RuntimeException($message);
+}
+
+function openai_json_candidate_variants(string $candidate): array
+{
+    $variants = [];
+    $trimmed = trim($candidate);
+
+    if ($trimmed === '') {
+        return $variants;
+    }
+
+    $variants[] = $trimmed;
+
+    $normalizedQuotes = str_replace(
+        ["\u{201C}", "\u{201D}", "\u{2018}", "\u{2019}"],
+        ['"', '"', "'", "'"],
+        $trimmed
+    );
+    $normalizedQuotes = preg_replace('/,\s*([}\]])/', '$1', $normalizedQuotes) ?? $normalizedQuotes;
+    $normalizedQuotes = preg_replace('/^\s*json\s*/i', '', $normalizedQuotes) ?? $normalizedQuotes;
+    $variants[] = trim($normalizedQuotes);
+
+    return $variants;
 }
 
 function openai_post_responses(array $payload): array
@@ -368,6 +618,16 @@ function openai_post_responses_with_curl(array $payload): array
         throw new RuntimeException($message !== '' ? $message : 'OpenAI returned an error.');
     }
 
+    if (($decoded['status'] ?? '') === 'failed') {
+        $message = trim((string) ($decoded['error']['message'] ?? 'The OpenAI request failed.'));
+        throw new RuntimeException($message !== '' ? $message : 'The OpenAI request failed.');
+    }
+
+    if (isset($decoded['error']) && is_array($decoded['error'])) {
+        $message = trim((string) ($decoded['error']['message'] ?? 'OpenAI returned an error.'));
+        throw new RuntimeException($message !== '' ? $message : 'OpenAI returned an error.');
+    }
+
     return $decoded;
 }
 
@@ -414,6 +674,16 @@ function openai_post_responses_with_stream(array $payload): array
     }
 
     if ($statusCode >= 400) {
+        $message = trim((string) ($decoded['error']['message'] ?? 'OpenAI returned an error.'));
+        throw new RuntimeException($message !== '' ? $message : 'OpenAI returned an error.');
+    }
+
+    if (($decoded['status'] ?? '') === 'failed') {
+        $message = trim((string) ($decoded['error']['message'] ?? 'The OpenAI request failed.'));
+        throw new RuntimeException($message !== '' ? $message : 'The OpenAI request failed.');
+    }
+
+    if (isset($decoded['error']) && is_array($decoded['error'])) {
         $message = trim((string) ($decoded['error']['message'] ?? 'OpenAI returned an error.'));
         throw new RuntimeException($message !== '' ? $message : 'OpenAI returned an error.');
     }
