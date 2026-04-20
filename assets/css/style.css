@@ -1428,6 +1428,37 @@ span {
     border-bottom: 0;
 }
 
+.study-step-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.study-video-frame {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--navy);
+    aspect-ratio: 16 / 9;
+}
+
+.study-video-frame iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.locked-video {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px dashed var(--border-strong);
+    border-radius: 16px;
+    background: rgba(255, 252, 248, 0.68);
+}
+
 .form-stack {
     display: grid;
     gap: 1rem;

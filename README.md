@@ -11,6 +11,7 @@ Good News Bible is a PHP + MySQL Bible study app focused on reading, prayer, ser
 - Public post share composer for verses and passages with portrait and square templates
 - Seasonal site themes with `Spring`, `Summer`, `Fall`, `Winter`, and `Good News`
 - Good News hub for devotionals, events, plans, feed, celebrations, and prayer
+- Curated Bible studies with 7-day devotionals, 30-day plans, group-study templates, daily progress, locked YouTube videos, invites, discussion boards, and completion badges
 - Prayer request workflow with voice input and AI draft support
 - Planner with calendar views, modal event creation, and goal tracking
 - Community events with AI-assisted drafting, modal management panels, and calendar `.ics` export
@@ -42,6 +43,9 @@ Default translation: `MSB`
 - `index.php`: landing page
 - `bible.php`: Bible reader
 - `good-news.php`: Good News hub
+- `studies.php`: public curated Bible studies library
+- `study.php`: public study overview, join flow, invites, and discussion board
+- `study-day.php`: enrolled daily study step with progress tracking and locked video unlocks
 - `community.php`: events and community feed
 - `sessions.php`: public sessions listing
 - `planner.php`: planner and calendar
@@ -54,6 +58,7 @@ Default translation: `MSB`
 - `friends.php`: friend invites and connections
 - `profile.php`: profile, password, and sessions
 - `admin/sessions.php`: admin session management
+- `admin/studies.php`: admin curated Bible study management
 - `admin/radio.php`: admin Christian radio station management
 
 ## Local Setup
@@ -143,6 +148,34 @@ Sermon note AI endpoints:
 - `sermon-ai-references.php`: suggests Bible references and reference tags
 - `sermon-ai-paraphrase.php`: produces a study paraphrase of a cited verse
 
+## Curated Bible Studies
+
+The curated Bible studies system supports public studies that members can join and complete day by day.
+
+Study features include:
+
+- Admin-created studies from three starter templates: `7-Day Devotional`, `30-Day Bible Plan`, and `Group Study`
+- Study sections with Scripture references, devotional content, reflection questions, and daily challenges
+- Optional YouTube teaching videos that unlock after reflection, challenge completion, or full day completion
+- Member enrollments with saved reflection responses, challenge completion, daily progress, and completion timestamps
+- Invite links for sharing a study with friends
+- Study-level discussion boards for enrolled members
+- Completion badges awarded after every required study day is completed
+
+Primary files:
+
+- `studies.php`: browse published studies
+- `study.php`: view a study, join it, invite friends, and post discussion messages
+- `study-day.php`: complete daily study steps and unlock videos
+- `admin/studies.php`: create, edit, publish, archive, and delete curated studies
+- `includes/study_repository.php`: database access for studies, steps, enrollments, progress, invites, discussion, and badges
+
+Install or update the database with:
+
+```bash
+mysql -u your_user -p your_database < sql/add_curated_bible_studies.sql
+```
+
 ## Email Delivery
 
 The app includes SMTP delivery support for:
@@ -197,6 +230,7 @@ Recent migrations:
 - `sql/add_community_event_images.sql`
 - `sql/add_user_profile_flags.sql`
 - `sql/add_sermon_notes.sql`
+- `sql/add_curated_bible_studies.sql`
 
 ## Bible Import Scripts
 

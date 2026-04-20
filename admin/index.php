@@ -36,7 +36,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
         <div class="section-heading">
             <p class="eyebrow">Admin</p>
             <h1>Content and event management</h1>
-            <p>Manage public sessions, community events, users, Christian radio, and imported Bible text from one place.</p>
+            <p>Manage public sessions, Bible studies, community events, users, Christian radio, and imported Bible text from one place.</p>
         </div>
 
         <div class="card-grid card-grid-3">
@@ -45,6 +45,13 @@ require_once dirname(__DIR__) . '/includes/header.php';
                 <p>Create, publish, archive, and feature public sessions for everyone to see.</p>
                 <div class="top-gap-sm">
                     <a class="button button-primary" href="<?= e(app_url('admin/sessions.php')); ?>">Manage Sessions</a>
+                </div>
+            </article>
+            <article class="panel">
+                <h2>Bible Studies</h2>
+                <p>Create curated devotionals, 30-day plans, group studies, locked videos, discussions, invites, and badges.</p>
+                <div class="top-gap-sm">
+                    <a class="button button-primary" href="<?= e(app_url('admin/studies.php')); ?>">Manage Studies</a>
                 </div>
             </article>
             <article class="panel">
