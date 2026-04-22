@@ -401,6 +401,7 @@ $selectedTranslation = trim($_GET['translation'] ?? APP_DEFAULT_TRANSLATION);
 $selectedBookId = (int) ($_GET['book_id'] ?? 0);
 $selectedChapter = (int) ($_GET['chapter'] ?? 0);
 $selectedVerseNumber = (int) ($_GET['verse'] ?? 0);
+$selectedVerseEndNumber = (int) ($_GET['verse_end'] ?? 0);
 $readerMode = bible_normalize_reader_mode($_GET['reader_mode'] ?? 'verse');
 $translations = supported_translations();
 $searchResults = [];
@@ -490,6 +491,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'book_id' => (int) ($_POST['return_book_id'] ?? 0) ?: null,
             'chapter' => (int) ($_POST['return_chapter'] ?? 0) ?: null,
             'verse' => (int) ($_POST['return_verse'] ?? 0) ?: null,
+            'verse_end' => (int) ($_POST['return_verse_end'] ?? 0) ?: null,
             'reader_mode' => bible_normalize_reader_mode($_POST['return_reader_mode'] ?? $readerMode),
         ], static fn($value) => $value !== null && $value !== ''));
 
@@ -529,6 +531,7 @@ try {
         $selectedBookId = (int) $referenceQuery['book_id'];
         $selectedChapter = (int) $referenceQuery['chapter'];
         $selectedVerseNumber = (int) ($referenceQuery['start_verse'] ?? 0);
+        $selectedVerseEndNumber = (int) ($referenceQuery['end_verse'] ?? 0);
     }
 
     if ($selectedBookId > 0) {
@@ -589,17 +592,23 @@ try {
             $searchMessage = 'This chapter has no verses loaded for ' . $selectedTranslation . '.';
         } else {
             if ($selectedVerseNumber > 0) {
+                $rangeEndVerseNumber = $selectedVerseEndNumber > $selectedVerseNumber
+                    ? $selectedVerseEndNumber
+                    : $selectedVerseNumber;
                 $matchingVerse = array_values(
                     array_filter(
                         $chapterVerseSet,
-                        static fn(array $verse): bool => (int) $verse['verse_number'] === $selectedVerseNumber
+                        static fn(array $verse): bool => (int) $verse['verse_number'] >= $selectedVerseNumber
+                            && (int) $verse['verse_number'] <= $rangeEndVerseNumber
                     )
                 );
 
                 if ($matchingVerse !== []) {
                     $browseVerses = $matchingVerse;
-                    $searchHeading = sprintf('%s %d:%d (%s)', $selectedBook['name'], $selectedChapter, $selectedVerseNumber, $selectedTranslation);
-                    $displayMode = 'verse';
+                    $searchHeading = $rangeEndVerseNumber > $selectedVerseNumber
+                        ? sprintf('%s %d:%d-%d (%s)', $selectedBook['name'], $selectedChapter, $selectedVerseNumber, $rangeEndVerseNumber, $selectedTranslation)
+                        : sprintf('%s %d:%d (%s)', $selectedBook['name'], $selectedChapter, $selectedVerseNumber, $selectedTranslation);
+                    $displayMode = $rangeEndVerseNumber > $selectedVerseNumber ? 'passage' : 'verse';
                 }
             }
 
@@ -672,11 +681,13 @@ if ($selectedBook && $selectedChapter > 0 && $selectedVerseNumber > 0 && $chapte
         static fn(array $verse): int => (int) $verse['verse_number'],
         $chapterVerseSet
     );
-    $currentVerseIndex = array_search($selectedVerseNumber, $verseNumbers, true);
+    $previousVerseIndex = array_search($selectedVerseNumber, $verseNumbers, true);
+    $nextVerseAnchor = $selectedVerseEndNumber > $selectedVerseNumber ? $selectedVerseEndNumber : $selectedVerseNumber;
+    $nextVerseIndex = array_search($nextVerseAnchor, $verseNumbers, true);
 
-    if ($currentVerseIndex !== false) {
-        $previousVerseNumber = $verseNumbers[$currentVerseIndex - 1] ?? null;
-        $nextVerseNumber = $verseNumbers[$currentVerseIndex + 1] ?? null;
+    if ($previousVerseIndex !== false || $nextVerseIndex !== false) {
+        $previousVerseNumber = $previousVerseIndex !== false ? ($verseNumbers[$previousVerseIndex - 1] ?? null) : null;
+        $nextVerseNumber = $nextVerseIndex !== false ? ($verseNumbers[$nextVerseIndex + 1] ?? null) : null;
 
         if ($previousVerseNumber !== null) {
             $previousVerseUrl = bible_reader_url([
@@ -732,14 +743,30 @@ $analysisIntro = $displayMode === 'search'
     : 'Study repeated words and related search paths drawn from the passage above.';
 
 $sharePayloadJson = null;
+$canvasVerse = $browseVerses[0] ?? null;
+$canvasNoteUrl = app_url('notes.php');
 
 if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) {
+    if ($selectedVerseNumber > 0) {
+        foreach ($browseVerses as $verse) {
+            if ((int) ($verse['verse_number'] ?? 0) === $selectedVerseNumber) {
+                $canvasVerse = $verse;
+                break;
+            }
+        }
+    }
+
+    if (is_array($canvasVerse) && (int) ($canvasVerse['id'] ?? 0) > 0) {
+        $canvasNoteUrl = app_url('notes.php?verse_id=' . (int) $canvasVerse['id']);
+    }
+
     $shareParams = array_filter([
         'q' => $query !== '' ? $query : null,
         'translation' => $selectedTranslation,
         'book_id' => $selectedBookId ?: null,
         'chapter' => $selectedChapter ?: null,
         'verse' => $selectedVerseNumber ?: null,
+        'verse_end' => $selectedVerseEndNumber > $selectedVerseNumber ? $selectedVerseEndNumber : null,
         'reader_mode' => $readerMode,
     ], static fn($value) => $value !== null && $value !== '');
     $sharePath = 'bible.php';
@@ -807,7 +834,82 @@ require_once __DIR__ . '/includes/header.php';
             <div class="flash flash-warning"><?= e($pageError); ?></div>
         <?php endif; ?>
 
-        <div class="panel scripture-panel top-gap">
+        <div class="panel scripture-panel bible-canvas-shell top-gap">
+            <div class="bible-mobile-canvas-nav" data-mobile-bible-nav>
+                <form class="bible-mobile-nav-form" method="get" data-reader-nav>
+                    <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
+                    <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
+
+                    <label class="bible-mobile-book-field">
+                        <span>Book</span>
+                        <select name="book_id" data-reader-select="book" aria-label="Bible book">
+                            <option value="">Book</option>
+                            <?php foreach ($bookCatalog as $book): ?>
+                                <option value="<?= e((string) $book['id']); ?>" <?= $selectedBookId === (int) $book['id'] ? 'selected' : ''; ?>>
+                                    <?= e((string) $book['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+
+                    <label class="bible-mobile-chapter-field">
+                        <span>Chap</span>
+                        <select name="chapter" data-reader-select="chapter" aria-label="Bible chapter">
+                            <option value="">Chap</option>
+                            <?php foreach ($bookChapters as $chapter): ?>
+                                <option value="<?= e((string) $chapter['chapter_number']); ?>" <?= $selectedChapter === (int) $chapter['chapter_number'] ? 'selected' : ''; ?>>
+                                    <?= e((string) $chapter['chapter_number']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+
+                    <label class="bible-mobile-verse-field">
+                        <span>Verse</span>
+                        <select name="verse" data-reader-select="verse" aria-label="Bible verse">
+                            <option value="">All</option>
+                            <?php foreach ($verseOptions as $verseOption): ?>
+                                <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseNumber === $verseOption['number'] ? 'selected' : ''; ?>>
+                                    <?= e((string) $verseOption['number']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+
+                    <label class="bible-mobile-verse-end-field">
+                        <span>V-V</span>
+                        <select name="verse_end" data-reader-select="verse-end" aria-label="Bible verse range end">
+                            <option value="">To</option>
+                            <?php foreach ($verseOptions as $verseOption): ?>
+                                <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseEndNumber === $verseOption['number'] ? 'selected' : ''; ?>>
+                                    <?= e((string) $verseOption['number']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+
+                    <button class="button button-primary" type="submit">Go</button>
+                </form>
+
+                <?php if ($selectedBook && $selectedChapter > 0): ?>
+                    <div class="bible-mobile-chapter-rail" aria-label="Mobile Bible chapter navigation">
+                        <?php if ($previousChapterUrl): ?>
+                            <a class="button button-secondary" href="<?= e($previousChapterUrl); ?>" aria-label="Previous chapter">Prev</a>
+                        <?php else: ?>
+                            <span></span>
+                        <?php endif; ?>
+
+                        <strong><?= e((string) $selectedBook['abbreviation']); ?> <?= e((string) $selectedChapter); ?><?= $selectedVerseNumber > 0 ? ':' . e((string) $selectedVerseNumber) : ''; ?><?= $selectedVerseEndNumber > $selectedVerseNumber ? '-' . e((string) $selectedVerseEndNumber) : ''; ?></strong>
+
+                        <?php if ($nextChapterUrl): ?>
+                            <a class="button button-secondary" href="<?= e($nextChapterUrl); ?>" aria-label="Next chapter">Next</a>
+                        <?php else: ?>
+                            <span></span>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+
             <div class="bible-search-shell">
                 <form class="form-stack bible-search-form" method="get" data-translation-switch-form>
                     <div class="search-row search-row-compact search-row-scripture" data-voice-search>
@@ -816,6 +918,7 @@ require_once __DIR__ . '/includes/header.php';
                         <input type="hidden" name="book_id" value="<?= e($selectedBookId > 0 ? (string) $selectedBookId : ''); ?>">
                         <input type="hidden" name="chapter" value="<?= e($selectedChapter > 0 ? (string) $selectedChapter : ''); ?>">
                         <input type="hidden" name="verse" value="<?= e($selectedVerseNumber > 0 ? (string) $selectedVerseNumber : ''); ?>">
+                        <input type="hidden" name="verse_end" value="<?= e($selectedVerseEndNumber > $selectedVerseNumber ? (string) $selectedVerseEndNumber : ''); ?>">
                         <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
                         <select name="translation" aria-label="Translation" data-translation-switch>
                             <?php foreach ($translations as $translation): ?>
@@ -882,6 +985,17 @@ require_once __DIR__ . '/includes/header.php';
                                     </select>
                                 </label>
 
+                                <label class="reader-compact-label">
+                                    <select name="verse_end" data-reader-select="verse-end">
+                                        <option value="">V-V</option>
+                                        <?php foreach ($verseOptions as $verseOption): ?>
+                                            <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseEndNumber === $verseOption['number'] ? 'selected' : ''; ?>>
+                                                <?= e((string) $verseOption['number']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+
                                 <button class="button button-secondary reader-go" type="submit">Go</button>
                             </div>
                         </form>
@@ -903,6 +1017,7 @@ require_once __DIR__ . '/includes/header.php';
                                 'book_id' => $selectedBookId ?: null,
                                 'chapter' => $selectedChapter ?: null,
                                 'verse' => $selectedVerseNumber ?: null,
+                                'verse_end' => $selectedVerseEndNumber > $selectedVerseNumber ? $selectedVerseEndNumber : null,
                                 'reader_mode' => 'verse',
                             ])); ?>">Verse</a>
                             <a class="mini-card <?= $readerMode === 'paragraph' ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url([
@@ -911,6 +1026,7 @@ require_once __DIR__ . '/includes/header.php';
                                 'book_id' => $selectedBookId ?: null,
                                 'chapter' => $selectedChapter ?: null,
                                 'verse' => $selectedVerseNumber ?: null,
+                                'verse_end' => $selectedVerseEndNumber > $selectedVerseNumber ? $selectedVerseEndNumber : null,
                                 'reader_mode' => 'paragraph',
                             ])); ?>">Paragraph</a>
                         </div>
@@ -938,6 +1054,7 @@ require_once __DIR__ . '/includes/header.php';
                                     'book_id' => $selectedBookId ?: null,
                                     'chapter' => $selectedChapter ?: null,
                                     'verse' => $selectedVerseNumber ?: null,
+                                    'verse_end' => $selectedVerseEndNumber > $selectedVerseNumber ? $selectedVerseEndNumber : null,
                                     'reader_mode' => $readerMode,
                                 ])); ?>"
                             ><?= e($t); ?></a>
@@ -1052,7 +1169,7 @@ require_once __DIR__ . '/includes/header.php';
 
                         <div class="scripture-nav-label">
                             <span><?= e((string) $selectedBook['name']); ?></span>
-                            <strong>Chapter <?= e((string) $selectedChapter); ?><?= $useVerseNav ? ' : ' . e((string) $selectedVerseNumber) : ''; ?></strong>
+                            <strong>Chapter <?= e((string) $selectedChapter); ?><?= $useVerseNav ? ' : ' . e((string) $selectedVerseNumber) : ''; ?><?= $selectedVerseEndNumber > $selectedVerseNumber ? '-' . e((string) $selectedVerseEndNumber) : ''; ?></strong>
                         </div>
 
                         <?php if ($nextNavUrl): ?>
@@ -1062,6 +1179,27 @@ require_once __DIR__ . '/includes/header.php';
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>
+
+                <nav class="bible-canvas-action-bar" aria-label="Bible Canvas actions">
+                    <button type="button" data-mobile-reader-focus>Book</button>
+                    <?php if (($selectedVerseNumber > 0 ? $previousVerseUrl : $previousChapterUrl) !== null): ?>
+                        <a href="<?= e($selectedVerseNumber > 0 ? (string) $previousVerseUrl : (string) $previousChapterUrl); ?>" aria-label="<?= e($selectedVerseNumber > 0 ? 'Previous verse' : 'Previous chapter'); ?>">Prev</a>
+                    <?php else: ?>
+                        <span>Prev</span>
+                    <?php endif; ?>
+                    <button type="button" data-mobile-highlight-tip>Highlight</button>
+                    <a href="<?= e($canvasNoteUrl); ?>">Note</a>
+                    <?php if ($sharePayloadJson !== null): ?>
+                        <button type="button" data-mobile-share-open>Share</button>
+                    <?php else: ?>
+                        <span>Share</span>
+                    <?php endif; ?>
+                    <?php if (($selectedVerseNumber > 0 ? $nextVerseUrl : $nextChapterUrl) !== null): ?>
+                        <a href="<?= e($selectedVerseNumber > 0 ? (string) $nextVerseUrl : (string) $nextChapterUrl); ?>" aria-label="<?= e($selectedVerseNumber > 0 ? 'Next verse' : 'Next chapter'); ?>">Next</a>
+                    <?php else: ?>
+                        <span>Next</span>
+                    <?php endif; ?>
+                </nav>
 
                 <div class="bookmark-popup" data-bookmark-popup hidden>
                     <div class="bookmark-popup-card">
@@ -1091,6 +1229,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="hidden" name="return_book_id" value="<?= e((string) $selectedBookId); ?>">
                                 <input type="hidden" name="return_chapter" value="<?= e((string) $selectedChapter); ?>">
                                 <input type="hidden" name="return_verse" value="<?= e((string) $selectedVerseNumber); ?>">
+                                <input type="hidden" name="return_verse_end" value="<?= e((string) $selectedVerseEndNumber); ?>">
                                 <input type="hidden" name="return_reader_mode" value="<?= e($readerMode); ?>">
                                 <input type="hidden" name="highlight_color" value="neon-yellow">
 

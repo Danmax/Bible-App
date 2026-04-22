@@ -2049,12 +2049,15 @@ if (profileForm && passwordForm) {
     syncHighlights();
 }());
 
-const readerNav = document.querySelector('[data-reader-nav]');
+document.querySelectorAll('[data-reader-nav]').forEach((readerNav) => {
+    if (!(readerNav instanceof HTMLFormElement)) {
+        return;
+    }
 
-if (readerNav) {
     const bookSelect = readerNav.querySelector('[data-reader-select="book"]');
     const chapterSelect = readerNav.querySelector('[data-reader-select="chapter"]');
     const verseSelect = readerNav.querySelector('[data-reader-select="verse"]');
+    const verseEndSelect = readerNav.querySelector('[data-reader-select="verse-end"]');
     const buildReaderNavigationUrl = (form, verseValue) => {
         const url = new URL(form.getAttribute('action') || window.location.href, window.location.origin);
         const formData = new FormData(form);
@@ -2081,16 +2084,14 @@ if (readerNav) {
     };
 
     const submitNav = () => {
-        if (readerNav instanceof HTMLFormElement) {
-            const verseValue = verseSelect instanceof HTMLSelectElement ? verseSelect.value.trim() : '';
+        const verseValue = verseSelect instanceof HTMLSelectElement ? verseSelect.value.trim() : '';
 
-            if (verseValue !== '') {
-                window.location.assign(buildReaderNavigationUrl(readerNav, verseValue));
-                return;
-            }
-
-            readerNav.requestSubmit();
+        if (verseValue !== '') {
+            window.location.assign(buildReaderNavigationUrl(readerNav, verseValue));
+            return;
         }
+
+        readerNav.requestSubmit();
     };
 
     bookSelect?.addEventListener('change', () => {
@@ -2102,6 +2103,10 @@ if (readerNav) {
             verseSelect.value = '';
         }
 
+        if (verseEndSelect) {
+            verseEndSelect.value = '';
+        }
+
         submitNav();
     });
 
@@ -2110,11 +2115,16 @@ if (readerNav) {
             verseSelect.value = '';
         }
 
+        if (verseEndSelect) {
+            verseEndSelect.value = '';
+        }
+
         submitNav();
     });
 
     verseSelect?.addEventListener('change', submitNav);
-}
+    verseEndSelect?.addEventListener('change', submitNav);
+});
 
 document.querySelectorAll('.chapter-jump-form').forEach((form) => {
     form.addEventListener('submit', (event) => {
@@ -3110,6 +3120,45 @@ if (shareComposer && shareComposerToggle) {
         shareComposerToggle.setAttribute('hidden', 'hidden');
     }
 }
+
+document.querySelectorAll('[data-mobile-reader-focus]').forEach((button) => {
+    button.addEventListener('click', () => {
+        const mobileNav = document.querySelector('[data-mobile-bible-nav]');
+        const bookSelect = mobileNav?.querySelector('[data-reader-select="book"]');
+
+        if (mobileNav instanceof HTMLElement) {
+            mobileNav.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        }
+
+        if (bookSelect instanceof HTMLSelectElement) {
+            window.setTimeout(() => bookSelect.focus(), 180);
+        }
+    });
+});
+
+document.querySelectorAll('[data-mobile-share-open]').forEach((button) => {
+    button.addEventListener('click', () => {
+        if (shareComposerToggle instanceof HTMLButtonElement && !shareComposerToggle.hidden) {
+            shareComposerToggle.click();
+        }
+    });
+});
+
+document.querySelectorAll('[data-mobile-highlight-tip]').forEach((button) => {
+    button.addEventListener('click', () => {
+        if (chapterReader instanceof HTMLElement) {
+            chapterReader.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+
+        if (button instanceof HTMLButtonElement) {
+            const originalLabel = button.textContent || 'Highlight';
+            button.textContent = 'Tap verse';
+            window.setTimeout(() => {
+                button.textContent = originalLabel;
+            }, 1800);
+        }
+    });
+});
 
 // ── Bookmark edit-panel toggle (bookmarks.php) ──────────────────────────
 document.querySelectorAll('.bookmark-edit-toggle').forEach(function (toggle) {
