@@ -45,23 +45,106 @@ $visibilityOptions = [
     'public' => 'Public',
     'private' => 'Private',
 ];
-$unlockOptions = [
-    'none' => 'Unlocked immediately',
-    'after_reflection' => 'After reflection',
-    'after_challenge' => 'After challenge',
-    'after_step' => 'After completing day',
-];
 $itemTypeOptions = [
+    'bible_verse' => 'Scripture',
     'devotional' => 'Devotional',
     'reflection' => 'Reflection',
+    'challenge' => 'Challenge',
     'image' => 'Image reflection',
     'video' => 'Video',
-    'bible_verse' => 'Bible verses',
 ];
 $itemUnlockOptions = [
     'none' => 'Unlocked',
     'after_previous' => 'After previous item',
 ];
+
+function admin_join_study_child_rows(array $rows, string $column): string
+{
+    return implode("\n", array_map(static fn(array $row): string => (string) ($row[$column] ?? ''), $rows));
+}
+
+function admin_study_video_resource(array $step): string
+{
+    $videoId = trim((string) ($step['youtube_video_id'] ?? ''));
+
+    return $videoId !== '' ? 'https://www.youtube.com/watch?v=' . $videoId : '';
+}
+
+function admin_study_editor_items(array $step): array
+{
+    $items = (array) ($step['items'] ?? []);
+
+    if ($items !== []) {
+        return $items;
+    }
+
+    $fallbackItems = [];
+    $references = admin_join_study_child_rows((array) ($step['verses'] ?? []), 'reference_text');
+    $content = trim((string) ($step['content'] ?? ''));
+    $questions = admin_join_study_child_rows((array) ($step['questions'] ?? []), 'question_text');
+    $challenges = admin_join_study_child_rows((array) ($step['challenges'] ?? []), 'challenge_text');
+    $videoResource = admin_study_video_resource($step);
+
+    if ($references !== '') {
+        $fallbackItems[] = [
+            'item_type' => 'bible_verse',
+            'title' => 'Scripture reading',
+            'body' => '',
+            'resource_url' => '',
+            'bible_reference' => str_replace("\n", ', ', $references),
+            'unlock_rule' => 'none',
+            'is_required' => 1,
+        ];
+    }
+
+    $fallbackItems[] = [
+        'item_type' => 'devotional',
+        'title' => (string) ($step['section_title'] ?: 'Devotional'),
+        'body' => $content,
+        'resource_url' => '',
+        'bible_reference' => '',
+        'unlock_rule' => $references !== '' ? 'after_previous' : 'none',
+        'is_required' => 1,
+    ];
+
+    if ($questions !== '') {
+        $fallbackItems[] = [
+            'item_type' => 'reflection',
+            'title' => 'Reflection questions',
+            'body' => $questions,
+            'resource_url' => '',
+            'bible_reference' => '',
+            'unlock_rule' => 'after_previous',
+            'is_required' => 1,
+        ];
+    }
+
+    if ($challenges !== '') {
+        $fallbackItems[] = [
+            'item_type' => 'challenge',
+            'title' => 'Daily challenge',
+            'body' => $challenges,
+            'resource_url' => '',
+            'bible_reference' => '',
+            'unlock_rule' => 'after_previous',
+            'is_required' => 1,
+        ];
+    }
+
+    if ($videoResource !== '') {
+        $fallbackItems[] = [
+            'item_type' => 'video',
+            'title' => (string) ($step['video_title'] ?: 'Teaching video'),
+            'body' => '',
+            'resource_url' => $videoResource,
+            'bible_reference' => '',
+            'unlock_rule' => 'after_previous',
+            'is_required' => 0,
+        ];
+    }
+
+    return $fallbackItems;
+}
 
 if (curated_studies_available() && $_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -136,13 +219,6 @@ if (curated_studies_available() && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $dayNumbers = $_POST['step_day_number'] ?? [];
             $titles = $_POST['step_title'] ?? [];
             $sectionTitles = $_POST['step_section_title'] ?? [];
-            $contents = $_POST['step_content'] ?? [];
-            $verses = $_POST['step_verses'] ?? [];
-            $questions = $_POST['step_questions'] ?? [];
-            $challenges = $_POST['step_challenges'] ?? [];
-            $videoTitles = $_POST['step_video_title'] ?? [];
-            $videoIds = $_POST['step_youtube_video_id'] ?? [];
-            $unlockRules = $_POST['step_video_unlock_rule'] ?? [];
             $itemTypes = $_POST['step_item_type'] ?? [];
             $itemTitles = $_POST['step_item_title'] ?? [];
             $itemBodies = $_POST['step_item_body'] ?? [];
@@ -154,13 +230,6 @@ if (curated_studies_available() && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $dayNumbers = (array) $dayNumbers;
             $titles = (array) $titles;
             $sectionTitles = (array) $sectionTitles;
-            $contents = (array) $contents;
-            $verses = (array) $verses;
-            $questions = (array) $questions;
-            $challenges = (array) $challenges;
-            $videoTitles = (array) $videoTitles;
-            $videoIds = (array) $videoIds;
-            $unlockRules = (array) $unlockRules;
             $itemTypes = (array) $itemTypes;
             $itemTitles = (array) $itemTitles;
             $itemBodies = (array) $itemBodies;
@@ -201,13 +270,13 @@ if (curated_studies_available() && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     'day_number' => max(1, (int) ($dayNumbers[$index] ?? ($index + 1))),
                     'title' => $stepTitle,
                     'section_title' => trim((string) ($sectionTitles[$index] ?? 'Daily Study')),
-                    'content' => trim((string) ($contents[$index] ?? '')),
-                    'verses' => admin_parse_study_lines((string) ($verses[$index] ?? '')),
-                    'questions' => admin_parse_study_lines((string) ($questions[$index] ?? '')),
-                    'challenges' => admin_parse_study_lines((string) ($challenges[$index] ?? '')),
-                    'video_title' => trim((string) ($videoTitles[$index] ?? '')),
-                    'youtube_video_id' => trim((string) ($videoIds[$index] ?? '')),
-                    'video_unlock_rule' => normalize_video_unlock_rule((string) ($unlockRules[$index] ?? 'after_step')),
+                    'content' => '',
+                    'verses' => [],
+                    'questions' => [],
+                    'challenges' => [],
+                    'video_title' => '',
+                    'youtube_video_id' => '',
+                    'video_unlock_rule' => 'after_step',
                     'items' => $items,
                 ];
             }
@@ -394,15 +463,21 @@ require_once dirname(__DIR__) . '/includes/header.php';
                             </label>
                         </div>
 
-                        <div class="top-gap">
-                            <h2>Study days</h2>
-                            <p class="muted-copy">Use day cards like a small board. Add items, move them up or down, and choose whether each item unlocks after the previous one.</p>
+                        <div class="study-builder-toolbar top-gap">
+                            <div>
+                                <h2>Study days</h2>
+                                <p class="muted-copy">Build each day from cards: Scripture, devotional content, questions, challenge, media, and optional sequential unlocks.</p>
+                            </div>
+                            <button class="button button-secondary" type="button" data-study-day-add>Add Day</button>
                         </div>
 
                         <?php foreach ($editingSteps as $index => $step): ?>
                             <article class="panel study-builder-day" data-study-day>
                                 <div class="panel-heading">
-                                    <h3>Day <?= e((string) $step['day_number']); ?></h3>
+                                    <div>
+                                        <span class="pill">Day <?= e((string) $step['day_number']); ?></span>
+                                        <h3><?= e((string) $step['title']); ?></h3>
+                                    </div>
                                     <div class="study-builder-controls">
                                         <button class="button button-icon" type="button" data-study-day-move="up" aria-label="Move day up"><span aria-hidden="true">^</span></button>
                                         <button class="button button-icon" type="button" data-study-day-move="down" aria-label="Move day down"><span aria-hidden="true">v</span></button>
@@ -422,65 +497,25 @@ require_once dirname(__DIR__) . '/includes/header.php';
                                         Section title
                                         <input type="text" name="step_section_title[]" value="<?= e((string) ($step['section_title'] ?? '')); ?>">
                                     </label>
-                                    <label>
-                                        Video title
-                                        <input type="text" name="step_video_title[]" value="<?= e((string) ($step['video_title'] ?? '')); ?>">
-                                    </label>
-                                    <label>
-                                        YouTube video ID or URL
-                                        <input type="text" name="step_youtube_video_id[]" value="<?= e((string) ($step['youtube_video_id'] ?? '')); ?>">
-                                    </label>
-                                    <label>
-                                        Video unlock
-                                        <select name="step_video_unlock_rule[]">
-                                            <?php foreach ($unlockOptions as $value => $label): ?>
-                                                <option value="<?= e($value); ?>" <?= (string) ($step['video_unlock_rule'] ?? 'after_step') === $value ? 'selected' : ''; ?>><?= e($label); ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </label>
-                                </div>
-                                <label>
-                                    Section content
-                                    <textarea name="step_content[]" rows="5"><?= e((string) ($step['content'] ?? '')); ?></textarea>
-                                </label>
-                                <div class="card-grid card-grid-3">
-                                    <label>
-                                        Verses
-                                        <textarea name="step_verses[]" rows="5"><?= e(implode("\n", array_map(static fn(array $v): string => (string) $v['reference_text'], $step['verses'] ?? []))); ?></textarea>
-                                    </label>
-                                    <label>
-                                        Reflection questions
-                                        <textarea name="step_questions[]" rows="5"><?= e(implode("\n", array_map(static fn(array $q): string => (string) $q['question_text'], $step['questions'] ?? []))); ?></textarea>
-                                    </label>
-                                    <label>
-                                        Daily challenges
-                                        <textarea name="step_challenges[]" rows="5"><?= e(implode("\n", array_map(static fn(array $c): string => (string) $c['challenge_text'], $step['challenges'] ?? []))); ?></textarea>
-                                    </label>
                                 </div>
                                 <div class="study-kanban" data-study-items data-step-index="<?= e((string) $index); ?>">
-                                    <div class="panel-heading">
-                                        <h3>Day items</h3>
+                                    <div class="study-kanban-heading">
+                                        <div>
+                                            <h3>Day items</h3>
+                                            <p class="muted-copy">Cards save in order from top to bottom.</p>
+                                        </div>
                                         <button class="button button-secondary" type="button" data-study-item-add>Add Item</button>
                                     </div>
-                                    <?php $items = (array) ($step['items'] ?? []); ?>
-                                    <?php if ($items === []): ?>
-                                        <?php $items = [[
-                                            'item_type' => 'devotional',
-                                            'title' => (string) ($step['section_title'] ?? 'Devotional'),
-                                            'body' => (string) ($step['content'] ?? ''),
-                                            'resource_url' => '',
-                                            'bible_reference' => implode(', ', array_map(static fn(array $v): string => (string) $v['reference_text'], $step['verses'] ?? [])),
-                                            'unlock_rule' => 'none',
-                                            'is_required' => 1,
-                                        ]]; ?>
-                                    <?php endif; ?>
+                                    <?php $items = admin_study_editor_items($step); ?>
                                     <?php foreach ($items as $itemIndex => $item): ?>
                                         <article class="study-kanban-item" data-study-item>
-                                            <div class="study-builder-controls">
+                                            <div class="study-kanban-card-head">
                                                 <span class="pill">Item <?= e((string) ($itemIndex + 1)); ?></span>
-                                                <button class="button button-icon" type="button" data-study-item-move="up" aria-label="Move item up"><span aria-hidden="true">^</span></button>
-                                                <button class="button button-icon" type="button" data-study-item-move="down" aria-label="Move item down"><span aria-hidden="true">v</span></button>
-                                                <button class="button button-icon" type="button" data-study-item-remove aria-label="Remove item"><span aria-hidden="true">x</span></button>
+                                                <div class="study-builder-controls">
+                                                    <button class="button button-icon" type="button" data-study-item-move="up" aria-label="Move item up"><span aria-hidden="true">^</span></button>
+                                                    <button class="button button-icon" type="button" data-study-item-move="down" aria-label="Move item down"><span aria-hidden="true">v</span></button>
+                                                    <button class="button button-icon" type="button" data-study-item-remove aria-label="Remove item"><span aria-hidden="true">x</span></button>
+                                                </div>
                                             </div>
                                             <div class="card-grid card-grid-2">
                                                 <label>
@@ -496,8 +531,8 @@ require_once dirname(__DIR__) . '/includes/header.php';
                                                     <input type="text" name="step_item_title[<?= e((string) $index); ?>][]" value="<?= e((string) ($item['title'] ?? '')); ?>">
                                                 </label>
                                                 <label>
-                                                    Image or video URL
-                                                    <input type="url" name="step_item_resource_url[<?= e((string) $index); ?>][]" value="<?= e((string) ($item['resource_url'] ?? '')); ?>">
+                                                    Resource URL or YouTube ID
+                                                    <input type="text" name="step_item_resource_url[<?= e((string) $index); ?>][]" value="<?= e((string) ($item['resource_url'] ?? '')); ?>" placeholder="Image URL, video URL, or YouTube ID">
                                                 </label>
                                                 <label>
                                                     Bible reference
@@ -527,7 +562,6 @@ require_once dirname(__DIR__) . '/includes/header.php';
                         <?php endforeach; ?>
 
                         <div class="inline-actions">
-                            <button class="button button-secondary" type="button" data-study-day-add>Add Day</button>
                             <button class="button button-primary" type="submit">Save Study</button>
                         </div>
                     </form>
