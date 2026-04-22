@@ -29,6 +29,19 @@ if (!curated_studies_available()) {
     exit;
 }
 
+function study_day_youtube_embed_url(string $value): string
+{
+    $trimmed = trim($value);
+
+    if ($trimmed === '') {
+        return '';
+    }
+
+    $videoId = normalize_youtube_video_id($trimmed);
+
+    return $videoId !== '' ? 'https://www.youtube-nocookie.com/embed/' . rawurlencode($videoId) : '';
+}
+
 $enrollmentId = (int) ($_GET['enrollment_id'] ?? $_POST['enrollment_id'] ?? 0);
 $dayNumber = max(1, (int) ($_GET['day'] ?? $_POST['day'] ?? 1));
 $enrollment = $enrollmentId > 0 ? fetch_study_enrollment_by_id($enrollmentId, (int) $user['id']) : null;
@@ -92,6 +105,7 @@ $completeDone = !empty($progress['completed_at']);
 $videoRule = (string) ($step['video_unlock_rule'] ?? 'after_step');
 $videoUnlocked = !empty($progress['video_unlocked_at'])
     || study_step_video_should_unlock($videoRule, $reflectionValue, $challengeDone, $completeDone);
+$hasDayItems = ($step['items'] ?? []) !== [];
 $showCompletionAnimation = $completeDone && (int) ($_GET['completed'] ?? 0) === 1;
 $pageTitle = (string) $study['title'] . ' Day ' . $dayNumber;
 
@@ -127,13 +141,15 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         <?php endif; ?>
 
-        <div class="two-column top-gap">
+        <div class="study-day-layout top-gap">
             <section class="panel">
                 <p class="eyebrow"><?= e((string) ($step['section_title'] ?? 'Daily Study')); ?></p>
-                <h2>Scripture and study</h2>
-                <p><?= nl2br(e((string) ($step['content'] ?? ''))); ?></p>
+                <h2>Day board</h2>
+                <?php if (trim((string) ($step['content'] ?? '')) !== '' && !$hasDayItems): ?>
+                    <p><?= nl2br(e((string) ($step['content'] ?? ''))); ?></p>
+                <?php endif; ?>
 
-                <?php if (($step['items'] ?? []) !== []): ?>
+                <?php if ($hasDayItems): ?>
                     <div class="study-item-path top-gap">
                         <?php $previousItemComplete = true; ?>
                         <?php foreach ($step['items'] as $item): ?>
@@ -160,7 +176,20 @@ require_once __DIR__ . '/includes/header.php';
                                     <?php if ((string) ($item['item_type'] ?? '') === 'image' && trim((string) ($item['resource_url'] ?? '')) !== ''): ?>
                                         <img class="study-reflection-image" src="<?= e((string) $item['resource_url']); ?>" alt="">
                                     <?php elseif ((string) ($item['item_type'] ?? '') === 'video' && trim((string) ($item['resource_url'] ?? '')) !== ''): ?>
-                                        <a class="button button-secondary button-with-icon" href="<?= e((string) $item['resource_url']); ?>" target="_blank" rel="noopener"><span aria-hidden="true">></span><span>Open Video</span></a>
+                                        <?php $itemEmbedUrl = study_day_youtube_embed_url((string) $item['resource_url']); ?>
+                                        <?php if ($itemEmbedUrl !== ''): ?>
+                                            <div class="study-video-frame">
+                                                <iframe
+                                                    src="<?= e($itemEmbedUrl); ?>"
+                                                    title="<?= e((string) ($item['title'] ?? 'Teaching video')); ?>"
+                                                    loading="lazy"
+                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                                    allowfullscreen
+                                                ></iframe>
+                                            </div>
+                                        <?php elseif (filter_var((string) $item['resource_url'], FILTER_VALIDATE_URL)): ?>
+                                            <a class="button button-secondary button-with-icon" href="<?= e((string) $item['resource_url']); ?>" target="_blank" rel="noopener"><span aria-hidden="true">></span><span>Open Video</span></a>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                     <?php if (trim((string) ($item['bible_reference'] ?? '')) !== ''): ?>
                                         <a class="pill" href="<?= e(app_url('bible.php?q=' . urlencode((string) $item['bible_reference']))); ?>"><?= e((string) $item['bible_reference']); ?></a>
@@ -174,7 +203,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 <?php endif; ?>
 
-                <?php if (($step['verses'] ?? []) !== []): ?>
+                <?php if (!$hasDayItems && ($step['verses'] ?? []) !== []): ?>
                     <div class="top-gap">
                         <h3>Verses</h3>
                         <div class="inline-actions">
@@ -185,7 +214,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 <?php endif; ?>
 
-                <?php if (($step['questions'] ?? []) !== []): ?>
+                <?php if (!$hasDayItems && ($step['questions'] ?? []) !== []): ?>
                     <div class="top-gap">
                         <h3>Questions to reflect</h3>
                         <ol class="check-list">
@@ -196,7 +225,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 <?php endif; ?>
 
-                <?php if (($step['challenges'] ?? []) !== []): ?>
+                <?php if (!$hasDayItems && ($step['challenges'] ?? []) !== []): ?>
                     <div class="top-gap">
                         <h3>Daily challenge</h3>
                         <ol class="check-list">
@@ -215,10 +244,12 @@ require_once __DIR__ . '/includes/header.php';
                         Your reflection
                         <textarea name="reflection_response" rows="6" required><?= e($reflectionValue); ?></textarea>
                     </label>
-                    <label class="sermon-checkbox-field">
-                        <input type="checkbox" name="challenge_completed" value="1" <?= $challengeDone ? 'checked' : ''; ?>>
-                        I completed today&apos;s challenge
-                    </label>
+                    <?php if (!$hasDayItems && ($step['challenges'] ?? []) !== []): ?>
+                        <label class="sermon-checkbox-field">
+                            <input type="checkbox" name="challenge_completed" value="1" <?= $challengeDone ? 'checked' : ''; ?>>
+                            I completed today&apos;s challenge
+                        </label>
+                    <?php endif; ?>
                     <div class="inline-actions">
                         <button class="button button-secondary button-with-icon" type="submit" name="action" value="save"><span aria-hidden="true">+</span><span>Save</span></button>
                         <button class="button button-primary button-with-icon" type="submit" name="action" value="complete"><span class="study-complete-mark is-button" aria-hidden="true"></span><span>Complete Day</span></button>
@@ -231,13 +262,14 @@ require_once __DIR__ . '/includes/header.php';
                     <h2>Status</h2>
                     <div class="quick-stat-row">
                         <span class="quick-stat"><strong><?= $completeDone ? 'Yes' : 'No'; ?></strong><span>Completed</span></span>
-                        <span class="quick-stat"><strong><?= $challengeDone ? 'Yes' : 'No'; ?></strong><span>Challenge</span></span>
+                        <span class="quick-stat"><strong><?= e((string) count((array) ($step['items'] ?? []))); ?></strong><span>Items</span></span>
                     </div>
                     <?php if (!empty($enrollment['completed_at'])): ?>
                         <div class="flash flash-success">Study complete. Badge earned.</div>
                     <?php endif; ?>
                 </section>
 
+                <?php if (!$hasDayItems || trim((string) ($step['youtube_video_id'] ?? '')) !== ''): ?>
                 <section class="panel">
                     <h2><?= e((string) ($step['video_title'] ?: 'Teaching Video')); ?></h2>
                     <?php if (trim((string) ($step['youtube_video_id'] ?? '')) === ''): ?>
@@ -268,6 +300,7 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     <?php endif; ?>
                 </section>
+                <?php endif; ?>
             </aside>
         </div>
     </div>

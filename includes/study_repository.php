@@ -98,22 +98,70 @@ function default_study_template_steps(string $templateKey, int $durationDays): a
 
     for ($day = 1; $day <= $durationDays; $day++) {
         $reference = $references[($day - 1) % count($references)];
+        $isGroupStudy = $templateKey === 'group-study';
+        $sectionTitle = $isGroupStudy ? 'Group Conversation' : 'Daily Study';
+        $devotionalBody = $isGroupStudy
+            ? 'Read the passage together. Name what the text says, where it presses on real life, and how the group can practice it before the next meeting.'
+            : 'Read the passage slowly. Notice what God reveals, what He asks you to trust, and one concrete step of obedience for today.';
+
         $steps[] = [
             'day_number' => $day,
             'title' => 'Day ' . $day,
-            'section_title' => $templateKey === 'group-study' ? 'Group Conversation' : 'Daily Study',
-            'content' => 'Read the passage slowly. Notice what God reveals, what He asks you to trust, and one concrete step of obedience for today.',
-            'verses' => [$reference],
-            'questions' => [
-                'What word, phrase, or promise stands out from this passage?',
-                'What is one honest response you can bring to God today?',
-            ],
-            'challenges' => [
-                'Practice one action from this passage before the day ends.',
-            ],
-            'video_title' => 'Teaching Video',
+            'section_title' => $sectionTitle,
+            'content' => '',
+            'verses' => [],
+            'questions' => [],
+            'challenges' => [],
+            'video_title' => '',
             'youtube_video_id' => '',
             'video_unlock_rule' => 'after_step',
+            'items' => [
+                [
+                    'item_type' => 'bible_verse',
+                    'title' => 'Scripture reading',
+                    'body' => '',
+                    'resource_url' => '',
+                    'bible_reference' => $reference,
+                    'unlock_rule' => 'none',
+                    'is_required' => 1,
+                ],
+                [
+                    'item_type' => 'devotional',
+                    'title' => $sectionTitle,
+                    'body' => $devotionalBody,
+                    'resource_url' => '',
+                    'bible_reference' => '',
+                    'unlock_rule' => 'after_previous',
+                    'is_required' => 1,
+                ],
+                [
+                    'item_type' => 'reflection',
+                    'title' => 'Reflection questions',
+                    'body' => "What word, phrase, or promise stands out from this passage?\nWhat is one honest response you can bring to God today?",
+                    'resource_url' => '',
+                    'bible_reference' => '',
+                    'unlock_rule' => 'after_previous',
+                    'is_required' => 1,
+                ],
+                [
+                    'item_type' => 'challenge',
+                    'title' => $isGroupStudy ? 'Shared challenge' : 'Daily challenge',
+                    'body' => 'Practice one action from this passage before the day ends.',
+                    'resource_url' => '',
+                    'bible_reference' => '',
+                    'unlock_rule' => 'after_previous',
+                    'is_required' => 1,
+                ],
+                [
+                    'item_type' => 'video',
+                    'title' => 'Teaching video',
+                    'body' => 'Add a YouTube URL or video ID when this day needs a teaching segment.',
+                    'resource_url' => '',
+                    'bible_reference' => '',
+                    'unlock_rule' => 'after_previous',
+                    'is_required' => 0,
+                ],
+            ],
         ];
     }
 
@@ -503,7 +551,7 @@ function insert_study_step_items(int $stepId, array $items): void
 
 function normalize_study_item_type(string $value): string
 {
-    $allowed = ['devotional', 'reflection', 'image', 'video', 'bible_verse'];
+    $allowed = ['devotional', 'reflection', 'challenge', 'image', 'video', 'bible_verse'];
 
     return in_array($value, $allowed, true) ? $value : 'devotional';
 }
@@ -523,7 +571,11 @@ function normalize_study_resource_url(string $value): string
         return '';
     }
 
-    return filter_var($trimmed, FILTER_VALIDATE_URL) ? $trimmed : '';
+    if (filter_var($trimmed, FILTER_VALIDATE_URL)) {
+        return $trimmed;
+    }
+
+    return preg_match('/^[a-zA-Z0-9_-]{6,80}$/', $trimmed) ? $trimmed : '';
 }
 
 function insert_study_step_children(int $stepId, string $table, string $column, array $values): void

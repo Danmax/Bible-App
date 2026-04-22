@@ -3133,9 +3133,20 @@ if (document.querySelector('form [data-study-day]')) {
     var updateStudyBuilderNames = function (form) {
         form.querySelectorAll('[data-study-day]').forEach(function (day, dayIndex) {
             var dayNumber = day.querySelector('input[name="step_day_number[]"]');
+            var dayPill = day.querySelector(':scope > .panel-heading .pill');
+            var dayTitle = day.querySelector('input[name="step_title[]"]');
+            var dayHeading = day.querySelector(':scope > .panel-heading h3');
 
             if (dayNumber instanceof HTMLInputElement && dayNumber.value === '') {
                 dayNumber.value = String(dayIndex + 1);
+            }
+
+            if (dayPill) {
+                dayPill.textContent = 'Day ' + (dayNumber instanceof HTMLInputElement && dayNumber.value !== '' ? dayNumber.value : String(dayIndex + 1));
+            }
+
+            if (dayHeading && dayTitle instanceof HTMLInputElement) {
+                dayHeading.textContent = dayTitle.value || 'New study day';
             }
 
             day.querySelectorAll('[data-study-item]').forEach(function (item, itemIndex) {
