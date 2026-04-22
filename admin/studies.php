@@ -6,7 +6,7 @@ require_once dirname(__DIR__) . '/includes/auth.php';
 
 require_login();
 
-if (!current_user_has_role(['admin'])) {
+if (!current_user_can_manage_studies()) {
     http_response_code(403);
     $pageTitle = 'Forbidden';
     $activePage = '';
@@ -16,7 +16,7 @@ if (!current_user_has_role(['admin'])) {
         <div class="container">
             <div class="section-heading">
                 <p class="eyebrow">Restricted</p>
-                <h1>Admin access required</h1>
+                <h1>Editor access required</h1>
                 <p>You do not have permission to manage Bible studies.</p>
             </div>
         </div>
@@ -29,6 +29,8 @@ if (!current_user_has_role(['admin'])) {
 $pageTitle = 'Admin Bible Studies';
 $activePage = 'admin';
 $pageError = null;
+$activeUser = current_user();
+$isAdmin = current_user_has_role(['admin']);
 $templates = study_template_options();
 $studies = [];
 $editingStudy = null;
@@ -48,6 +50,17 @@ $unlockOptions = [
     'after_reflection' => 'After reflection',
     'after_challenge' => 'After challenge',
     'after_step' => 'After completing day',
+];
+$itemTypeOptions = [
+    'devotional' => 'Devotional',
+    'reflection' => 'Reflection',
+    'image' => 'Image reflection',
+    'video' => 'Video',
+    'bible_verse' => 'Bible verses',
+];
+$itemUnlockOptions = [
+    'none' => 'Unlocked',
+    'after_previous' => 'After previous item',
 ];
 
 if (curated_studies_available() && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -76,6 +89,12 @@ if (curated_studies_available() && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($studyId <= 0) {
             throw new RuntimeException('Select a valid Bible study.');
+        }
+
+        $targetStudy = fetch_study_by_id($studyId);
+
+        if ($targetStudy === null || (!$isAdmin && (int) ($targetStudy['created_by_user_id'] ?? 0) !== (int) ($activeUser['id'] ?? 0))) {
+            throw new RuntimeException('You can only edit studies you created.');
         }
 
         if ($action === 'delete') {
@@ -124,6 +143,13 @@ if (curated_studies_available() && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $videoTitles = $_POST['step_video_title'] ?? [];
             $videoIds = $_POST['step_youtube_video_id'] ?? [];
             $unlockRules = $_POST['step_video_unlock_rule'] ?? [];
+            $itemTypes = $_POST['step_item_type'] ?? [];
+            $itemTitles = $_POST['step_item_title'] ?? [];
+            $itemBodies = $_POST['step_item_body'] ?? [];
+            $itemResourceUrls = $_POST['step_item_resource_url'] ?? [];
+            $itemBibleReferences = $_POST['step_item_bible_reference'] ?? [];
+            $itemUnlockRules = $_POST['step_item_unlock_rule'] ?? [];
+            $itemRequired = $_POST['step_item_required'] ?? [];
             $steps = [];
             $dayNumbers = (array) $dayNumbers;
             $titles = (array) $titles;
@@ -135,12 +161,40 @@ if (curated_studies_available() && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $videoTitles = (array) $videoTitles;
             $videoIds = (array) $videoIds;
             $unlockRules = (array) $unlockRules;
+            $itemTypes = (array) $itemTypes;
+            $itemTitles = (array) $itemTitles;
+            $itemBodies = (array) $itemBodies;
+            $itemResourceUrls = (array) $itemResourceUrls;
+            $itemBibleReferences = (array) $itemBibleReferences;
+            $itemUnlockRules = (array) $itemUnlockRules;
+            $itemRequired = (array) $itemRequired;
 
             foreach ($titles as $index => $title) {
                 $stepTitle = trim((string) $title);
 
                 if ($stepTitle === '') {
                     continue;
+                }
+
+                $items = [];
+                $stepItemTitles = (array) ($itemTitles[$index] ?? []);
+                $stepItemTypes = (array) ($itemTypes[$index] ?? []);
+                $stepItemBodies = (array) ($itemBodies[$index] ?? []);
+                $stepItemResourceUrls = (array) ($itemResourceUrls[$index] ?? []);
+                $stepItemBibleReferences = (array) ($itemBibleReferences[$index] ?? []);
+                $stepItemUnlockRules = (array) ($itemUnlockRules[$index] ?? []);
+                $stepItemRequired = (array) ($itemRequired[$index] ?? []);
+
+                foreach ($stepItemTitles as $itemIndex => $itemTitle) {
+                    $items[] = [
+                        'item_type' => normalize_study_item_type((string) ($stepItemTypes[$itemIndex] ?? 'devotional')),
+                        'title' => trim((string) $itemTitle),
+                        'body' => trim((string) ($stepItemBodies[$itemIndex] ?? '')),
+                        'resource_url' => trim((string) ($stepItemResourceUrls[$itemIndex] ?? '')),
+                        'bible_reference' => trim((string) ($stepItemBibleReferences[$itemIndex] ?? '')),
+                        'unlock_rule' => normalize_study_item_unlock_rule((string) ($stepItemUnlockRules[$itemIndex] ?? 'none')),
+                        'is_required' => isset($stepItemRequired[$itemIndex]),
+                    ];
                 }
 
                 $steps[] = [
@@ -154,6 +208,7 @@ if (curated_studies_available() && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     'video_title' => trim((string) ($videoTitles[$index] ?? '')),
                     'youtube_video_id' => trim((string) ($videoIds[$index] ?? '')),
                     'video_unlock_rule' => normalize_video_unlock_rule((string) ($unlockRules[$index] ?? 'after_step')),
+                    'items' => $items,
                 ];
             }
 
@@ -178,7 +233,7 @@ if (curated_studies_available() && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if (curated_studies_available()) {
     try {
-        $studies = fetch_manageable_studies();
+        $studies = fetch_manageable_studies((int) ($activeUser['id'] ?? 0), $isAdmin);
         $editId = (int) ($_GET['edit'] ?? 0);
 
         if ($editId > 0) {
@@ -186,6 +241,11 @@ if (curated_studies_available()) {
 
             if ($editingStudy === null) {
                 set_flash('That Bible study could not be found.', 'warning');
+                redirect('admin/studies.php');
+            }
+
+            if (!$isAdmin && (int) ($editingStudy['created_by_user_id'] ?? 0) !== (int) ($activeUser['id'] ?? 0)) {
+                set_flash('You can only edit studies you created.', 'warning');
                 redirect('admin/studies.php');
             }
 
@@ -204,7 +264,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
         <div class="section-heading">
             <p class="eyebrow">Admin</p>
             <h1>Curated Bible studies</h1>
-            <p>Create public devotionals and plans with Scripture, questions, challenges, locked videos, discussion, invites, and badges.</p>
+            <p>Create public devotionals and plans with Scripture, images, videos, reflection items, sequential unlocks, discussion, invites, and badges.</p>
         </div>
 
         <?php if (!curated_studies_available()): ?>
@@ -336,14 +396,18 @@ require_once dirname(__DIR__) . '/includes/header.php';
 
                         <div class="top-gap">
                             <h2>Study days</h2>
-                            <p class="muted-copy">Use one line per verse, question, or challenge. Add video IDs from YouTube when a video should unlock.</p>
+                            <p class="muted-copy">Use day cards like a small board. Add items, move them up or down, and choose whether each item unlocks after the previous one.</p>
                         </div>
 
                         <?php foreach ($editingSteps as $index => $step): ?>
-                            <article class="panel">
+                            <article class="panel study-builder-day" data-study-day>
                                 <div class="panel-heading">
                                     <h3>Day <?= e((string) $step['day_number']); ?></h3>
-                                    <span class="pill"><?= e((string) ($step['video_unlock_rule'] ?? 'after_step')); ?></span>
+                                    <div class="study-builder-controls">
+                                        <button class="button button-icon" type="button" data-study-day-move="up" aria-label="Move day up"><span aria-hidden="true">^</span></button>
+                                        <button class="button button-icon" type="button" data-study-day-move="down" aria-label="Move day down"><span aria-hidden="true">v</span></button>
+                                        <button class="button button-icon" type="button" data-study-day-remove aria-label="Remove day"><span aria-hidden="true">x</span></button>
+                                    </div>
                                 </div>
                                 <div class="card-grid card-grid-2">
                                     <label>
@@ -393,10 +457,77 @@ require_once dirname(__DIR__) . '/includes/header.php';
                                         <textarea name="step_challenges[]" rows="5"><?= e(implode("\n", array_map(static fn(array $c): string => (string) $c['challenge_text'], $step['challenges'] ?? []))); ?></textarea>
                                     </label>
                                 </div>
+                                <div class="study-kanban" data-study-items data-step-index="<?= e((string) $index); ?>">
+                                    <div class="panel-heading">
+                                        <h3>Day items</h3>
+                                        <button class="button button-secondary" type="button" data-study-item-add>Add Item</button>
+                                    </div>
+                                    <?php $items = (array) ($step['items'] ?? []); ?>
+                                    <?php if ($items === []): ?>
+                                        <?php $items = [[
+                                            'item_type' => 'devotional',
+                                            'title' => (string) ($step['section_title'] ?? 'Devotional'),
+                                            'body' => (string) ($step['content'] ?? ''),
+                                            'resource_url' => '',
+                                            'bible_reference' => implode(', ', array_map(static fn(array $v): string => (string) $v['reference_text'], $step['verses'] ?? [])),
+                                            'unlock_rule' => 'none',
+                                            'is_required' => 1,
+                                        ]]; ?>
+                                    <?php endif; ?>
+                                    <?php foreach ($items as $itemIndex => $item): ?>
+                                        <article class="study-kanban-item" data-study-item>
+                                            <div class="study-builder-controls">
+                                                <span class="pill">Item <?= e((string) ($itemIndex + 1)); ?></span>
+                                                <button class="button button-icon" type="button" data-study-item-move="up" aria-label="Move item up"><span aria-hidden="true">^</span></button>
+                                                <button class="button button-icon" type="button" data-study-item-move="down" aria-label="Move item down"><span aria-hidden="true">v</span></button>
+                                                <button class="button button-icon" type="button" data-study-item-remove aria-label="Remove item"><span aria-hidden="true">x</span></button>
+                                            </div>
+                                            <div class="card-grid card-grid-2">
+                                                <label>
+                                                    Type
+                                                    <select name="step_item_type[<?= e((string) $index); ?>][]">
+                                                        <?php foreach ($itemTypeOptions as $value => $label): ?>
+                                                            <option value="<?= e($value); ?>" <?= (string) ($item['item_type'] ?? 'devotional') === $value ? 'selected' : ''; ?>><?= e($label); ?></option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </label>
+                                                <label>
+                                                    Title
+                                                    <input type="text" name="step_item_title[<?= e((string) $index); ?>][]" value="<?= e((string) ($item['title'] ?? '')); ?>">
+                                                </label>
+                                                <label>
+                                                    Image or video URL
+                                                    <input type="url" name="step_item_resource_url[<?= e((string) $index); ?>][]" value="<?= e((string) ($item['resource_url'] ?? '')); ?>">
+                                                </label>
+                                                <label>
+                                                    Bible reference
+                                                    <input type="text" name="step_item_bible_reference[<?= e((string) $index); ?>][]" value="<?= e((string) ($item['bible_reference'] ?? '')); ?>">
+                                                </label>
+                                                <label>
+                                                    Unlock
+                                                    <select name="step_item_unlock_rule[<?= e((string) $index); ?>][]">
+                                                        <?php foreach ($itemUnlockOptions as $value => $label): ?>
+                                                            <option value="<?= e($value); ?>" <?= (string) ($item['unlock_rule'] ?? 'none') === $value ? 'selected' : ''; ?>><?= e($label); ?></option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </label>
+                                                <label class="sermon-checkbox-field">
+                                                    <input type="checkbox" name="step_item_required[<?= e((string) $index); ?>][<?= e((string) $itemIndex); ?>]" value="1" <?= !empty($item['is_required']) ? 'checked' : ''; ?>>
+                                                    Required
+                                                </label>
+                                            </div>
+                                            <label>
+                                                Item content
+                                                <textarea name="step_item_body[<?= e((string) $index); ?>][]" rows="4"><?= e((string) ($item['body'] ?? '')); ?></textarea>
+                                            </label>
+                                        </article>
+                                    <?php endforeach; ?>
+                                </div>
                             </article>
                         <?php endforeach; ?>
 
                         <div class="inline-actions">
+                            <button class="button button-secondary" type="button" data-study-day-add>Add Day</button>
                             <button class="button button-primary" type="submit">Save Study</button>
                         </div>
                     </form>

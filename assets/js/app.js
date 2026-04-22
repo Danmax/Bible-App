@@ -3127,3 +3127,137 @@ document.querySelectorAll('.bookmark-edit-toggle').forEach(function (toggle) {
         toggle.classList.toggle('is-active', !isOpen);
     });
 });
+
+// Study builder day/item board controls.
+if (document.querySelector('form [data-study-day]')) {
+    var updateStudyBuilderNames = function (form) {
+        form.querySelectorAll('[data-study-day]').forEach(function (day, dayIndex) {
+            var dayNumber = day.querySelector('input[name="step_day_number[]"]');
+
+            if (dayNumber instanceof HTMLInputElement && dayNumber.value === '') {
+                dayNumber.value = String(dayIndex + 1);
+            }
+
+            day.querySelectorAll('[data-study-item]').forEach(function (item, itemIndex) {
+                item.querySelectorAll('[name^="step_item_"]').forEach(function (field) {
+                    var name = field.getAttribute('name') || '';
+                    var base = name.replace(/^([^\[]+).*/, '$1');
+
+                    if (!base) {
+                        return;
+                    }
+
+                    if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+                        field.setAttribute('name', base + '[' + dayIndex + '][' + itemIndex + ']');
+                    } else {
+                        field.setAttribute('name', base + '[' + dayIndex + '][]');
+                    }
+                });
+
+                var pill = item.querySelector('.pill');
+                if (pill) {
+                    pill.textContent = 'Item ' + (itemIndex + 1);
+                }
+            });
+        });
+    };
+
+    document.querySelectorAll('form').forEach(function (form) {
+        if (!form.querySelector('[data-study-day]')) {
+            return;
+        }
+
+        form.addEventListener('click', function (event) {
+            var target = event.target instanceof Element ? event.target : null;
+            var dayAdd = target?.closest('[data-study-day-add]');
+            var dayRemove = target?.closest('[data-study-day-remove]');
+            var dayMove = target?.closest('[data-study-day-move]');
+            var itemAdd = target?.closest('[data-study-item-add]');
+            var itemRemove = target?.closest('[data-study-item-remove]');
+            var itemMove = target?.closest('[data-study-item-move]');
+
+            if (dayAdd) {
+                var days = form.querySelectorAll('[data-study-day]');
+                var lastDay = days[days.length - 1];
+                if (lastDay) {
+                    var clone = lastDay.cloneNode(true);
+                    clone.querySelectorAll('input, textarea').forEach(function (field) {
+                        if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+                            field.checked = true;
+                        } else if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+                            field.value = '';
+                        }
+                    });
+                    clone.querySelectorAll('select').forEach(function (field) {
+                        field.selectedIndex = 0;
+                    });
+                    lastDay.after(clone);
+                    updateStudyBuilderNames(form);
+                }
+            }
+
+            if (dayRemove) {
+                var day = dayRemove.closest('[data-study-day]');
+                if (day && form.querySelectorAll('[data-study-day]').length > 1) {
+                    day.remove();
+                    updateStudyBuilderNames(form);
+                }
+            }
+
+            if (dayMove) {
+                var moveDay = dayMove.closest('[data-study-day]');
+                var dir = dayMove.getAttribute('data-study-day-move');
+                if (moveDay && dir === 'up' && moveDay.previousElementSibling?.matches('[data-study-day]')) {
+                    moveDay.previousElementSibling.before(moveDay);
+                } else if (moveDay && dir === 'down' && moveDay.nextElementSibling?.matches('[data-study-day]')) {
+                    moveDay.nextElementSibling.after(moveDay);
+                }
+                updateStudyBuilderNames(form);
+            }
+
+            if (itemAdd) {
+                var list = itemAdd.closest('[data-study-items]');
+                var lastItem = list?.querySelector('[data-study-item]:last-of-type');
+                if (list && lastItem) {
+                    var itemClone = lastItem.cloneNode(true);
+                    itemClone.querySelectorAll('input, textarea').forEach(function (field) {
+                        if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+                            field.checked = true;
+                        } else if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+                            field.value = '';
+                        }
+                    });
+                    itemClone.querySelectorAll('select').forEach(function (field) {
+                        field.selectedIndex = 0;
+                    });
+                    list.appendChild(itemClone);
+                    updateStudyBuilderNames(form);
+                }
+            }
+
+            if (itemRemove) {
+                var item = itemRemove.closest('[data-study-item]');
+                var itemList = itemRemove.closest('[data-study-items]');
+                if (item && itemList && itemList.querySelectorAll('[data-study-item]').length > 1) {
+                    item.remove();
+                    updateStudyBuilderNames(form);
+                }
+            }
+
+            if (itemMove) {
+                var moveItem = itemMove.closest('[data-study-item]');
+                var itemDir = itemMove.getAttribute('data-study-item-move');
+                if (moveItem && itemDir === 'up' && moveItem.previousElementSibling?.matches('[data-study-item]')) {
+                    moveItem.previousElementSibling.before(moveItem);
+                } else if (moveItem && itemDir === 'down' && moveItem.nextElementSibling?.matches('[data-study-item]')) {
+                    moveItem.nextElementSibling.after(moveItem);
+                }
+                updateStudyBuilderNames(form);
+            }
+        });
+
+        form.addEventListener('submit', function () {
+            updateStudyBuilderNames(form);
+        });
+    });
+}
