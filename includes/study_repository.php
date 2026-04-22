@@ -22,6 +22,39 @@ function curated_studies_available(): bool
     return $available;
 }
 
+function study_table_exists(string $tableName): bool
+{
+    static $cache = [];
+    $safeName = preg_replace('/[^a-zA-Z0-9_]/', '', $tableName) ?? '';
+
+    if ($safeName === '') {
+        return false;
+    }
+
+    if (array_key_exists($safeName, $cache)) {
+        return $cache[$safeName];
+    }
+
+    try {
+        $statement = db()->query("SHOW TABLES LIKE " . db()->quote($safeName));
+        $cache[$safeName] = $statement->fetch() !== false;
+    } catch (Throwable $exception) {
+        $cache[$safeName] = false;
+    }
+
+    return $cache[$safeName];
+}
+
+function study_items_available(): bool
+{
+    return study_table_exists('study_step_items');
+}
+
+function study_editor_requests_available(): bool
+{
+    return study_table_exists('study_editor_access_requests');
+}
+
 function study_template_options(): array
 {
     return [
@@ -151,15 +184,25 @@ function fetch_public_studies(?int $userId = null): array
     return $statement->fetchAll();
 }
 
-function fetch_manageable_studies(): array
+function fetch_manageable_studies(?int $userId = null, bool $includeAll = true): array
 {
-    $statement = db()->query(
+    $where = '';
+    $params = [];
+
+    if (!$includeAll && $userId !== null) {
+        $where = 'WHERE s.created_by_user_id = :user_id';
+        $params['user_id'] = $userId;
+    }
+
+    $statement = db()->prepare(
         'SELECT s.*, COUNT(st.id) AS step_count
         FROM studies s
         LEFT JOIN study_steps st ON st.study_id = s.id
+        ' . $where . '
         GROUP BY s.id
         ORDER BY s.updated_at DESC, s.id DESC'
     );
+    $statement->execute($params);
 
     return $statement->fetchAll();
 }
@@ -233,6 +276,7 @@ function fetch_study_steps(int $studyId): array
         $step['verses'] = fetch_study_step_verses((int) $step['id']);
         $step['questions'] = fetch_study_step_questions((int) $step['id']);
         $step['challenges'] = fetch_study_step_challenges((int) $step['id']);
+        $step['items'] = fetch_study_step_items((int) $step['id']);
     }
 
     return $steps;
@@ -260,6 +304,7 @@ function fetch_study_step_by_day(int $studyId, int $dayNumber): ?array
     $step['verses'] = fetch_study_step_verses((int) $step['id']);
     $step['questions'] = fetch_study_step_questions((int) $step['id']);
     $step['challenges'] = fetch_study_step_challenges((int) $step['id']);
+    $step['items'] = fetch_study_step_items((int) $step['id']);
 
     return $step;
 }
@@ -283,6 +328,18 @@ function fetch_study_step_questions(int $stepId): array
 function fetch_study_step_challenges(int $stepId): array
 {
     $statement = db()->prepare('SELECT * FROM study_step_challenges WHERE study_step_id = :step_id ORDER BY sort_order ASC, id ASC');
+    $statement->execute(['step_id' => $stepId]);
+
+    return $statement->fetchAll();
+}
+
+function fetch_study_step_items(int $stepId): array
+{
+    if (!study_items_available()) {
+        return [];
+    }
+
+    $statement = db()->prepare('SELECT * FROM study_step_items WHERE study_step_id = :step_id ORDER BY sort_order ASC, id ASC');
     $statement->execute(['step_id' => $stepId]);
 
     return $statement->fetchAll();
@@ -397,6 +454,10 @@ function replace_study_steps(int $studyId, array $steps): void
             insert_study_step_children($stepId, 'study_step_verses', 'reference_text', $step['verses'] ?? []);
             insert_study_step_children($stepId, 'study_step_questions', 'question_text', $step['questions'] ?? []);
             insert_study_step_children($stepId, 'study_step_challenges', 'challenge_text', $step['challenges'] ?? []);
+
+            if (study_items_available()) {
+                insert_study_step_items($stepId, $step['items'] ?? []);
+            }
         }
 
         $pdo->commit();
@@ -404,6 +465,65 @@ function replace_study_steps(int $studyId, array $steps): void
         $pdo->rollBack();
         throw $exception;
     }
+}
+
+function insert_study_step_items(int $stepId, array $items): void
+{
+    $statement = db()->prepare(
+        'INSERT INTO study_step_items (
+            study_step_id, item_type, title, body, resource_url, bible_reference, unlock_rule, is_required, sort_order
+        ) VALUES (
+            :study_step_id, :item_type, :title, :body, :resource_url, :bible_reference, :unlock_rule, :is_required, :sort_order
+        )'
+    );
+
+    foreach (array_values($items) as $index => $item) {
+        $title = trim((string) ($item['title'] ?? ''));
+        $body = trim((string) ($item['body'] ?? ''));
+        $resourceUrl = trim((string) ($item['resource_url'] ?? ''));
+        $bibleReference = trim((string) ($item['bible_reference'] ?? ''));
+
+        if ($title === '' && $body === '' && $resourceUrl === '' && $bibleReference === '') {
+            continue;
+        }
+
+        $statement->execute([
+            'study_step_id' => $stepId,
+            'item_type' => normalize_study_item_type((string) ($item['item_type'] ?? 'devotional')),
+            'title' => $title !== '' ? $title : 'Study item',
+            'body' => $body,
+            'resource_url' => normalize_study_resource_url($resourceUrl),
+            'bible_reference' => $bibleReference,
+            'unlock_rule' => normalize_study_item_unlock_rule((string) ($item['unlock_rule'] ?? 'none')),
+            'is_required' => !empty($item['is_required']) ? 1 : 0,
+            'sort_order' => $index,
+        ]);
+    }
+}
+
+function normalize_study_item_type(string $value): string
+{
+    $allowed = ['devotional', 'reflection', 'image', 'video', 'bible_verse'];
+
+    return in_array($value, $allowed, true) ? $value : 'devotional';
+}
+
+function normalize_study_item_unlock_rule(string $value): string
+{
+    $allowed = ['none', 'after_previous'];
+
+    return in_array($value, $allowed, true) ? $value : 'none';
+}
+
+function normalize_study_resource_url(string $value): string
+{
+    $trimmed = trim($value);
+
+    if ($trimmed === '') {
+        return '';
+    }
+
+    return filter_var($trimmed, FILTER_VALIDATE_URL) ? $trimmed : '';
 }
 
 function insert_study_step_children(int $stepId, string $table, string $column, array $values): void
@@ -562,6 +682,57 @@ function fetch_enrollment_progress_map(int $enrollmentId): array
     }
 
     return $map;
+}
+
+function fetch_enrollment_item_progress_map(int $enrollmentId): array
+{
+    if (!study_table_exists('user_study_item_progress')) {
+        return [];
+    }
+
+    $statement = db()->prepare(
+        'SELECT *
+        FROM user_study_item_progress
+        WHERE enrollment_id = :enrollment_id'
+    );
+    $statement->execute(['enrollment_id' => $enrollmentId]);
+    $rows = $statement->fetchAll();
+    $map = [];
+
+    foreach ($rows as $row) {
+        $map[(int) $row['study_step_item_id']] = $row;
+    }
+
+    return $map;
+}
+
+function sync_study_item_progress(int $enrollmentId, array $itemIds): void
+{
+    if (!study_table_exists('user_study_item_progress')) {
+        return;
+    }
+
+    $statement = db()->prepare(
+        'INSERT INTO user_study_item_progress (enrollment_id, study_step_item_id, completed_at)
+        SELECT :enrollment_id, i.id, NOW()
+        FROM study_step_items i
+        INNER JOIN study_steps s ON s.id = i.study_step_id
+        INNER JOIN user_study_enrollments e ON e.study_id = s.study_id AND e.id = :enrollment_id_check
+        WHERE i.id = :study_step_item_id
+        ON DUPLICATE KEY UPDATE completed_at = COALESCE(completed_at, VALUES(completed_at))'
+    );
+
+    foreach (array_unique(array_map('intval', $itemIds)) as $itemId) {
+        if ($itemId <= 0) {
+            continue;
+        }
+
+        $statement->execute([
+            'enrollment_id' => $enrollmentId,
+            'enrollment_id_check' => $enrollmentId,
+            'study_step_item_id' => $itemId,
+        ]);
+    }
 }
 
 function upsert_step_progress(int $enrollmentId, int $stepId, string $reflectionResponse, bool $challengeCompleted, bool $completeStep, string $videoUnlockRule): void
@@ -797,4 +968,95 @@ function admin_parse_study_lines(string $value): array
     $lines = preg_split('/\R/', $value) ?: [];
 
     return array_values(array_filter(array_map(static fn(string $line): string => trim($line), $lines), static fn(string $line): bool => $line !== ''));
+}
+
+function create_study_editor_access_request(int $userId, string $message = ''): void
+{
+    if (!study_editor_requests_available()) {
+        throw new RuntimeException('Editor requests are not installed yet.');
+    }
+
+    $statement = db()->prepare(
+        "INSERT INTO study_editor_access_requests (user_id, request_message, status)
+        VALUES (:user_id, :request_message, 'pending')
+        ON DUPLICATE KEY UPDATE request_message = VALUES(request_message), status = 'pending', reviewed_by_user_id = NULL, reviewed_at = NULL"
+    );
+    $statement->execute([
+        'user_id' => $userId,
+        'request_message' => trim($message),
+    ]);
+}
+
+function fetch_study_editor_access_request_for_user(int $userId): ?array
+{
+    if (!study_editor_requests_available()) {
+        return null;
+    }
+
+    $statement = db()->prepare('SELECT * FROM study_editor_access_requests WHERE user_id = :user_id LIMIT 1');
+    $statement->execute(['user_id' => $userId]);
+    $request = $statement->fetch();
+
+    return $request ?: null;
+}
+
+function fetch_pending_study_editor_access_requests(): array
+{
+    if (!study_editor_requests_available()) {
+        return [];
+    }
+
+    $statement = db()->query(
+        "SELECT r.*, u.name, u.email
+        FROM study_editor_access_requests r
+        INNER JOIN users u ON u.id = r.user_id
+        WHERE r.status = 'pending'
+        ORDER BY r.created_at ASC, r.id ASC"
+    );
+
+    return $statement->fetchAll();
+}
+
+function review_study_editor_access_request(int $requestId, int $reviewerUserId, string $status): void
+{
+    if (!study_editor_requests_available()) {
+        throw new RuntimeException('Editor requests are not installed yet.');
+    }
+
+    if (!in_array($status, ['approved', 'denied'], true)) {
+        throw new RuntimeException('Choose a valid request status.');
+    }
+
+    $statement = db()->prepare('SELECT * FROM study_editor_access_requests WHERE id = :id LIMIT 1');
+    $statement->execute(['id' => $requestId]);
+    $request = $statement->fetch();
+
+    if ($request === false) {
+        throw new RuntimeException('Editor request was not found.');
+    }
+
+    $pdo = db();
+    $pdo->beginTransaction();
+
+    try {
+        if ($status === 'approved') {
+            $pdo->prepare("UPDATE users SET role = 'editor' WHERE id = :id AND role = 'member'")->execute(['id' => (int) $request['user_id']]);
+        }
+
+        $pdo->prepare(
+            'UPDATE study_editor_access_requests
+            SET status = :status,
+                reviewed_by_user_id = :reviewed_by_user_id,
+                reviewed_at = NOW()
+            WHERE id = :id'
+        )->execute([
+            'id' => $requestId,
+            'status' => $status,
+            'reviewed_by_user_id' => $reviewerUserId,
+        ]);
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        $pdo->rollBack();
+        throw $exception;
+    }
 }

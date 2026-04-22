@@ -215,6 +215,11 @@ function current_user_has_role(array $roles): bool
     return in_array((string) ($user['role'] ?? 'member'), $roles, true);
 }
 
+function current_user_can_manage_studies(): bool
+{
+    return current_user_has_role(['admin', 'editor']);
+}
+
 function can_manage_community_event(?array $event, ?array $user = null): bool
 {
     if ($event === null) {

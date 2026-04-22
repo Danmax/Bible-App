@@ -10,6 +10,28 @@ $activePage = 'studies';
 $user = is_logged_in() ? refresh_current_user() : null;
 $pageError = null;
 $studies = [];
+$editorRequest = $user !== null ? fetch_study_editor_access_request_for_user((int) $user['id']) : null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verify_csrf();
+
+    if ($user === null) {
+        set_flash('Sign in first to request editor access.', 'warning');
+        redirect('login.php');
+    }
+
+    $action = trim((string) ($_POST['action'] ?? ''));
+
+    try {
+        if ($action === 'request-editor') {
+            create_study_editor_access_request((int) $user['id'], (string) ($_POST['request_message'] ?? ''));
+            set_flash('Editor access request sent.', 'success');
+            redirect('studies.php');
+        }
+    } catch (Throwable $exception) {
+        $pageError = $exception instanceof RuntimeException ? $exception->getMessage() : 'Editor access request could not be sent.';
+    }
+}
 
 if (curated_studies_available()) {
     try {
@@ -34,6 +56,22 @@ require_once __DIR__ . '/includes/header.php';
                 <span class="quick-stat"><strong>3</strong><span>Starter formats</span></span>
                 <span class="quick-stat"><strong>1</strong><span>Daily rhythm</span></span>
             </div>
+            <div class="inline-actions">
+                <?php if (current_user_can_manage_studies()): ?>
+                    <a class="button button-primary" href="<?= e(app_url('admin/studies.php')); ?>">Manage Studies</a>
+                <?php elseif ($user !== null): ?>
+                    <?php if (($editorRequest['status'] ?? '') === 'pending'): ?>
+                        <span class="pill">Editor request pending</span>
+                    <?php elseif (study_editor_requests_available()): ?>
+                        <form class="inline-actions" method="post">
+                            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                            <input type="hidden" name="action" value="request-editor">
+                            <input type="text" name="request_message" maxlength="500" placeholder="Why do you want to create studies?">
+                            <button class="button button-secondary" type="submit">Request Editor Access</button>
+                        </form>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
         </div>
 
         <?php if (!curated_studies_available()): ?>
@@ -54,6 +92,11 @@ require_once __DIR__ . '/includes/header.php';
             <div class="card-grid card-grid-3 top-gap">
                 <?php foreach ($studies as $study): ?>
                     <article class="dashboard-card study-card">
+                        <?php if (trim((string) ($study['cover_image_url'] ?? '')) !== ''): ?>
+                            <a class="study-card-image" href="<?= e(app_url('study.php?slug=' . urlencode((string) $study['slug']))); ?>" aria-label="<?= e((string) $study['title']); ?>">
+                                <img src="<?= e((string) $study['cover_image_url']); ?>" alt="">
+                            </a>
+                        <?php endif; ?>
                         <div class="panel-heading">
                             <span class="pill"><?= e((string) ($study['duration_days'] ?? 0)); ?> days</span>
                             <?php if (!empty($study['current_user_enrollment_id'])): ?>

@@ -169,6 +169,12 @@ require_once __DIR__ . '/includes/header.php';
             </section>
         <?php endif; ?>
 
+        <?php if (trim((string) ($study['cover_image_url'] ?? '')) !== ''): ?>
+            <figure class="study-hero-image top-gap">
+                <img src="<?= e((string) $study['cover_image_url']); ?>" alt="">
+            </figure>
+        <?php endif; ?>
+
         <div class="two-column top-gap">
             <section class="panel">
                 <div class="panel-heading">
@@ -179,19 +185,32 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="study-step-list">
                     <?php foreach ($steps as $step): ?>
-                        <?php $progress = $progressMap[(int) $step['id']] ?? null; ?>
+                        <?php
+                        $progress = $progressMap[(int) $step['id']] ?? null;
+                        $dayImage = '';
+
+                        foreach ((array) ($step['items'] ?? []) as $item) {
+                            if ((string) ($item['item_type'] ?? '') === 'image' && trim((string) ($item['resource_url'] ?? '')) !== '') {
+                                $dayImage = (string) $item['resource_url'];
+                                break;
+                            }
+                        }
+                        ?>
                         <article class="list-card list-card-block">
                             <div class="planner-item-body">
+                                <?php if ($dayImage !== ''): ?>
+                                    <img class="study-day-thumb" src="<?= e($dayImage); ?>" alt="">
+                                <?php endif; ?>
                                 <div class="planner-item-header">
                                     <div>
                                         <strong>Day <?= e((string) $step['day_number']); ?>: <?= e((string) $step['title']); ?></strong>
                                         <p class="muted-copy"><?= e((string) ($step['section_title'] ?? 'Daily Study')); ?></p>
                                     </div>
-                                    <span class="pill"><?= !empty($progress['completed_at']) ? 'Done' : 'Open'; ?></span>
+                                    <span class="study-complete-mark <?= !empty($progress['completed_at']) ? 'is-complete' : ''; ?>" aria-label="<?= !empty($progress['completed_at']) ? 'Completed' : 'Open'; ?>"></span>
                                 </div>
                                 <?php if ($enrollment !== null): ?>
                                     <div class="top-gap-sm">
-                                        <a class="button button-secondary" href="<?= e(app_url('study-day.php?enrollment_id=' . (int) $enrollment['id'] . '&day=' . (int) $step['day_number'])); ?>">Open Day</a>
+                                        <a class="button button-secondary button-with-icon" href="<?= e(app_url('study-day.php?enrollment_id=' . (int) $enrollment['id'] . '&day=' . (int) $step['day_number'])); ?>"><span aria-hidden="true">></span><span>Open Day</span></a>
                                     </div>
                                 <?php endif; ?>
                             </div>

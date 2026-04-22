@@ -32,8 +32,9 @@ $pageTitle = 'Admin Users';
 $activePage = 'admin';
 $pageError = null;
 
-$validRoles = ['member', 'leader', 'admin'];
+$validRoles = ['member', 'editor', 'leader', 'admin'];
 $currentUserId = (int) current_user()['id'];
+$editorRequests = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -62,6 +63,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             set_flash('User role updated.', 'success');
             redirect('admin/users.php' . (isset($_GET['q']) ? '?q=' . urlencode($_GET['q']) : '') . (isset($_GET['page']) ? (isset($_GET['q']) ? '&' : '?') . 'page=' . (int) $_GET['page'] : ''));
+        }
+
+        if ($action === 'review-editor-request') {
+            $requestId = (int) ($_POST['request_id'] ?? 0);
+            $status = trim((string) ($_POST['status'] ?? ''));
+
+            review_study_editor_access_request($requestId, $currentUserId, $status);
+            set_flash($status === 'approved' ? 'Editor access approved.' : 'Editor access request denied.', 'success');
+            redirect('admin/users.php');
         }
 
         throw new RuntimeException('Unknown action.');
@@ -119,6 +129,12 @@ try {
     $pageError = 'Users could not be loaded: ' . $exception->getMessage();
 }
 
+try {
+    $editorRequests = fetch_pending_study_editor_access_requests();
+} catch (Throwable $exception) {
+    $editorRequests = [];
+}
+
 $totalPages = $totalUsers > 0 ? (int) ceil($totalUsers / $limit) : 1;
 
 require_once dirname(__DIR__) . '/includes/header.php';
@@ -150,6 +166,39 @@ require_once dirname(__DIR__) . '/includes/header.php';
                 <?php endif; ?>
             </div>
         </form>
+
+        <?php if ($editorRequests !== []): ?>
+            <section class="panel top-gap-sm">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Editor access requests</h2>
+                        <p class="muted-copy">Approving a member lets them create and manage Bible studies.</p>
+                    </div>
+                </div>
+                <div class="stack-list">
+                    <?php foreach ($editorRequests as $request): ?>
+                        <article class="list-card list-card-block">
+                            <div class="planner-item-header">
+                                <div>
+                                    <strong><?= e((string) $request['name']); ?></strong>
+                                    <p class="muted-copy"><?= e((string) $request['email']); ?></p>
+                                    <?php if (trim((string) ($request['request_message'] ?? '')) !== ''): ?>
+                                        <p><?= e((string) $request['request_message']); ?></p>
+                                    <?php endif; ?>
+                                </div>
+                                <form class="inline-actions" method="post" action="<?= e(app_url('admin/users.php')); ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                                    <input type="hidden" name="action" value="review-editor-request">
+                                    <input type="hidden" name="request_id" value="<?= e((string) $request['id']); ?>">
+                                    <button class="button button-primary" type="submit" name="status" value="approved">Approve</button>
+                                    <button class="button button-secondary" type="submit" name="status" value="denied">Deny</button>
+                                </form>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php endif; ?>
 
         <?php if ($users === []): ?>
             <p class="empty-state top-gap-sm">No users found<?= $q !== '' ? ' matching ' . e('"' . $q . '"') : ''; ?>.</p>

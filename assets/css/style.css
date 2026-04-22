@@ -1433,6 +1433,193 @@ span {
     gap: 1rem;
 }
 
+.study-card-image,
+.study-hero-image,
+.study-day-thumb,
+.study-reflection-image {
+    display: block;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(255, 252, 248, 0.72);
+}
+
+.study-card-image {
+    margin: -0.35rem -0.35rem 0.25rem;
+    aspect-ratio: 16 / 10;
+}
+
+.study-card-image img,
+.study-hero-image img,
+.study-day-thumb,
+.study-reflection-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.study-hero-image {
+    margin: 0;
+    max-height: 360px;
+}
+
+.study-day-thumb {
+    height: 140px;
+    margin-bottom: 0.85rem;
+}
+
+.study-reflection-image {
+    max-height: 420px;
+    object-fit: cover;
+}
+
+.study-complete-mark {
+    display: inline-grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    flex: 0 0 auto;
+    border: 2px solid var(--border-strong);
+    border-radius: 999px;
+    background: rgba(255, 252, 248, 0.84);
+    transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.study-complete-mark::after {
+    content: "";
+    width: 0.55rem;
+    height: 0.95rem;
+    border-right: 0.18rem solid transparent;
+    border-bottom: 0.18rem solid transparent;
+    transform: rotate(45deg) scale(0.3);
+    opacity: 0;
+    transition: transform 180ms ease, opacity 180ms ease, border-color 180ms ease;
+}
+
+.study-complete-mark.is-complete {
+    border-color: var(--accent);
+    background: var(--accent);
+    transform: scale(1.03);
+}
+
+.study-complete-mark.is-complete::after {
+    border-color: #fff;
+    opacity: 1;
+    transform: rotate(45deg) scale(1);
+}
+
+.study-complete-mark.is-large {
+    width: 3.5rem;
+    height: 3.5rem;
+}
+
+.study-complete-mark.is-button {
+    width: 1.35rem;
+    height: 1.35rem;
+}
+
+.study-complete-mark.is-button::after {
+    width: 0.35rem;
+    height: 0.65rem;
+    border-width: 0.14rem;
+}
+
+.study-day-completion {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--accent) 12%, rgba(255, 252, 248, 0.92));
+    animation: studyCompletionPop 560ms ease both;
+}
+
+@keyframes studyCompletionPop {
+    0% {
+        transform: translateY(0.65rem) scale(0.98);
+        opacity: 0;
+    }
+    70% {
+        transform: translateY(-0.15rem) scale(1.01);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.study-item-path,
+.study-kanban {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.study-day-item,
+.study-kanban-item {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(255, 252, 248, 0.72);
+}
+
+.study-day-item.is-locked {
+    opacity: 0.68;
+    border-style: dashed;
+}
+
+.study-item-check {
+    cursor: pointer;
+}
+
+.study-item-check input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.study-item-check input:checked + .study-complete-mark {
+    border-color: var(--accent);
+    background: var(--accent);
+    transform: scale(1.03);
+}
+
+.study-item-check input:checked + .study-complete-mark::after {
+    border-color: #fff;
+    opacity: 1;
+    transform: rotate(45deg) scale(1);
+}
+
+.study-builder-day {
+    border-left: 4px solid color-mix(in srgb, var(--accent) 48%, var(--border));
+}
+
+.study-builder-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.button.button-icon {
+    width: 2.45rem;
+    min-width: 2.45rem;
+    height: 2.45rem;
+    padding: 0;
+    justify-content: center;
+}
+
+.button-with-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
 .study-video-frame {
     position: relative;
     overflow: hidden;
