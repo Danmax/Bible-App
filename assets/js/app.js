@@ -2126,6 +2126,39 @@ document.querySelectorAll('[data-reader-nav]').forEach((readerNav) => {
     verseEndSelect?.addEventListener('change', submitNav);
 });
 
+const mobileBibleNav = document.querySelector('[data-mobile-bible-nav]');
+const mobileBibleNavToggle = document.querySelector('[data-mobile-bible-nav-toggle]');
+
+if (mobileBibleNav instanceof HTMLElement && mobileBibleNavToggle instanceof HTMLButtonElement) {
+    const setMobileBibleNavOpen = (isOpen) => {
+        mobileBibleNav.classList.toggle('is-open', isOpen);
+        mobileBibleNavToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        mobileBibleNavToggle.setAttribute('aria-label', isOpen ? 'Close Bible navigation' : 'Open Bible navigation');
+    };
+
+    mobileBibleNavToggle.addEventListener('click', () => {
+        setMobileBibleNavOpen(!mobileBibleNav.classList.contains('is-open'));
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!mobileBibleNav.classList.contains('is-open')) {
+            return;
+        }
+
+        if (event.target instanceof Node && mobileBibleNav.contains(event.target)) {
+            return;
+        }
+
+        setMobileBibleNavOpen(false);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            setMobileBibleNavOpen(false);
+        }
+    });
+}
+
 document.querySelectorAll('.chapter-jump-form').forEach((form) => {
     form.addEventListener('submit', (event) => {
         if (!(form instanceof HTMLFormElement)) {
@@ -3127,7 +3160,9 @@ document.querySelectorAll('[data-mobile-reader-focus]').forEach((button) => {
         const bookSelect = mobileNav?.querySelector('[data-reader-select="book"]');
 
         if (mobileNav instanceof HTMLElement) {
-            mobileNav.scrollIntoView({ block: 'start', behavior: 'smooth' });
+            mobileNav.classList.add('is-open');
+            mobileBibleNavToggle?.setAttribute('aria-expanded', 'true');
+            mobileBibleNavToggle?.setAttribute('aria-label', 'Close Bible navigation');
         }
 
         if (bookSelect instanceof HTMLSelectElement) {

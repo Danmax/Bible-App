@@ -836,6 +836,16 @@ require_once __DIR__ . '/includes/header.php';
 
         <div class="panel scripture-panel bible-canvas-shell top-gap">
             <div class="bible-mobile-canvas-nav" data-mobile-bible-nav>
+                <button
+                    class="bible-mobile-nav-handle"
+                    type="button"
+                    data-mobile-bible-nav-toggle
+                    aria-label="Open Bible navigation"
+                    aria-expanded="false"
+                >
+                    <span>Books</span>
+                </button>
+
                 <form class="bible-mobile-nav-form" method="get" data-reader-nav>
                     <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
                     <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
@@ -1103,11 +1113,22 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <?php if ($displayMode === 'search' && $searchResults !== []): ?>
-                <div class="stack-list top-gap-sm">
+                <section class="scripture-search-results-spotlight top-gap-sm" aria-labelledby="scripture-search-results-title">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Bible Search Results</p>
+                            <h3 id="scripture-search-results-title"><?= e($searchHeading); ?></h3>
+                            <p class="muted-copy"><?= e((string) count($searchResults)); ?> passage<?= count($searchResults) === 1 ? '' : 's'; ?> ready to capture, save, and share.</p>
+                        </div>
+                        <a class="button button-secondary" href="<?= e(app_url('bible.php?translation=' . urlencode($selectedTranslation))); ?>">Open Reader</a>
+                    </div>
+
+                    <div class="stack-list top-gap-sm">
                     <?php foreach ($searchResults as $verse): ?>
                         <?php include __DIR__ . '/includes/verse-card.php'; ?>
                     <?php endforeach; ?>
-                </div>
+                    </div>
+                </section>
             <?php elseif (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) : ?>
                 <article class="chapter-reader <?= $readerMode === 'paragraph' ? 'is-paragraph' : ''; ?> top-gap-sm" data-chapter-reader>
                     <?php foreach ($browseVerses as $verse): ?>
@@ -1358,8 +1379,8 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="scripture-bottom-actions">
                             <button class="share-composer-fab" type="button" data-share-composer-toggle aria-expanded="false" aria-controls="share-composer-panel" aria-label="Open share composer">
                                 <span class="share-composer-fab-copy">
-                                    <span class="share-composer-fab-label">Share Post</span>
-                                    <span class="share-composer-fab-meta">Create a verse or passage post</span>
+                                    <span class="share-composer-fab-label">Capture and Share</span>
+                                    <span class="share-composer-fab-meta">Prepare Scripture for the nations</span>
                                 </span>
                                 <span class="share-composer-fab-icon" aria-hidden="true">&#10138;</span>
                             </button>
