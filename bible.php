@@ -846,7 +846,13 @@ require_once __DIR__ . '/includes/header.php';
                     <span>Books</span>
                 </button>
 
-                <form class="bible-mobile-nav-form" method="get" data-reader-nav>
+                <form
+                    class="bible-mobile-nav-form"
+                    method="get"
+                    data-reader-nav
+                    data-current-book-id="<?= e($selectedBookId > 0 ? (string) $selectedBookId : ''); ?>"
+                    data-current-chapter="<?= e($selectedChapter > 0 ? (string) $selectedChapter : ''); ?>"
+                >
                     <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
                     <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
 
@@ -855,7 +861,11 @@ require_once __DIR__ . '/includes/header.php';
                         <select name="book_id" data-reader-select="book" aria-label="Bible book">
                             <option value="">Book</option>
                             <?php foreach ($bookCatalog as $book): ?>
-                                <option value="<?= e((string) $book['id']); ?>" <?= $selectedBookId === (int) $book['id'] ? 'selected' : ''; ?>>
+                                <option
+                                    value="<?= e((string) $book['id']); ?>"
+                                    data-chapter-count="<?= e((string) max(0, (int) ($book['chapter_count'] ?? 0))); ?>"
+                                    <?= $selectedBookId === (int) $book['id'] ? 'selected' : ''; ?>
+                                >
                                     <?= e((string) $book['name']); ?>
                                 </option>
                             <?php endforeach; ?>
@@ -950,14 +960,20 @@ require_once __DIR__ . '/includes/header.php';
                     <p class="muted-copy" data-voice-search-status>Try saying a verse, passage, or keyword and we will help you find it.</p>
                 </form>
 
-                <details class="bible-advanced-search top-gap-sm" <?= ($displayMode === 'catalog' || $selectedBookId > 0 || $query === '') ? 'open' : ''; ?>>
+                <details class="bible-advanced-search top-gap-sm" <?= ($displayMode === 'catalog' || ($selectedBookId === 0 && $query === '')) ? 'open' : ''; ?>>
                     <summary>
                         <span>Advanced search</span>
                         <span class="muted-copy">Browse books, chapters, and verses</span>
                     </summary>
 
                     <div class="bible-advanced-search-body">
-                        <form class="form-stack" method="get" data-reader-nav>
+                        <form
+                            class="form-stack"
+                            method="get"
+                            data-reader-nav
+                            data-current-book-id="<?= e($selectedBookId > 0 ? (string) $selectedBookId : ''); ?>"
+                            data-current-chapter="<?= e($selectedChapter > 0 ? (string) $selectedChapter : ''); ?>"
+                        >
                             <div class="reader-select-row reader-select-row-compact">
                                 <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
                                 <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
@@ -966,7 +982,11 @@ require_once __DIR__ . '/includes/header.php';
                                     <select name="book_id" data-reader-select="book">
                                         <option value="">Select book</option>
                                         <?php foreach ($bookCatalog as $book): ?>
-                                            <option value="<?= e((string) $book['id']); ?>" <?= $selectedBookId === (int) $book['id'] ? 'selected' : ''; ?>>
+                                            <option
+                                                value="<?= e((string) $book['id']); ?>"
+                                                data-chapter-count="<?= e((string) max(0, (int) ($book['chapter_count'] ?? 0))); ?>"
+                                                <?= $selectedBookId === (int) $book['id'] ? 'selected' : ''; ?>
+                                            >
                                                 <?= e((string) $book['name']); ?>
                                             </option>
                                         <?php endforeach; ?>
