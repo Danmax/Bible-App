@@ -2058,6 +2058,22 @@ document.querySelectorAll('[data-reader-nav]').forEach((readerNav) => {
     const chapterSelect = readerNav.querySelector('[data-reader-select="chapter"]');
     const verseSelect = readerNav.querySelector('[data-reader-select="verse"]');
     const verseEndSelect = readerNav.querySelector('[data-reader-select="verse-end"]');
+    const currentBookId = readerNav.getAttribute('data-current-book-id') || '';
+    const currentChapter = readerNav.getAttribute('data-current-chapter') || '';
+    const originalVerseOptions = verseSelect instanceof HTMLSelectElement
+        ? Array.from(verseSelect.options).map((option) => ({
+            text: option.text,
+            value: option.value,
+            selected: option.selected,
+        }))
+        : [];
+    const originalVerseEndOptions = verseEndSelect instanceof HTMLSelectElement
+        ? Array.from(verseEndSelect.options).map((option) => ({
+            text: option.text,
+            value: option.value,
+            selected: option.selected,
+        }))
+        : [];
     const buildReaderNavigationUrl = (form, verseValue) => {
         const url = new URL(form.getAttribute('action') || window.location.href, window.location.origin);
         const formData = new FormData(form);
@@ -2083,18 +2099,58 @@ document.querySelectorAll('[data-reader-nav]').forEach((readerNav) => {
         return url.toString();
     };
 
-    const submitNav = () => {
+    const resetSelect = (select, placeholder) => {
+        if (!(select instanceof HTMLSelectElement)) {
+            return;
+        }
+
+        select.replaceChildren(new Option(placeholder, ''));
+    };
+
+    const restoreSelect = (select, options) => {
+        if (!(select instanceof HTMLSelectElement) || options.length === 0) {
+            return;
+        }
+
+        select.replaceChildren(...options.map((option) => new Option(option.text, option.value, false, option.selected)));
+    };
+
+    const populateChapterOptions = () => {
+        if (!(bookSelect instanceof HTMLSelectElement) || !(chapterSelect instanceof HTMLSelectElement)) {
+            return;
+        }
+
+        const selectedOption = bookSelect.selectedOptions[0];
+        const chapterCount = Number(selectedOption?.getAttribute('data-chapter-count') || '0') || 0;
+        const previousValue = chapterSelect.value;
+        const placeholder = chapterSelect.options[0]?.textContent || 'Select chapter';
+
+        resetSelect(chapterSelect, placeholder);
+
+        for (let chapterNumber = 1; chapterNumber <= chapterCount; chapterNumber += 1) {
+            chapterSelect.append(new Option(String(chapterNumber), String(chapterNumber)));
+        }
+
+        if (bookSelect.value === currentBookId && previousValue !== '') {
+            chapterSelect.value = previousValue;
+        }
+    };
+
+    readerNav.addEventListener('submit', (event) => {
         const verseValue = verseSelect instanceof HTMLSelectElement ? verseSelect.value.trim() : '';
 
         if (verseValue !== '') {
+            event.preventDefault();
             window.location.assign(buildReaderNavigationUrl(readerNav, verseValue));
             return;
         }
 
-        readerNav.requestSubmit();
-    };
+        window.sessionStorage.removeItem('reader-smooth-scroll-target');
+    });
 
     bookSelect?.addEventListener('change', () => {
+        populateChapterOptions();
+
         if (chapterSelect) {
             chapterSelect.value = '';
         }
@@ -2106,24 +2162,26 @@ document.querySelectorAll('[data-reader-nav]').forEach((readerNav) => {
         if (verseEndSelect) {
             verseEndSelect.value = '';
         }
-
-        submitNav();
     });
 
     chapterSelect?.addEventListener('change', () => {
-        if (verseSelect) {
-            verseSelect.value = '';
+        if (
+            bookSelect instanceof HTMLSelectElement
+            && chapterSelect instanceof HTMLSelectElement
+            && (bookSelect.value !== currentBookId || chapterSelect.value !== currentChapter)
+        ) {
+            resetSelect(verseSelect, 'Whole chapter');
+            resetSelect(verseEndSelect, 'V-V');
+            return;
         }
+
+        restoreSelect(verseSelect, originalVerseOptions);
+        restoreSelect(verseEndSelect, originalVerseEndOptions);
 
         if (verseEndSelect) {
             verseEndSelect.value = '';
         }
-
-        submitNav();
     });
-
-    verseSelect?.addEventListener('change', submitNav);
-    verseEndSelect?.addEventListener('change', submitNav);
 });
 
 const mobileBibleNav = document.querySelector('[data-mobile-bible-nav]');

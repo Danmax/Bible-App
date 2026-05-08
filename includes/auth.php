@@ -11,7 +11,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     $isSecure = ($https !== '' && $https !== 'off');
 
     session_set_cookie_params([
-        'lifetime' => 0,
+        'lifetime' => max(0, (int) APP_SESSION_COOKIE_LIFETIME),
         'path' => '/',
         'secure' => $isSecure,
         'httponly' => true,
