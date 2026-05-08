@@ -8,7 +8,8 @@ $pageTitle = 'Home';
 $activePage = 'home';
 $backgroundSeed = home_daily_seed('home-background');
 $messageSeed = home_daily_seed('home-messages');
-$verseSeed = home_daily_seed('home-verse');
+$verseMoment = home_daily_verse_moment();
+$verseSeed = home_daily_seed('home-verse|' . $verseMoment);
 $dailyBackgrounds = home_daily_backgrounds();
 $dailyBackground = $dailyBackgrounds[$backgroundSeed % count($dailyBackgrounds)];
 $dailyMessages = home_daily_rotating_items(home_curated_home_messages(), $messageSeed, 3);
@@ -314,6 +315,11 @@ require_once __DIR__ . '/includes/header.php';
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
 <?php
 
+function home_daily_verse_moment(): string
+{
+    return (int) date('G') >= 18 ? 'evening' : 'day';
+}
+
 function home_daily_seed(string $namespace): int
 {
     return abs((int) crc32(date('Y-m-d') . '|' . $namespace));
@@ -409,47 +415,48 @@ function home_daily_rotating_items(array $items, int $seed, int $count): array
 
 function home_daily_verse_payload(string $translation, int $seed): array
 {
+    $isEvening = home_daily_verse_moment() === 'evening';
     $fallbacks = [
         [
             'query' => 'Proverbs 3:5-6',
             'reference' => 'Proverbs 3:5-6',
             'text' => 'Trust in the Lord with all your heart, and do not lean on your own understanding.',
-            'kicker' => 'For today',
+            'kicker' => $isEvening ? 'For tonight' : 'For today',
             'message' => 'Let the day start from surrender instead of strain.',
         ],
         [
             'query' => 'Isaiah 40:31',
             'reference' => 'Isaiah 40:31',
             'text' => 'Those who hope in the Lord will renew their strength.',
-            'kicker' => 'For today',
+            'kicker' => $isEvening ? 'Evening strength' : 'For today',
             'message' => 'Wait with expectancy and keep moving in quiet confidence.',
         ],
         [
             'query' => 'Philippians 4:6-7',
             'reference' => 'Philippians 4:6-7',
             'text' => 'Do not be anxious about anything, but in everything by prayer and petition present your requests to God.',
-            'kicker' => 'For today',
+            'kicker' => $isEvening ? 'Evening peace' : 'For today',
             'message' => 'Turn pressure into prayer and let peace guard the mind.',
         ],
         [
             'query' => 'Romans 15:13',
             'reference' => 'Romans 15:13',
             'text' => 'May the God of hope fill you with all joy and peace as you trust in Him.',
-            'kicker' => 'For today',
+            'kicker' => $isEvening ? 'Evening hope' : 'For today',
             'message' => 'Hope grows where trust stays rooted in God.',
         ],
         [
             'query' => 'Joshua 1:9',
             'reference' => 'Joshua 1:9',
             'text' => 'Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you.',
-            'kicker' => 'For today',
+            'kicker' => $isEvening ? 'For the evening' : 'For today',
             'message' => 'Walk forward with courage that comes from God\'s presence.',
         ],
         [
             'query' => 'Lamentations 3:22-23',
             'reference' => 'Lamentations 3:22-23',
             'text' => 'Because of the Lord\'s faithful love we do not perish, for His mercies never end. They are new every morning.',
-            'kicker' => 'For today',
+            'kicker' => $isEvening ? 'Before rest' : 'For today',
             'message' => 'Start again with mercy that has already met the morning.',
         ],
     ];
