@@ -955,12 +955,13 @@ require_once __DIR__ . '/includes/header.php';
                                 <path d="M9 21h6" />
                             </svg>
                         </button>
+                        <button class="button button-secondary bible-select-toggle" type="button" data-bible-select-toggle aria-expanded="false" aria-controls="bible-passage-selector">Select</button>
                         <button class="button button-primary" type="submit">Search</button>
                     </div>
                     <p class="muted-copy" data-voice-search-status>Try saying a verse, passage, or keyword and we will help you find it.</p>
                 </form>
 
-                <details class="bible-advanced-search top-gap-sm">
+                <details class="bible-advanced-search top-gap-sm" id="bible-passage-selector" data-bible-passage-selector>
                     <summary>
                         <span>Advanced search</span>
                         <span class="muted-copy">Browse books, chapters, and verses</span>
@@ -1069,6 +1070,7 @@ require_once __DIR__ . '/includes/header.php';
                     <?php if ($selectedBook): ?>
                         <span class="mini-card"><?= e((string) $selectedBook['abbreviation']); ?></span>
                     <?php endif; ?>
+                    <a class="mini-card" href="<?= e(app_url('dictionary.php' . ($query !== '' ? '?q=' . urlencode($query) : ''))); ?>">Dictionary</a>
                 </div>
             </div>
 

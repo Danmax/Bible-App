@@ -83,7 +83,7 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                     <a class="<?= $activePage === 'home' ? 'is-active' : ''; ?>" href="<?= e(app_url('index.php')); ?>">Home</a>
                     <a class="<?= $activePage === 'good-news' ? 'is-active' : ''; ?>" href="<?= e(app_url('good-news.php')); ?>">Good News</a>
                     <?php
-                    $bibleActivePages = ['bible', 'bookmarks', 'notes', 'sermon-notes', 'sermon-note-view'];
+                    $bibleActivePages = ['bible', 'dictionary', 'bookmarks', 'notes', 'sermon-notes', 'sermon-note-view'];
                     $communityActivePages = ['community', 'sessions', 'friends', 'prayer'];
                     $dashboardActivePages = ['dashboard', 'planner'];
                     ?>
@@ -116,6 +116,12 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                         $moreSections[] = [
                             'label' => 'Bible',
                             'links' => [
+                                [
+                                    'label' => 'Dictionary',
+                                    'href' => app_url('dictionary.php'),
+                                    'active' => $activePage === 'dictionary',
+                                    'class' => '',
+                                ],
                                 [
                                     'label' => 'Saved',
                                     'href' => app_url('bookmarks.php'),
@@ -196,6 +202,23 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                             'links' => $accountLinks,
                         ];
                     } else {
+                        $moreSections[] = [
+                            'label' => 'Bible',
+                            'links' => [
+                                [
+                                    'label' => 'Dictionary',
+                                    'href' => app_url('dictionary.php'),
+                                    'active' => $activePage === 'dictionary',
+                                    'class' => '',
+                                ],
+                                [
+                                    'label' => 'Sermons',
+                                    'href' => app_url('sermon-notes.php'),
+                                    'active' => $activePage === 'sermon-notes' || $activePage === 'sermon-note-view',
+                                    'class' => '',
+                                ],
+                            ],
+                        ];
                         $moreSections[] = [
                             'label' => 'Community',
                             'links' => [

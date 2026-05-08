@@ -2214,6 +2214,32 @@ if (mobileBibleNav instanceof HTMLElement && mobileBibleNavToggle instanceof HTM
     });
 }
 
+const bibleSelectToggle = document.querySelector('[data-bible-select-toggle]');
+const biblePassageSelector = document.querySelector('[data-bible-passage-selector]');
+
+if (bibleSelectToggle instanceof HTMLButtonElement && biblePassageSelector instanceof HTMLDetailsElement) {
+    const syncBibleSelectToggle = () => {
+        bibleSelectToggle.setAttribute('aria-expanded', biblePassageSelector.open ? 'true' : 'false');
+    };
+
+    bibleSelectToggle.addEventListener('click', () => {
+        biblePassageSelector.open = !biblePassageSelector.open;
+        syncBibleSelectToggle();
+
+        if (biblePassageSelector.open) {
+            const firstSelect = biblePassageSelector.querySelector('select');
+
+            biblePassageSelector.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            if (firstSelect instanceof HTMLSelectElement) {
+                firstSelect.focus({ preventScroll: true });
+            }
+        }
+    });
+
+    biblePassageSelector.addEventListener('toggle', syncBibleSelectToggle);
+    syncBibleSelectToggle();
+}
+
 document.querySelectorAll('.chapter-jump-form').forEach((form) => {
     form.addEventListener('submit', (event) => {
         if (!(form instanceof HTMLFormElement)) {

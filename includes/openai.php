@@ -381,6 +381,7 @@ function openai_generate_sermon_reference_suggestions(string $noteText): array
         '    "prophecy": string[],',
         '    "book": string[],',
         '    "gospel": string[],',
+        '    "homiletics": string[],',
         '    "theme": string[]',
         '  }',
         '}',
@@ -388,6 +389,7 @@ function openai_generate_sermon_reference_suggestions(string $noteText): array
         '- verse_queries should include 0 to 6 likely Bible references such as "Romans 12:2".',
         '- Only suggest verse_queries when the notes clearly point toward them.',
         '- Keep each tag short and specific.',
+        '- Use homiletics for sermon structure, preaching moves, big idea, illustrations, doctrine, invitation, exhortation, and application method.',
         '- Use empty arrays when there is no strong match.',
         '- Do not invent niche historical claims.',
     ]);

@@ -302,8 +302,16 @@ require_once __DIR__ . '/includes/header.php';
             <div class="flash flash-warning"><?= e($formError); ?></div>
         <?php endif; ?>
 
+        <nav class="sermon-mobile-tabs" data-sermon-tabs aria-label="Sermon note sections">
+            <button class="is-active" type="button" data-sermon-tab="library">Library</button>
+            <button type="button" data-sermon-tab="details">Details</button>
+            <button type="button" data-sermon-tab="notes">Notes</button>
+            <button type="button" data-sermon-tab="tools">Tools</button>
+            <button type="button" data-sermon-tab="board">Board</button>
+        </nav>
+
         <div class="sermon-workspace<?= $selectedNote ? ' has-note-selected' : ''; ?>" data-sermon-workspace>
-            <aside class="panel sermon-left-rail">
+            <aside class="panel sermon-left-rail sermon-tab-panel is-active" data-sermon-tab-panel="library">
                 <div class="panel-heading">
                     <div>
                         <h2>Folders</h2>
@@ -397,7 +405,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
 
                     <div class="inline-actions">
-                        <button class="button button-secondary" type="button" data-sermon-side-panel-toggle aria-expanded="false">Move Tools To Side</button>
+                        <button class="button button-secondary" type="button" data-sermon-open-tools>Tools</button>
                     </div>
                 </div>
 
@@ -411,20 +419,21 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="verse_refs_json" value="<?= e($verseRefsJson); ?>" data-sermon-verse-refs-json>
                     <input type="hidden" name="storm_board_json" value="<?= e($stormBoardJson); ?>" data-sermon-storm-board-json>
 
+                    <div class="sermon-tab-panel" data-sermon-tab-panel="details">
                     <div class="sermon-meta-grid">
                         <label>
                             <span>Title</span>
-                            <input type="text" name="title" value="<?= e($form['title']); ?>" placeholder="Faith In The Fire" required>
+                            <input type="text" name="title" value="<?= e($form['title']); ?>" required>
                         </label>
 
                         <label>
                             <span>Speaker</span>
-                            <input type="text" name="speaker_name" value="<?= e($form['speaker_name']); ?>" placeholder="Pastor Daniel">
+                            <input type="text" name="speaker_name" value="<?= e($form['speaker_name']); ?>">
                         </label>
 
                         <label>
                             <span>Series</span>
-                            <input type="text" name="series_name" value="<?= e($form['series_name']); ?>" placeholder="Daniel">
+                            <input type="text" name="series_name" value="<?= e($form['series_name']); ?>">
                         </label>
 
                         <label>
@@ -472,16 +481,23 @@ require_once __DIR__ . '/includes/header.php';
                             <span>Star this sermon note</span>
                         </label>
                     </div>
+                    </div>
 
+                    <div class="sermon-tab-panel is-active" data-sermon-tab-panel="notes">
                     <div class="sermon-toolbar" data-sermon-toolbar>
                         <div class="sermon-toolbar-group">
+                            <button class="button button-secondary" type="button" data-editor-block="h1">Title</button>
+                            <button class="button button-secondary" type="button" data-editor-block="h2">H2</button>
+                            <button class="button button-secondary" type="button" data-editor-block="h3">H3</button>
                             <button class="button button-secondary" type="button" data-editor-command="bold">Bold</button>
                             <button class="button button-secondary" type="button" data-editor-command="italic">Italic</button>
-                            <button class="button button-secondary" type="button" data-editor-block="h2">H2</button>
+                            <button class="button button-secondary" type="button" data-editor-command="underline">Underline</button>
                             <button class="button button-secondary" type="button" data-editor-block="blockquote">Quote</button>
                             <button class="button button-secondary" type="button" data-editor-command="insertUnorderedList">Bullets</button>
+                            <button class="button button-secondary" type="button" data-editor-command="insertOrderedList">Numbers</button>
                             <button class="button button-secondary" type="button" data-editor-highlight="note-highlight-green">Green Highlight</button>
                             <button class="button button-secondary" type="button" data-editor-highlight="note-highlight-theme">Thematic</button>
+                            <button class="button button-secondary" type="button" data-editor-command="removeFormat">Clear</button>
                         </div>
 
                         <div class="sermon-toolbar-group sermon-toolbar-link-group">
@@ -493,8 +509,9 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="sermon-editor-surface">
                         <div class="sermon-rich-editor" contenteditable="true" spellcheck="true" data-sermon-rich-editor><?= $form['content_html']; ?></div>
                     </div>
+                    </div>
 
-                    <div class="panel sermon-board-panel">
+                    <div class="panel sermon-board-panel sermon-tab-panel" data-sermon-tab-panel="board">
                         <div class="panel-heading">
                             <div>
                                 <h3>Storm Board</h3>
@@ -543,7 +560,7 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endif; ?>
             </section>
 
-            <aside class="panel sermon-side-panel" data-sermon-side-panel>
+            <aside class="panel sermon-side-panel sermon-tab-panel" data-sermon-side-panel data-sermon-tab-panel="tools">
                 <div class="panel-heading">
                     <div>
                         <h2>Bible Tools</h2>
@@ -601,8 +618,22 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="sermon-reference-panel top-gap">
                     <div class="panel-heading">
                         <div>
+                            <h3>Bible Dictionary</h3>
+                            <p class="muted-copy">Look up biblical terms while you write.</p>
+                        </div>
+                    </div>
+
+                    <form class="sermon-verse-search-row" method="get" action="<?= e(app_url('dictionary.php')); ?>">
+                        <input type="search" name="q" placeholder="Grace, covenant, atonement">
+                        <button class="button button-secondary" type="submit">Open</button>
+                    </form>
+                </div>
+
+                <div class="sermon-reference-panel top-gap">
+                    <div class="panel-heading">
+                        <div>
                             <h3>Reference Groups</h3>
-                            <p class="muted-copy">Use commas to track people, places, promises, and themes tied to this sermon.</p>
+                            <p class="muted-copy">Use commas to track people, places, promises, homiletics, and themes tied to this sermon.</p>
                         </div>
                     </div>
 
@@ -664,10 +695,44 @@ require_once __DIR__ . '/includes/header.php';
 
         <div class="inline-actions top-gap-sm">
             <button class="button button-primary" type="button" data-sermon-insert-citation>Insert Citation</button>
-            <button class="button button-secondary" type="button" data-sermon-paraphrase-verse>Paraphrase Verse</button>
+            <button class="button button-secondary" type="button" data-sermon-insert-full-verse>Full Verse</button>
+            <button class="button button-secondary" type="button" data-sermon-paraphrase-verse>Highlighted Paraphrase</button>
         </div>
 
         <p class="muted-copy top-gap-sm" data-sermon-verse-modal-status>Choose how you want this verse to appear in the document.</p>
+    </div>
+</div>
+
+<div class="sermon-editor-context-menu" data-sermon-context-menu hidden>
+    <button type="button" data-context-action="dictionary">Dictionary</button>
+    <button type="button" data-context-action="verse">Bible Verse</button>
+    <button type="button" data-context-action="bold">Bold</button>
+    <button type="button" data-context-action="title">Title</button>
+    <button type="button" data-context-action="highlight">Highlight</button>
+    <button type="button" data-context-action="bullets">Bullets</button>
+    <button type="button" data-context-action="numbers">Numbers</button>
+    <button type="button" data-context-action="quote">Quote</button>
+</div>
+
+<div class="panel-modal sermon-input-modal" data-sermon-input-modal hidden aria-hidden="true">
+    <div class="panel panel-modal-card" data-sermon-input-modal-content>
+        <div class="panel-heading">
+            <div>
+                <p class="eyebrow" data-sermon-input-modal-kicker>Editor Action</p>
+                <h3 data-sermon-input-modal-title>Add Content</h3>
+                <p class="muted-copy" data-sermon-input-modal-help></p>
+            </div>
+            <button class="button button-secondary" type="button" data-sermon-input-modal-close>Close</button>
+        </div>
+
+        <label class="top-gap-sm">
+            <span data-sermon-input-modal-label>Value</span>
+            <input type="text" data-sermon-input-modal-field>
+        </label>
+
+        <div class="inline-actions top-gap-sm">
+            <button class="button button-primary" type="button" data-sermon-input-modal-submit>Apply</button>
+        </div>
     </div>
 </div>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

@@ -15,6 +15,10 @@ if (sermonWorkspace) {
     const sidePanel = sermonWorkspace.querySelector('[data-sermon-side-panel]');
     const sidePanelToggle = sermonWorkspace.querySelector('[data-sermon-side-panel-toggle]');
     const sidePanelClose = sermonWorkspace.querySelector('[data-sermon-side-panel-close]');
+    const openToolsButtons = sermonWorkspace.querySelectorAll('[data-sermon-open-tools]');
+    const tabButtons = document.querySelectorAll('[data-sermon-tab]');
+    const tabPanels = sermonWorkspace.querySelectorAll('[data-sermon-tab-panel]');
+    const contextMenu = document.querySelector('[data-sermon-context-menu]');
     const verseQueryInput = sermonWorkspace.querySelector('[data-sermon-verse-query]');
     const verseSearchButton = sermonWorkspace.querySelector('[data-sermon-verse-search]');
     const verseResults = sermonWorkspace.querySelector('[data-sermon-verse-results]');
@@ -36,10 +40,22 @@ if (sermonWorkspace) {
     const verseModalStatus = verseModal?.querySelector('[data-sermon-verse-modal-status]');
     const verseModalClose = verseModal?.querySelector('[data-sermon-verse-modal-close]');
     const insertCitationButton = verseModal?.querySelector('[data-sermon-insert-citation]');
+    const insertFullVerseButton = verseModal?.querySelector('[data-sermon-insert-full-verse]');
     const paraphraseVerseButton = verseModal?.querySelector('[data-sermon-paraphrase-verse]');
+    const inputModal = document.querySelector('[data-sermon-input-modal]');
+    const inputModalContent = inputModal?.querySelector('[data-sermon-input-modal-content]');
+    const inputModalKicker = inputModal?.querySelector('[data-sermon-input-modal-kicker]');
+    const inputModalTitle = inputModal?.querySelector('[data-sermon-input-modal-title]');
+    const inputModalHelp = inputModal?.querySelector('[data-sermon-input-modal-help]');
+    const inputModalLabel = inputModal?.querySelector('[data-sermon-input-modal-label]');
+    const inputModalField = inputModal?.querySelector('[data-sermon-input-modal-field]');
+    const inputModalSubmit = inputModal?.querySelector('[data-sermon-input-modal-submit]');
+    const inputModalClose = inputModal?.querySelector('[data-sermon-input-modal-close]');
     let verseRefs = parseJsonArray(verseRefsInput?.value);
     let savedRange = null;
     let activeVerse = null;
+    let activeTab = 'notes';
+    let pendingInputAction = null;
 
     const setStatus = (message) => {
         if (statusField instanceof HTMLElement) {
@@ -79,6 +95,24 @@ if (sermonWorkspace) {
             sidePanelToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
             sidePanelToggle.textContent = open ? 'Hide Side Tools' : 'Move Tools To Side';
         }
+    };
+
+    const setActiveTab = (tabName) => {
+        activeTab = tabName || 'notes';
+        sermonWorkspace.setAttribute('data-active-sermon-tab', activeTab);
+
+        tabButtons.forEach((button) => {
+            const isActive = button.getAttribute('data-sermon-tab') === activeTab;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        tabPanels.forEach((panel) => {
+            const isActive = panel.getAttribute('data-sermon-tab-panel') === activeTab;
+            panel.classList.toggle('is-active', isActive);
+        });
+
+        syncSidePanelState(activeTab === 'tools');
     };
 
     const rememberSelection = () => {
@@ -219,6 +253,222 @@ if (sermonWorkspace) {
 
         rememberSelection();
         syncHiddenFields();
+    };
+
+    const runEditorCommand = (command, value = null) => {
+        if (!command || !(editor instanceof HTMLElement)) {
+            return;
+        }
+
+        setActiveTab('notes');
+        editor.focus();
+        restoreSelection();
+        document.execCommand(command, false, value);
+        rememberSelection();
+        syncHiddenFields();
+    };
+
+    const formatEditorBlock = (block) => {
+        if (!block || !(editor instanceof HTMLElement)) {
+            return;
+        }
+
+        setActiveTab('notes');
+        editor.focus();
+        restoreSelection();
+        document.execCommand('formatBlock', false, block);
+        rememberSelection();
+        syncHiddenFields();
+    };
+
+    const selectedEditorText = () => {
+        const selection = window.getSelection();
+
+        if (!selection || selection.rangeCount === 0) {
+            return '';
+        }
+
+        const range = selection.getRangeAt(0);
+
+        if (!(editor instanceof HTMLElement) || !editor.contains(range.commonAncestorContainer)) {
+            return '';
+        }
+
+        return selection.toString().trim();
+    };
+
+    const applyDictionaryTerm = (term) => {
+        const normalizedTerm = term.trim();
+
+        if (normalizedTerm === '') {
+            return;
+        }
+
+        insertHtmlAtSelection(
+            `<a class="note-inline-link note-dictionary-link" href="dictionary.php?q=${encodeURIComponent(normalizedTerm)}">${escapeHtml(normalizedTerm)}</a>`
+        );
+    };
+
+    const runVerseSearchQuery = (query) => {
+        const normalizedQuery = query.trim();
+
+        if (normalizedQuery === '') {
+            return;
+        }
+
+        if (verseQueryInput instanceof HTMLInputElement) {
+            verseQueryInput.value = normalizedQuery;
+        }
+
+        setActiveTab('tools');
+        searchVerses();
+    };
+
+    const openInputModal = ({ action, title, label, help, initialValue = '' }) => {
+        if (!(inputModal instanceof HTMLElement) || !(inputModalField instanceof HTMLInputElement)) {
+            return;
+        }
+
+        pendingInputAction = action;
+
+        if (inputModalKicker instanceof HTMLElement) {
+            inputModalKicker.textContent = 'Editor Action';
+        }
+
+        if (inputModalTitle instanceof HTMLElement) {
+            inputModalTitle.textContent = title;
+        }
+
+        if (inputModalLabel instanceof HTMLElement) {
+            inputModalLabel.textContent = label;
+        }
+
+        if (inputModalHelp instanceof HTMLElement) {
+            inputModalHelp.textContent = help;
+        }
+
+        inputModalField.value = initialValue;
+        inputModal.hidden = false;
+        inputModal.setAttribute('aria-hidden', 'false');
+        setTimeout(() => inputModalField.focus(), 0);
+    };
+
+    const closeInputModal = () => {
+        if (!(inputModal instanceof HTMLElement)) {
+            return;
+        }
+
+        inputModal.hidden = true;
+        inputModal.setAttribute('aria-hidden', 'true');
+        pendingInputAction = null;
+    };
+
+    const insertDictionaryLink = () => {
+        const selectedText = selectedEditorText();
+
+        if (selectedText !== '') {
+            applyDictionaryTerm(selectedText);
+            return;
+        }
+
+        openInputModal({
+            action: 'dictionary',
+            title: 'Add Dictionary Content',
+            label: 'Dictionary term',
+            help: 'Enter a word or phrase to link into the Bible Dictionary.',
+        });
+    };
+
+    const searchSelectedVerse = () => {
+        const selectedText = selectedEditorText();
+
+        if (selectedText !== '') {
+            runVerseSearchQuery(selectedText);
+            return;
+        }
+
+        openInputModal({
+            action: 'verse',
+            title: 'Find Bible Verse',
+            label: 'Verse or keyword',
+            help: 'Enter a reference like John 3:16 or a keyword to search Scripture.',
+        });
+    };
+
+    const hideContextMenu = () => {
+        if (contextMenu instanceof HTMLElement) {
+            contextMenu.hidden = true;
+        }
+    };
+
+    const showContextMenu = (event) => {
+        if (!(contextMenu instanceof HTMLElement) || !(editor instanceof HTMLElement)) {
+            return;
+        }
+
+        event.preventDefault();
+        rememberSelection();
+
+        contextMenu.hidden = false;
+        contextMenu.style.left = `${Math.min(event.clientX, window.innerWidth - 190)}px`;
+        contextMenu.style.top = `${Math.min(event.clientY, window.innerHeight - 310)}px`;
+    };
+
+    const applyMarkdownShortcut = () => {
+        if (!(editor instanceof HTMLElement)) {
+            return;
+        }
+
+        const selection = window.getSelection();
+
+        if (!selection || selection.rangeCount === 0) {
+            return;
+        }
+
+        const node = selection.anchorNode;
+        const element = node instanceof Element ? node : node?.parentElement;
+        const block = element?.closest('p, div, h1, h2, h3, li');
+
+        if (!(block instanceof HTMLElement) || !editor.contains(block)) {
+            return;
+        }
+
+        const text = block.textContent || '';
+        const shortcutMap = [
+            { pattern: /^#\s+/, block: 'h1' },
+            { pattern: /^##\s+/, block: 'h2' },
+            { pattern: /^###\s+/, block: 'h3' },
+        ];
+
+        for (const shortcut of shortcutMap) {
+            if (shortcut.pattern.test(text)) {
+                block.textContent = text.replace(shortcut.pattern, '');
+                const range = document.createRange();
+                range.selectNodeContents(block);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                document.execCommand('formatBlock', false, shortcut.block);
+                rememberSelection();
+                syncHiddenFields();
+                return;
+            }
+        }
+
+        if (/^[-*]\s+/.test(text)) {
+            block.textContent = text.replace(/^[-*]\s+/, '');
+            document.execCommand('insertUnorderedList', false, null);
+            rememberSelection();
+            syncHiddenFields();
+            return;
+        }
+
+        if (/^1\.\s+/.test(text)) {
+            block.textContent = text.replace(/^1\.\s+/, '');
+            document.execCommand('insertOrderedList', false, null);
+            rememberSelection();
+            syncHiddenFields();
+        }
     };
 
     const wrapSelectionWithClass = (className) => {
@@ -462,15 +712,7 @@ if (sermonWorkspace) {
         button.addEventListener('click', () => {
             const command = button.getAttribute('data-editor-command');
 
-            if (!command || !(editor instanceof HTMLElement)) {
-                return;
-            }
-
-            editor.focus();
-            restoreSelection();
-            document.execCommand(command, false, null);
-            rememberSelection();
-            syncHiddenFields();
+            runEditorCommand(command);
         });
     });
 
@@ -478,15 +720,7 @@ if (sermonWorkspace) {
         button.addEventListener('click', () => {
             const block = button.getAttribute('data-editor-block');
 
-            if (!block || !(editor instanceof HTMLElement)) {
-                return;
-            }
-
-            editor.focus();
-            restoreSelection();
-            document.execCommand('formatBlock', false, block);
-            rememberSelection();
-            syncHiddenFields();
+            formatEditorBlock(block);
         });
     });
 
@@ -527,7 +761,14 @@ if (sermonWorkspace) {
 
     editor?.addEventListener('mouseup', rememberSelection);
     editor?.addEventListener('keyup', rememberSelection);
+    editor?.addEventListener('input', syncHiddenFields);
     editor?.addEventListener('focus', rememberSelection);
+    editor?.addEventListener('contextmenu', showContextMenu);
+    editor?.addEventListener('keyup', (event) => {
+        if (event.key === ' ' || event.key === 'Enter') {
+            applyMarkdownShortcut();
+        }
+    });
     editor?.addEventListener('click', (event) => {
         const target = event.target;
         const verseChip = target instanceof Element ? target.closest('.note-verse-chip') : null;
@@ -604,6 +845,26 @@ if (sermonWorkspace) {
         closeVerseModal();
     });
 
+    insertFullVerseButton?.addEventListener('click', () => {
+        if (!activeVerse) {
+            return;
+        }
+
+        const reference = String(activeVerse.reference_label || 'Verse');
+        const verseText = String(activeVerse.verse_text || '').trim();
+
+        insertHtmlAtSelection(
+            `<blockquote class="note-full-verse"><p>${escapeHtml(verseText)}</p><p><span class="note-verse-chip" data-verse-id="${escapeHtml(activeVerse.verse_id)}" data-verse-reference="${escapeHtml(reference)}" data-verse-text="${escapeHtml(verseText)}" contenteditable="false">${escapeHtml(reference)}</span></p></blockquote>`
+        );
+        addVerseRef({
+            verse_id: Number(activeVerse.verse_id),
+            reference_kind: 'full_verse',
+            reference_label: reference,
+            quote_text: verseText,
+        });
+        closeVerseModal();
+    });
+
     paraphraseVerseButton?.addEventListener('click', async () => {
         if (!activeVerse) {
             return;
@@ -628,11 +889,11 @@ if (sermonWorkspace) {
             }
 
             insertHtmlAtSelection(
-                `<blockquote><p>${escapeHtml(paraphrase)}</p><p><span class="note-verse-chip" data-verse-id="${escapeHtml(activeVerse.verse_id)}" data-verse-reference="${escapeHtml(reference)}" data-verse-text="${escapeHtml(activeVerse.verse_text || '')}" contenteditable="false">${escapeHtml(reference)}</span></p></blockquote>`
+                `<blockquote class="note-highlighted-paraphrase"><p><span class="note-highlight-theme">${escapeHtml(paraphrase)}</span></p><p><span class="note-verse-chip" data-verse-id="${escapeHtml(activeVerse.verse_id)}" data-verse-reference="${escapeHtml(reference)}" data-verse-text="${escapeHtml(activeVerse.verse_text || '')}" contenteditable="false">${escapeHtml(reference)}</span></p></blockquote>`
             );
             addVerseRef({
                 verse_id: Number(activeVerse.verse_id),
-                reference_kind: 'paraphrase',
+                reference_kind: 'highlighted_paraphrase',
                 reference_label: reference,
                 quote_text: String(activeVerse.verse_text || ''),
             });
@@ -642,6 +903,40 @@ if (sermonWorkspace) {
             if (verseModalStatus instanceof HTMLElement) {
                 verseModalStatus.textContent = error instanceof Error ? error.message : 'The paraphrase could not be created.';
             }
+        }
+    });
+
+    inputModalSubmit?.addEventListener('click', () => {
+        if (!(inputModalField instanceof HTMLInputElement)) {
+            return;
+        }
+
+        const value = inputModalField.value.trim();
+
+        if (pendingInputAction === 'dictionary') {
+            applyDictionaryTerm(value);
+        } else if (pendingInputAction === 'verse') {
+            runVerseSearchQuery(value);
+        }
+
+        closeInputModal();
+    });
+
+    inputModalField?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            inputModalSubmit?.click();
+        }
+    });
+
+    inputModalClose?.addEventListener('click', closeInputModal);
+    inputModal?.addEventListener('click', (event) => {
+        if (!(inputModalContent instanceof HTMLElement) || !(event.target instanceof Node)) {
+            return;
+        }
+
+        if (!inputModalContent.contains(event.target)) {
+            closeInputModal();
         }
     });
 
@@ -716,11 +1011,67 @@ if (sermonWorkspace) {
     });
 
     sidePanelToggle?.addEventListener('click', () => {
-        syncSidePanelState(!sermonWorkspace.classList.contains('is-side-panel-open'));
+        setActiveTab(activeTab === 'tools' ? 'notes' : 'tools');
+    });
+
+    openToolsButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            setActiveTab('tools');
+        });
     });
 
     sidePanelClose?.addEventListener('click', () => {
-        syncSidePanelState(false);
+        setActiveTab('notes');
+    });
+
+    tabButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            setActiveTab(button.getAttribute('data-sermon-tab') || 'notes');
+        });
+    });
+
+    contextMenu?.addEventListener('click', (event) => {
+        const target = event.target;
+        const button = target instanceof Element ? target.closest('[data-context-action]') : null;
+
+        if (!(button instanceof HTMLElement)) {
+            return;
+        }
+
+        const action = button.getAttribute('data-context-action') || '';
+
+        if (action === 'dictionary') {
+            insertDictionaryLink();
+        } else if (action === 'verse') {
+            searchSelectedVerse();
+        } else if (action === 'bold') {
+            runEditorCommand('bold');
+        } else if (action === 'title') {
+            formatEditorBlock('h2');
+        } else if (action === 'highlight') {
+            wrapSelectionWithClass('note-highlight-theme');
+        } else if (action === 'bullets') {
+            runEditorCommand('insertUnorderedList');
+        } else if (action === 'numbers') {
+            runEditorCommand('insertOrderedList');
+        } else if (action === 'quote') {
+            formatEditorBlock('blockquote');
+        }
+
+        hideContextMenu();
+    });
+
+    document.addEventListener('click', (event) => {
+        if (contextMenu instanceof HTMLElement && event.target instanceof Node && !contextMenu.contains(event.target)) {
+            hideContextMenu();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            hideContextMenu();
+            closeInputModal();
+        }
     });
 
     boardRoot?.addEventListener('click', (event) => {
@@ -759,7 +1110,7 @@ if (sermonWorkspace) {
     });
 
     renderVerseRefs();
-    syncSidePanelState(false);
+    setActiveTab(window.matchMedia('(max-width: 860px)').matches ? 'notes' : 'notes');
     syncHiddenFields();
 }
 
