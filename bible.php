@@ -843,7 +843,7 @@ require_once __DIR__ . '/includes/header.php';
                     aria-label="Open Bible navigation"
                     aria-expanded="false"
                 >
-                    <span>Books</span>
+                    <span>Book</span>
                 </button>
 
                 <form
@@ -960,7 +960,7 @@ require_once __DIR__ . '/includes/header.php';
                     <p class="muted-copy" data-voice-search-status>Try saying a verse, passage, or keyword and we will help you find it.</p>
                 </form>
 
-                <details class="bible-advanced-search top-gap-sm" <?= ($displayMode === 'catalog' || ($selectedBookId === 0 && $query === '')) ? 'open' : ''; ?>>
+                <details class="bible-advanced-search top-gap-sm">
                     <summary>
                         <span>Advanced search</span>
                         <span class="muted-copy">Browse books, chapters, and verses</span>

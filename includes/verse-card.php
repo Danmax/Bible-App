@@ -1,13 +1,21 @@
 <?php
 
 declare(strict_types=1);
+
+$verseReference = format_verse_reference($verse);
+$verseReaderPath = 'bible.php?translation=' . urlencode((string) $verse['translation'])
+    . '&book_id=' . (int) $verse['book_id']
+    . '&chapter=' . (int) $verse['chapter_number']
+    . '&verse=' . (int) $verse['verse_number'];
+$verseReaderUrl = app_url($verseReaderPath) . '#verse-' . (int) $verse['verse_number'];
+$verseShareUrl = app_url($verseReaderPath, true) . '#verse-' . (int) $verse['verse_number'];
 ?>
 <article class="scripture-result">
     <div class="scripture-result-top">
         <div>
             <h3>
-                <a href="<?= e(app_url('bible.php?translation=' . urlencode((string) $verse['translation']) . '&book_id=' . $verse['book_id'] . '&chapter=' . $verse['chapter_number'] . '&verse=' . $verse['verse_number'])); ?>">
-                    <?= e(format_verse_reference($verse)); ?>
+                <a href="<?= e($verseReaderUrl); ?>">
+                    <?= e($verseReference); ?>
                 </a>
             </h3>
             <p class="scripture-text">
@@ -18,6 +26,14 @@ declare(strict_types=1);
     </div>
 
     <div class="inline-actions">
+        <button
+            class="button button-primary"
+            type="button"
+            data-scripture-result-share
+            data-share-reference="<?= e($verseReference); ?>"
+            data-share-text="<?= e((string) $verse['verse_text']); ?>"
+            data-share-url="<?= e($verseShareUrl); ?>"
+        >Share</button>
         <a class="button button-secondary" href="<?= e(app_url('bible.php?translation=' . urlencode((string) $verse['translation']) . '&book_id=' . $verse['book_id'] . '&chapter=' . $verse['chapter_number'])); ?>">
             Open Chapter
         </a>

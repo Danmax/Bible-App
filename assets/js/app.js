@@ -2090,10 +2090,8 @@ document.querySelectorAll('[data-reader-nav]').forEach((readerNav) => {
 
         if (verseValue !== '') {
             url.hash = `verse-${verseValue}`;
-            window.sessionStorage.setItem('reader-smooth-scroll-target', `#verse-${verseValue}`);
         } else {
             url.hash = '';
-            window.sessionStorage.removeItem('reader-smooth-scroll-target');
         }
 
         return url.toString();
@@ -2145,7 +2143,6 @@ document.querySelectorAll('[data-reader-nav]').forEach((readerNav) => {
             return;
         }
 
-        window.sessionStorage.removeItem('reader-smooth-scroll-target');
     });
 
     bookSelect?.addEventListener('change', () => {
@@ -2227,7 +2224,6 @@ document.querySelectorAll('.chapter-jump-form').forEach((form) => {
         const verseValue = verseField instanceof HTMLSelectElement ? verseField.value.trim() : '';
 
         if (verseValue === '') {
-            window.sessionStorage.removeItem('reader-smooth-scroll-target');
             return;
         }
 
@@ -2246,7 +2242,6 @@ document.querySelectorAll('.chapter-jump-form').forEach((form) => {
         });
 
         url.hash = `verse-${verseValue}`;
-        window.sessionStorage.setItem('reader-smooth-scroll-target', `#verse-${verseValue}`);
         window.location.assign(url.toString());
     });
 });
@@ -2283,12 +2278,10 @@ document.querySelectorAll('[data-translation-switch-form]').forEach((form) => {
             });
 
             url.hash = `verse-${verseValue}`;
-            window.sessionStorage.setItem('reader-smooth-scroll-target', `#verse-${verseValue}`);
             window.location.assign(url.toString());
             return;
         }
 
-        window.sessionStorage.removeItem('reader-smooth-scroll-target');
         form.requestSubmit();
     });
 });
@@ -2300,7 +2293,7 @@ const bookmarkPopupForm = document.querySelector('[data-bookmark-popup-form]');
 if (chapterReader) {
     const scrollToTargetVerse = () => {
         const pendingHash = window.sessionStorage.getItem('reader-smooth-scroll-target') || '';
-        const hash = (pendingHash || window.location.hash).trim();
+        const hash = pendingHash.trim();
 
         if (!hash.startsWith('#verse-')) {
             return;
@@ -3211,6 +3204,56 @@ if (shareComposer && shareComposerToggle) {
         shareComposerToggle.setAttribute('hidden', 'hidden');
     }
 }
+
+document.querySelectorAll('[data-scripture-result-share]').forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+        return;
+    }
+
+    const originalText = button.textContent || 'Share';
+    const setTemporaryText = (message) => {
+        button.textContent = message;
+        window.setTimeout(() => {
+            button.textContent = originalText;
+        }, 1800);
+    };
+
+    button.addEventListener('click', async () => {
+        const reference = String(button.dataset.shareReference || 'Scripture').trim();
+        const verseText = String(button.dataset.shareText || '').trim();
+        const shareUrl = String(button.dataset.shareUrl || window.location.href).trim();
+        const fallbackText = [reference, verseText, shareUrl].filter(Boolean).join('\n\n');
+
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: reference,
+                    text: verseText,
+                    url: shareUrl,
+                });
+                setTemporaryText('Shared');
+                return;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    return;
+                }
+            }
+        }
+
+        if (navigator.clipboard?.writeText) {
+            try {
+                await navigator.clipboard.writeText(fallbackText);
+                setTemporaryText('Copied');
+                return;
+            } catch (error) {
+                setTemporaryText('Copy failed');
+                return;
+            }
+        }
+
+        setTemporaryText('Unavailable');
+    });
+});
 
 document.querySelectorAll('[data-mobile-reader-focus]').forEach((button) => {
     button.addEventListener('click', () => {
