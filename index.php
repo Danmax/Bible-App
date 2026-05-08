@@ -126,6 +126,15 @@ require_once __DIR__ . '/includes/header.php';
 
             <article class="feature-card feature-card-new">
                 <span class="feature-icon-svg" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/><path d="M8 7h8"/><path d="M8 11h6"/></svg>
+                </span>
+                <h3>Bible Dictionary</h3>
+                <p>Look up biblical words, doctrine terms, and connected passages while studying or preparing notes.</p>
+                <a class="button button-secondary" href="<?= e(app_url('dictionary.php')); ?>">Open Dictionary</a>
+            </article>
+
+            <article class="feature-card feature-card-new">
+                <span class="feature-icon-svg" aria-hidden="true">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
                 </span>
                 <h3>Saved Verses</h3>
@@ -156,7 +165,7 @@ require_once __DIR__ . '/includes/header.php';
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 </span>
                 <h3>Sermon Notes</h3>
-                <p>Write verse-based reflections with AI-assisted reference suggestions, summaries, and a storm board for ideas.</p>
+                <p>Write verse-based reflections with AI-assisted references, homiletics, summaries, and a storm board for ideas.</p>
                 <a class="button button-secondary" href="<?= e(app_url('sermon-notes.php')); ?>">Start a Note</a>
             </article>
 

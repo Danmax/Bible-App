@@ -18,6 +18,7 @@ function sermon_note_reference_type_options(): array
         'prophecy' => 'Prophecy',
         'book' => 'Books',
         'gospel' => 'Gospel',
+        'homiletics' => 'Homiletics',
         'theme' => 'Thematic',
     ];
 }
