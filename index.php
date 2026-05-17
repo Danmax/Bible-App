@@ -8,8 +8,7 @@ $pageTitle = 'Home';
 $activePage = 'home';
 $backgroundSeed = home_daily_seed('home-background');
 $messageSeed = home_daily_seed('home-messages');
-$verseMoment = home_daily_verse_moment();
-$verseSeed = home_daily_seed('home-verse|' . $verseMoment);
+$verseSeed = home_daily_verse_index();
 $dailyBackgrounds = home_daily_backgrounds();
 $dailyBackground = $dailyBackgrounds[$backgroundSeed % count($dailyBackgrounds)];
 $dailyMessages = home_daily_rotating_items(home_curated_home_messages(), $messageSeed, 3);
@@ -326,12 +325,38 @@ require_once __DIR__ . '/includes/header.php';
 
 function home_daily_verse_moment(): string
 {
-    return (int) date('G') >= 18 ? 'evening' : 'day';
+    return (int) home_daily_now()->format('G') >= 18 ? 'evening' : 'day';
 }
 
 function home_daily_seed(string $namespace): int
 {
-    return abs((int) crc32(date('Y-m-d') . '|' . $namespace));
+    return abs((int) crc32(home_daily_now()->format('Y-m-d') . '|' . $namespace));
+}
+
+function home_daily_verse_index(): int
+{
+    return (int) home_daily_now()->format('z') % 365;
+}
+
+function home_daily_now(): DateTimeImmutable
+{
+    static $now = null;
+
+    if ($now instanceof DateTimeImmutable) {
+        return $now;
+    }
+
+    $configuredTimezone = trim((string) (getenv('APP_TIMEZONE') ?: 'America/New_York'));
+
+    try {
+        $timezone = new DateTimeZone($configuredTimezone);
+    } catch (Throwable $exception) {
+        $timezone = new DateTimeZone('America/New_York');
+    }
+
+    $now = new DateTimeImmutable('now', $timezone);
+
+    return $now;
 }
 
 function home_daily_backgrounds(): array
@@ -425,7 +450,115 @@ function home_daily_rotating_items(array $items, int $seed, int $count): array
 function home_daily_verse_payload(string $translation, int $seed): array
 {
     $isEvening = home_daily_verse_moment() === 'evening';
-    $fallbacks = [
+    $fallbacks = home_daily_emergency_verses($isEvening);
+    $selected = $fallbacks[$seed % count($fallbacks)];
+    $payload = $selected + ['translation' => $translation];
+
+    try {
+        $dailyVerse = home_fetch_daily_verse_from_library($translation, $seed);
+
+        if ($dailyVerse !== null) {
+            return $dailyVerse;
+        }
+
+        $books = fetch_books();
+        $reference = parse_reference_query((string) $selected['query'], $books);
+
+        if ($reference !== null) {
+            $results = fetch_reference_verses($reference, $translation);
+            $verses = (array) ($results['results'] ?? []);
+
+            if ($verses !== []) {
+                $text = trim(implode(' ', array_map(
+                    static fn(array $verse): string => trim((string) ($verse['verse_text'] ?? '')),
+                    $verses
+                )));
+
+                if ($text !== '') {
+                    $payload['text'] = truncate_text($text, 220);
+                    $payload['reference'] = (string) ($results['heading'] ?? $selected['reference']);
+                    $payload['translation'] = (string) (($verses[0]['translation'] ?? $translation));
+                }
+            }
+        }
+    } catch (Throwable $exception) {
+        // Keep curated fallback content for the home page when the database is unavailable.
+    }
+
+    return $payload;
+}
+
+function home_fetch_daily_verse_from_library(string $translation, int $dayIndex): ?array
+{
+    $statement = db()->prepare(
+        'SELECT verses.*, books.name AS book_name, books.abbreviation
+        FROM verses
+        INNER JOIN books ON books.id = verses.book_id
+        WHERE verses.translation = :translation
+            AND CHAR_LENGTH(verses.verse_text) BETWEEN 45 AND 220
+            AND verses.book_id IN (
+                19, 20, 23, 24, 25, 33,
+                40, 41, 42, 43, 44, 45, 46, 47,
+                48, 49, 50, 51, 52, 53, 54, 55,
+                56, 58, 59, 60, 61, 62, 65
+            )
+        ORDER BY MOD(
+            ((verses.book_id * 1000000) + (verses.chapter_number * 1000) + verses.verse_number) * 1103515245 + 12345,
+            2147483647
+        ) ASC
+        LIMIT 365'
+    );
+    $statement->execute(['translation' => $translation]);
+    $verses = $statement->fetchAll();
+
+    if ($verses === []) {
+        return null;
+    }
+
+    $verse = $verses[$dayIndex % count($verses)];
+    $bookName = (string) ($verse['book_name'] ?? 'Scripture');
+    $chapter = (int) ($verse['chapter_number'] ?? 0);
+    $verseNumber = (int) ($verse['verse_number'] ?? 0);
+    $reference = sprintf('%s %d:%d', $bookName, $chapter, $verseNumber);
+
+    return [
+        'query' => $reference,
+        'reference' => $reference,
+        'text' => truncate_text(trim((string) ($verse['verse_text'] ?? '')), 220),
+        'kicker' => home_daily_verse_kicker(),
+        'message' => home_daily_verse_message($dayIndex),
+        'translation' => (string) ($verse['translation'] ?? $translation),
+    ];
+}
+
+function home_daily_verse_kicker(): string
+{
+    return home_daily_verse_moment() === 'evening' ? 'For tonight' : 'For today';
+}
+
+function home_daily_verse_message(int $dayIndex): string
+{
+    $messages = [
+        'Let Scripture steady the next step in front of you.',
+        'Carry this promise into the ordinary parts of the day.',
+        'Let this word shape your attention before the noise does.',
+        'Return to this truth when the day asks for patience.',
+        'Keep this verse close as a prayer and a practice.',
+        'Let God\'s Word give language to faith, hope, and obedience.',
+        'Receive this passage slowly and answer it with trust.',
+        'Let this truth interrupt worry and call you back to peace.',
+        'Build today around what God has already spoken.',
+        'Hold this verse with humility, courage, and expectation.',
+        'Let the Word of God renew your mind and direct your path.',
+        'Make room for this promise to become obedience today.',
+    ];
+
+    return $messages[$dayIndex % count($messages)];
+}
+
+function home_daily_emergency_verses(bool $isEvening): array
+{
+    return [
         [
             'query' => 'Proverbs 3:5-6',
             'reference' => 'Proverbs 3:5-6',
@@ -469,33 +602,4 @@ function home_daily_verse_payload(string $translation, int $seed): array
             'message' => 'Start again with mercy that has already met the morning.',
         ],
     ];
-    $selected = $fallbacks[$seed % count($fallbacks)];
-    $payload = $selected + ['translation' => $translation];
-
-    try {
-        $books = fetch_books();
-        $reference = parse_reference_query((string) $selected['query'], $books);
-
-        if ($reference !== null) {
-            $results = fetch_reference_verses($reference, $translation);
-            $verses = (array) ($results['results'] ?? []);
-
-            if ($verses !== []) {
-                $text = trim(implode(' ', array_map(
-                    static fn(array $verse): string => trim((string) ($verse['verse_text'] ?? '')),
-                    $verses
-                )));
-
-                if ($text !== '') {
-                    $payload['text'] = truncate_text($text, 220);
-                    $payload['reference'] = (string) ($results['heading'] ?? $selected['reference']);
-                    $payload['translation'] = (string) (($verses[0]['translation'] ?? $translation));
-                }
-            }
-        }
-    } catch (Throwable $exception) {
-        // Keep curated fallback content for the home page when the database is unavailable.
-    }
-
-    return $payload;
 }
