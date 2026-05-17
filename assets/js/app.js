@@ -1,6 +1,77 @@
 const menuToggle = document.querySelector('.menu-toggle');
 const primaryNav = document.querySelector('.primary-nav');
 
+document.addEventListener('click', (event) => {
+    const link = event.target instanceof Element ? event.target.closest('a') : null;
+
+    if (!(link instanceof HTMLAnchorElement)) {
+        return;
+    }
+
+    if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        link.target !== '' ||
+        link.hasAttribute('download')
+    ) {
+        return;
+    }
+
+    const destination = new URL(link.href, window.location.href);
+
+    if (destination.origin !== window.location.origin) {
+        return;
+    }
+
+    if (destination.pathname === window.location.pathname && destination.search === window.location.search && destination.hash !== '') {
+        return;
+    }
+
+    document.body.classList.add('is-navigating');
+});
+
+window.addEventListener('pageshow', () => {
+    document.body.classList.remove('is-navigating');
+});
+
+const prefetchedUrls = new Set();
+
+const prefetchPage = (href) => {
+    if (!href || prefetchedUrls.has(href)) {
+        return;
+    }
+
+    const destination = new URL(href, window.location.href);
+
+    if (destination.origin !== window.location.origin || destination.pathname === '/logout.php') {
+        return;
+    }
+
+    prefetchedUrls.add(href);
+
+    window.setTimeout(() => {
+        fetch(destination.href, {
+            credentials: 'same-origin',
+            headers: {
+                'X-Purpose': 'prefetch',
+            },
+        }).catch(() => {});
+    }, 80);
+};
+
+document.querySelectorAll('.primary-nav > a').forEach((link) => {
+    if (!(link instanceof HTMLAnchorElement)) {
+        return;
+    }
+
+    link.addEventListener('pointerenter', () => prefetchPage(link.href), { passive: true });
+    link.addEventListener('focus', () => prefetchPage(link.href));
+});
+
 if (menuToggle && primaryNav) {
     const setMobileBodyLock = (isLocked) => {
         if (isLocked) {

@@ -177,6 +177,61 @@ function scripture_reference_reader_url(string $reference): string
     return app_url('bible.php?q=' . urlencode(scripture_reference_query($reference)));
 }
 
+function scripture_analysis_stop_words(): array
+{
+    return array_fill_keys([
+        'the', 'and', 'for', 'that', 'with', 'from', 'into', 'your', 'you', 'are', 'was', 'were',
+        'have', 'has', 'had', 'not', 'but', 'all', 'any', 'can', 'his', 'her', 'him', 'our', 'out',
+        'who', 'what', 'when', 'where', 'why', 'how', 'let', 'there', 'their', 'them', 'then', 'than',
+        'this', 'these', 'those', 'will', 'shall', 'would', 'could', 'should', 'about', 'over', 'under',
+        'through', 'after', 'before', 'because', 'been', 'being', 'also', 'unto', 'upon', 'they', 'she',
+        'himself', 'herself', 'themselves', 'ourselves', 'which', 'whom', 'whose', 'said', 'says', 'say',
+        'did', 'does', 'doing', 'very', 'more', 'most', 'much', 'many', 'each', 'every', 'some', 'such',
+        'just', 'like', 'make', 'made', 'its', 'itself', 'again', 'still', 'here', 'only', 'thou', 'thee',
+        'thy', 'thine', 'hast', 'hath', 'dost', 'doth', 'ye', 'wherefore', 'wherein', 'wherewith',
+        'whence', 'hence', 'behold', 'saying',
+    ], true);
+}
+
+function scripture_analysis_tokens(string $text): array
+{
+    $matched = preg_match_all("/[\p{L}][\p{L}'-]*/u", $text, $matches);
+
+    if ($matched === false) {
+        return [];
+    }
+
+    $tokens = [];
+
+    foreach ($matches[0] ?? [] as $token) {
+        $normalized = trim(mb_strtolower((string) $token), "'- ");
+
+        if ($normalized !== '') {
+            $tokens[] = $normalized;
+        }
+    }
+
+    return $tokens;
+}
+
+function scripture_focus_terms(string $text, int $limit = 3, int $minimumLength = 4): array
+{
+    $stopWords = scripture_analysis_stop_words();
+    $counts = [];
+
+    foreach (scripture_analysis_tokens($text) as $token) {
+        if (mb_strlen($token) < $minimumLength || isset($stopWords[$token])) {
+            continue;
+        }
+
+        $counts[$token] = ($counts[$token] ?? 0) + 1;
+    }
+
+    arsort($counts);
+
+    return array_slice(array_keys($counts), 0, $limit);
+}
+
 function page_title(?string $title): string
 {
     return $title ? $title . ' | ' . APP_NAME : APP_NAME;
@@ -252,6 +307,76 @@ function app_theme_meta_color(string $theme): string
     }
 
     return '#22333b';
+}
+
+function app_cache_path(string $key): string
+{
+    $safeKey = preg_replace('/[^a-z0-9_.-]/i', '_', $key) ?: hash('sha256', $key);
+    $cacheDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'good-news-bible-cache';
+
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0775, true);
+    }
+
+    return $cacheDir . DIRECTORY_SEPARATOR . $safeKey . '.cache.php';
+}
+
+function app_cache_get(string $key, int $ttlSeconds): mixed
+{
+    if ($ttlSeconds <= 0) {
+        return null;
+    }
+
+    $path = app_cache_path($key);
+
+    if (!is_file($path)) {
+        return null;
+    }
+
+    $payload = @file_get_contents($path);
+
+    if ($payload === false || $payload === '') {
+        return null;
+    }
+
+    $cached = @unserialize($payload, ['allowed_classes' => false]);
+
+    if (!is_array($cached) || !array_key_exists('created_at', $cached) || !array_key_exists('value', $cached)) {
+        return null;
+    }
+
+    if ((time() - (int) $cached['created_at']) > $ttlSeconds) {
+        @unlink($path);
+
+        return null;
+    }
+
+    return $cached['value'];
+}
+
+function app_cache_set(string $key, mixed $value): void
+{
+    $path = app_cache_path($key);
+    $payload = serialize([
+        'created_at' => time(),
+        'value' => $value,
+    ]);
+
+    @file_put_contents($path, $payload, LOCK_EX);
+}
+
+function app_cache_remember(string $key, int $ttlSeconds, callable $resolver): mixed
+{
+    $cached = app_cache_get($key, $ttlSeconds);
+
+    if ($cached !== null) {
+        return $cached;
+    }
+
+    $value = $resolver();
+    app_cache_set($key, $value);
+
+    return $value;
 }
 
 function profile_initials(string $name): string

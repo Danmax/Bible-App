@@ -6,7 +6,7 @@ require_once __DIR__ . '/includes/auth.php';
 
 require_login();
 
-$pageTitle = 'Study Day';
+$pageTitle = 'Plan Day';
 $activePage = 'studies';
 $user = refresh_current_user();
 $pageError = null;
@@ -21,7 +21,7 @@ if (!curated_studies_available()) {
     ?>
     <section class="section">
         <div class="container">
-            <div class="flash flash-warning">Curated Bible studies are not installed yet. Run <strong>sql/add_curated_bible_studies.sql</strong> to enable this feature.</div>
+            <div class="flash flash-warning">Curated Bible plans are not installed yet. Run <strong>sql/add_curated_bible_studies.sql</strong> to enable this feature.</div>
         </div>
     </section>
     <?php
@@ -44,39 +44,7 @@ function study_day_youtube_embed_url(string $value): string
 
 function study_day_resource_terms(string $text, int $limit = 4): array
 {
-    $stopWords = array_fill_keys([
-        'the', 'and', 'for', 'that', 'with', 'from', 'into', 'your', 'you', 'are', 'was', 'were',
-        'have', 'has', 'had', 'not', 'but', 'all', 'any', 'his', 'her', 'him', 'our', 'out',
-        'who', 'what', 'when', 'where', 'why', 'how', 'this', 'these', 'those', 'will', 'shall',
-        'would', 'could', 'should', 'about', 'over', 'under', 'through', 'after', 'before',
-        'because', 'been', 'being', 'also', 'unto', 'upon', 'they', 'them', 'then', 'than',
-        'said', 'says', 'say', 'did', 'does', 'doing', 'very', 'more', 'most', 'much', 'many',
-        'each', 'every', 'some', 'such', 'just', 'like', 'make', 'made', 'again', 'still',
-        'here', 'there', 'only', 'thou', 'thee', 'thy', 'thine', 'hast', 'hath', 'dost', 'doth',
-        'wherefore', 'wherein', 'wherewith', 'whence', 'hence', 'behold', 'saying',
-    ], true);
-
-    $matched = preg_match_all("/[\p{L}][\p{L}'-]*/u", $text, $matches);
-
-    if ($matched === false) {
-        return [];
-    }
-
-    $counts = [];
-
-    foreach ($matches[0] ?? [] as $token) {
-        $normalized = trim(mb_strtolower((string) $token), "'- ");
-
-        if (mb_strlen($normalized) < 4 || isset($stopWords[$normalized])) {
-            continue;
-        }
-
-        $counts[$normalized] = ($counts[$normalized] ?? 0) + 1;
-    }
-
-    arsort($counts);
-
-    return array_slice(array_keys($counts), 0, $limit);
+    return scripture_focus_terms($text, $limit, 4);
 }
 
 function study_day_resource_url(string $reference): string
@@ -89,7 +57,7 @@ $dayNumber = max(1, (int) ($_GET['day'] ?? $_POST['day'] ?? 1));
 $enrollment = $enrollmentId > 0 ? fetch_study_enrollment_by_id($enrollmentId, (int) $user['id']) : null;
 
 if ($enrollment === null) {
-    set_flash('Join a study before opening a daily step.', 'warning');
+    set_flash('Join a plan before opening a daily step.', 'warning');
     redirect('studies.php');
 }
 
@@ -97,7 +65,7 @@ $study = fetch_study_by_id((int) $enrollment['study_id']);
 $step = $study !== null ? fetch_study_step_by_day((int) $study['id'], $dayNumber) : null;
 
 if ($study === null || $step === null) {
-    set_flash('That study day could not be found.', 'warning');
+    set_flash('That plan day could not be found.', 'warning');
     redirect('studies.php');
 }
 
@@ -129,10 +97,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
 
         refresh_study_completion((int) $enrollment['id'], (int) $study['id'], (int) $user['id']);
-        set_flash($completeStep ? 'Study day completed.' : 'Study progress saved.', 'success');
+        set_flash($completeStep ? 'Plan day completed.' : 'Plan progress saved.', 'success');
         redirect('study-day.php?enrollment_id=' . (int) $enrollment['id'] . '&day=' . $dayNumber . ($completeStep ? '&completed=1' : ''));
     } catch (Throwable $exception) {
-        $pageError = $exception instanceof RuntimeException ? $exception->getMessage() : 'Study progress could not be saved.';
+        $pageError = $exception instanceof RuntimeException ? $exception->getMessage() : 'Plan progress could not be saved.';
     }
 }
 
@@ -162,7 +130,7 @@ require_once __DIR__ . '/includes/header.php';
                 <p><?= e((string) $study['title']); ?></p>
             </div>
             <div class="inline-actions">
-                <a class="button button-secondary" href="<?= e(app_url('study.php?slug=' . urlencode((string) $study['slug']))); ?>">Study Overview</a>
+                <a class="button button-secondary" href="<?= e(app_url('study.php?slug=' . urlencode((string) $study['slug']))); ?>">Plan Overview</a>
                 <?php if ($prevDay !== null): ?>
                     <a class="button button-secondary" href="<?= e(app_url('study-day.php?enrollment_id=' . (int) $enrollment['id'] . '&day=' . $prevDay)); ?>">Previous Day</a>
                 <?php endif; ?>
@@ -185,7 +153,7 @@ require_once __DIR__ . '/includes/header.php';
 
         <div class="study-day-layout top-gap">
             <section class="panel">
-                <p class="eyebrow"><?= e((string) ($step['section_title'] ?? 'Daily Study')); ?></p>
+                <p class="eyebrow"><?= e((string) ($step['section_title'] ?? 'Daily Plan')); ?></p>
                 <h2>Day board</h2>
                 <?php if (trim((string) ($step['content'] ?? '')) !== '' && !$hasDayItems): ?>
                     <p><?= nl2br(e((string) ($step['content'] ?? ''))); ?></p>
@@ -210,7 +178,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <div class="planner-item-header">
                                     <div>
                                         <span class="pill"><?= e(ucwords(str_replace('_', ' ', $itemType))); ?></span>
-                                        <h3><?= e((string) ($item['title'] ?? 'Study item')); ?></h3>
+                                        <h3><?= e((string) ($item['title'] ?? 'Plan item')); ?></h3>
                                     </div>
                                     <label class="study-item-check">
                                         <input type="checkbox" form="study-progress-form" name="completed_item_ids[]" value="<?= e((string) $itemId); ?>" <?= $itemDone ? 'checked' : ''; ?> <?= $locked ? 'disabled' : ''; ?>>
@@ -242,7 +210,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <p><?= nl2br(e((string) $item['body'])); ?></p>
                                     <?php endif; ?>
                                     <?php if ($itemReference !== '' || $itemTerms !== [] || ($itemResourceUrl !== '' && !in_array($itemType, ['image', 'video'], true))): ?>
-                                        <nav class="study-resource-row" aria-label="<?= e((string) ($item['title'] ?? 'Study item')); ?> resources">
+                                        <nav class="study-resource-row" aria-label="<?= e((string) ($item['title'] ?? 'Plan item')); ?> resources">
                                             <?php if ($itemReference !== ''): ?>
                                                 <?php foreach (scripture_reference_parts($itemReference) as $referencePart): ?>
                                                     <a href="<?= e(study_day_resource_url($referencePart)); ?>">Read <?= e($referencePart); ?></a>
@@ -329,7 +297,7 @@ require_once __DIR__ . '/includes/header.php';
                         <span class="quick-stat"><strong><?= e((string) count((array) ($step['items'] ?? []))); ?></strong><span>Items</span></span>
                     </div>
                     <?php if (!empty($enrollment['completed_at'])): ?>
-                        <div class="flash flash-success">Study complete. Badge earned.</div>
+                        <div class="flash flash-success">Plan complete. Badge earned.</div>
                     <?php endif; ?>
                 </section>
 

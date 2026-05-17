@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/system_repository.php';
 
 function fetch_recent_notes(int $userId, int $limit = 3): array
@@ -39,7 +40,9 @@ function fetch_recent_bookmarks(int $userId, int $limit = 3): array
 
 function fetch_books(): array
 {
-    return db()->query('SELECT id, name, abbreviation FROM books ORDER BY id ASC')->fetchAll();
+    return app_cache_remember('bible.books.v1.' . DB_NAME, 3600, static function (): array {
+        return db()->query('SELECT id, name, abbreviation FROM books ORDER BY id ASC')->fetchAll();
+    });
 }
 
 function fetch_book_catalog(string $translation): array
@@ -48,27 +51,31 @@ function fetch_book_catalog(string $translation): array
         $translation = 'KJV';
     }
 
-    $statement = db()->prepare(
-        'SELECT books.id, books.name, books.abbreviation, books.testament, COUNT(DISTINCT verses.chapter_number) AS chapter_count
-        FROM books
-        LEFT JOIN verses
-            ON verses.book_id = books.id
-            AND verses.translation = :translation
-        GROUP BY books.id, books.name, books.abbreviation, books.testament
-        ORDER BY books.id ASC'
-    );
-    $statement->execute(['translation' => $translation]);
+    return app_cache_remember('bible.book_catalog.v2.' . DB_NAME . '.' . strtoupper($translation), 1800, static function () use ($translation): array {
+        $statement = db()->prepare(
+            'SELECT books.id, books.name, books.abbreviation, books.testament, COUNT(DISTINCT verses.chapter_number) AS chapter_count
+            FROM books
+            LEFT JOIN verses
+                ON verses.book_id = books.id
+                AND verses.translation = :translation
+            GROUP BY books.id, books.name, books.abbreviation, books.testament
+            ORDER BY books.id ASC'
+        );
+        $statement->execute(['translation' => $translation]);
 
-    return $statement->fetchAll();
+        return $statement->fetchAll();
+    });
 }
 
 function fetch_book_by_id(int $bookId): ?array
 {
-    $statement = db()->prepare('SELECT id, name, abbreviation, testament FROM books WHERE id = :id LIMIT 1');
-    $statement->execute(['id' => $bookId]);
-    $book = $statement->fetch();
+    return app_cache_remember('bible.book.v1.' . DB_NAME . '.' . $bookId, 3600, static function () use ($bookId): ?array {
+        $statement = db()->prepare('SELECT id, name, abbreviation, testament FROM books WHERE id = :id LIMIT 1');
+        $statement->execute(['id' => $bookId]);
+        $book = $statement->fetch();
 
-    return $book ?: null;
+        return $book ?: null;
+    });
 }
 
 function fetch_book_chapters(int $bookId, string $translation): array
@@ -77,19 +84,21 @@ function fetch_book_chapters(int $bookId, string $translation): array
         $translation = 'KJV';
     }
 
-    $statement = db()->prepare(
-        'SELECT chapter_number, COUNT(*) AS verse_count
-        FROM verses
-        WHERE book_id = :book_id AND translation = :translation
-        GROUP BY chapter_number
-        ORDER BY chapter_number ASC'
-    );
-    $statement->execute([
-        'book_id' => $bookId,
-        'translation' => $translation,
-    ]);
+    return app_cache_remember('bible.book_chapters.v2.' . DB_NAME . '.' . strtoupper($translation) . '.' . $bookId, 1800, static function () use ($bookId, $translation): array {
+        $statement = db()->prepare(
+            'SELECT chapter_number, COUNT(*) AS verse_count
+            FROM verses
+            WHERE book_id = :book_id AND translation = :translation
+            GROUP BY chapter_number
+            ORDER BY chapter_number ASC'
+        );
+        $statement->execute([
+            'book_id' => $bookId,
+            'translation' => $translation,
+        ]);
 
-    return $statement->fetchAll();
+        return $statement->fetchAll();
+    });
 }
 
 function fetch_chapter_verses(int $bookId, int $chapterNumber, string $translation): array
@@ -98,22 +107,24 @@ function fetch_chapter_verses(int $bookId, int $chapterNumber, string $translati
         return fetch_external_translation_chapter_verses($bookId, $chapterNumber, $translation);
     }
 
-    $statement = db()->prepare(
-        'SELECT verses.*, books.name AS book_name, books.abbreviation
-        FROM verses
-        INNER JOIN books ON books.id = verses.book_id
-        WHERE verses.book_id = :book_id
-            AND verses.chapter_number = :chapter_number
-            AND verses.translation = :translation
-        ORDER BY verses.verse_number ASC'
-    );
-    $statement->execute([
-        'book_id' => $bookId,
-        'chapter_number' => $chapterNumber,
-        'translation' => $translation,
-    ]);
+    return app_cache_remember('bible.chapter_verses.v2.' . DB_NAME . '.' . strtoupper($translation) . '.' . $bookId . '.' . $chapterNumber, 1800, static function () use ($bookId, $chapterNumber, $translation): array {
+        $statement = db()->prepare(
+            'SELECT verses.*, books.name AS book_name, books.abbreviation
+            FROM verses
+            INNER JOIN books ON books.id = verses.book_id
+            WHERE verses.book_id = :book_id
+                AND verses.chapter_number = :chapter_number
+                AND verses.translation = :translation
+            ORDER BY verses.verse_number ASC'
+        );
+        $statement->execute([
+            'book_id' => $bookId,
+            'chapter_number' => $chapterNumber,
+            'translation' => $translation,
+        ]);
 
-    return $statement->fetchAll();
+        return $statement->fetchAll();
+    });
 }
 
 function supported_translations(): array
@@ -123,24 +134,51 @@ function supported_translations(): array
 
 function fetch_available_translations(): array
 {
-    $statement = db()->query('SELECT DISTINCT translation FROM verses ORDER BY translation ASC');
-    $storedTranslations = array_map(
-        static fn(array $row): string => (string) $row['translation'],
-        $statement->fetchAll()
-    );
+    return app_cache_remember('bible.available_translations.v2.' . DB_NAME, 1800, static function (): array {
+        $storedTranslations = array_keys(fetch_stored_translation_counts());
 
-    $translations = array_values(array_unique(array_merge(supported_translations(), $storedTranslations)));
+        $translations = array_values(array_unique(array_merge(supported_translations(), $storedTranslations)));
 
-    return array_values(array_filter(
-        $translations,
-        static function (string $translation) use ($storedTranslations): bool {
-            if (in_array($translation, $storedTranslations, true)) {
-                return true;
+        return array_values(array_filter(
+            $translations,
+            static function (string $translation) use ($storedTranslations): bool {
+                if (in_array($translation, $storedTranslations, true)) {
+                    return true;
+                }
+
+                return uses_external_translation($translation) && external_translation_available($translation);
             }
+        ));
+    });
+}
 
-            return uses_external_translation($translation) && external_translation_available($translation);
+function fetch_stored_translation_counts(): array
+{
+    return app_cache_remember('bible.translation_counts.v2.' . DB_NAME, 1800, static function (): array {
+        $statement = db()->query('SELECT translation, COUNT(*) AS verse_count FROM verses GROUP BY translation ORDER BY translation ASC');
+        $counts = [];
+
+        foreach ($statement->fetchAll() as $row) {
+            $counts[(string) $row['translation']] = (int) $row['verse_count'];
         }
-    ));
+
+        return $counts;
+    });
+}
+
+function fetch_translation_availability_map(array $translations): array
+{
+    $storedCounts = fetch_stored_translation_counts();
+    $availability = [];
+
+    foreach ($translations as $translation) {
+        $translation = (string) $translation;
+        $availability[$translation] = uses_external_translation($translation)
+            ? external_translation_available($translation)
+            : (($storedCounts[$translation] ?? 0) > 0);
+    }
+
+    return $availability;
 }
 
 function uses_external_translation(string $translation): bool
@@ -463,40 +501,42 @@ function fetch_dynamic_scripture_series(string $translation, int $limit = 4): ar
 
 function fetch_thematic_scripture_series(string $translation): array
 {
-    $themes = [
-        ['theme' => 'Hope', 'query' => 'Romans 15:13'],
-        ['theme' => 'Wisdom', 'query' => 'James 1:5'],
-        ['theme' => 'Peace', 'query' => 'Isaiah 26:3'],
-        ['theme' => 'Faith', 'query' => 'Hebrews 11:1'],
-    ];
-    $books = fetch_books();
-    $series = [];
-
-    foreach ($themes as $theme) {
-        $reference = parse_reference_query((string) $theme['query'], $books);
-
-        if ($reference === null) {
-            continue;
-        }
-
-        $results = uses_external_translation($translation)
-            ? fetch_external_translation_reference_verses($reference, $translation)
-            : fetch_reference_verses($reference, $translation);
-
-        $verse = $results['results'][0] ?? null;
-
-        if ($verse === null) {
-            continue;
-        }
-
-        $series[] = [
-            'theme' => (string) $theme['theme'],
-            'query' => (string) $theme['query'],
-            'verse' => $verse,
+    return app_cache_remember('bible.thematic_series.v2.' . DB_NAME . '.' . strtoupper($translation), 1800, static function () use ($translation): array {
+        $themes = [
+            ['theme' => 'Hope', 'query' => 'Romans 15:13'],
+            ['theme' => 'Wisdom', 'query' => 'James 1:5'],
+            ['theme' => 'Peace', 'query' => 'Isaiah 26:3'],
+            ['theme' => 'Faith', 'query' => 'Hebrews 11:1'],
         ];
-    }
+        $books = fetch_books();
+        $series = [];
 
-    return $series;
+        foreach ($themes as $theme) {
+            $reference = parse_reference_query((string) $theme['query'], $books);
+
+            if ($reference === null) {
+                continue;
+            }
+
+            $results = uses_external_translation($translation)
+                ? fetch_external_translation_reference_verses($reference, $translation)
+                : fetch_reference_verses($reference, $translation);
+
+            $verse = $results['results'][0] ?? null;
+
+            if ($verse === null) {
+                continue;
+            }
+
+            $series[] = [
+                'theme' => (string) $theme['theme'],
+                'query' => (string) $theme['query'],
+                'verse' => $verse,
+            ];
+        }
+
+        return $series;
+    });
 }
 
 function fetch_verse_by_id(int $verseId): ?array

@@ -310,26 +310,29 @@ function home_daily_verse_payload(string $translation, int $seed): array
 
 function home_fetch_daily_verse_from_library(string $translation, int $dayIndex): ?array
 {
-    $statement = db()->prepare(
-        'SELECT verses.*, books.name AS book_name, books.abbreviation
-        FROM verses
-        INNER JOIN books ON books.id = verses.book_id
-        WHERE verses.translation = :translation
-            AND CHAR_LENGTH(verses.verse_text) BETWEEN 45 AND 220
-            AND verses.book_id IN (
-                19, 20, 23, 24, 25, 33,
-                40, 41, 42, 43, 44, 45, 46, 47,
-                48, 49, 50, 51, 52, 53, 54, 55,
-                56, 58, 59, 60, 61, 62, 65
-            )
-        ORDER BY MOD(
-            ((verses.book_id * 1000000) + (verses.chapter_number * 1000) + verses.verse_number) * 1103515245 + 12345,
-            2147483647
-        ) ASC
-        LIMIT 365'
-    );
-    $statement->execute(['translation' => $translation]);
-    $verses = $statement->fetchAll();
+    $verses = app_cache_remember('home.daily_verse_pool.v2.' . DB_NAME . '.' . strtoupper($translation), 3600, static function () use ($translation): array {
+        $statement = db()->prepare(
+            'SELECT verses.*, books.name AS book_name, books.abbreviation
+            FROM verses
+            INNER JOIN books ON books.id = verses.book_id
+            WHERE verses.translation = :translation
+                AND CHAR_LENGTH(verses.verse_text) BETWEEN 45 AND 220
+                AND verses.book_id IN (
+                    19, 20, 23, 24, 25, 33,
+                    40, 41, 42, 43, 44, 45, 46, 47,
+                    48, 49, 50, 51, 52, 53, 54, 55,
+                    56, 58, 59, 60, 61, 62, 65
+                )
+            ORDER BY MOD(
+                ((verses.book_id * 1000000) + (verses.chapter_number * 1000) + verses.verse_number) * 1103515245 + 12345,
+                2147483647
+            ) ASC
+            LIMIT 365'
+        );
+        $statement->execute(['translation' => $translation]);
+
+        return $statement->fetchAll();
+    });
 
     if ($verses === []) {
         return null;
