@@ -51,6 +51,41 @@ function good_news_scripture_path(): array
     ];
 }
 
+function good_news_resource_terms(string $text, int $limit = 3): array
+{
+    $stopWords = array_fill_keys([
+        'the', 'and', 'for', 'that', 'with', 'from', 'into', 'your', 'you', 'are', 'was', 'were',
+        'have', 'has', 'had', 'not', 'but', 'all', 'any', 'his', 'her', 'him', 'our', 'out',
+        'who', 'what', 'when', 'where', 'why', 'how', 'this', 'these', 'those', 'will', 'shall',
+        'would', 'could', 'should', 'about', 'over', 'under', 'through', 'after', 'before',
+        'because', 'been', 'being', 'also', 'unto', 'upon', 'they', 'them', 'then', 'than',
+        'said', 'says', 'say', 'did', 'does', 'doing', 'very', 'more', 'most', 'much', 'many',
+        'each', 'every', 'some', 'such', 'just', 'like', 'make', 'made', 'again', 'still',
+        'here', 'there', 'only', 'thou', 'thee', 'thy', 'thine', 'hast', 'hath', 'dost', 'doth',
+    ], true);
+    $matched = preg_match_all("/[\p{L}][\p{L}'-]*/u", $text, $matches);
+
+    if ($matched === false) {
+        return [];
+    }
+
+    $counts = [];
+
+    foreach ($matches[0] ?? [] as $token) {
+        $normalized = trim(mb_strtolower((string) $token), "'- ");
+
+        if (mb_strlen($normalized) < 4 || isset($stopWords[$normalized])) {
+            continue;
+        }
+
+        $counts[$normalized] = ($counts[$normalized] ?? 0) + 1;
+    }
+
+    arsort($counts);
+
+    return array_slice(array_keys($counts), 0, $limit);
+}
+
 function good_news_response_steps(bool $isLoggedIn, string $prayerPageUrl): array
 {
     return [
@@ -87,106 +122,23 @@ function good_news_guest_encouragement(): array
     ];
 }
 
-function good_news_default_radio_stations(): array
-{
-    return [
-        [
-            'slug' => 'praise-worship',
-            'name' => 'Moody Radio Praise & Worship',
-            'tagline' => 'Uplifting worship songs and Christ-centered encouragement.',
-            'stream_url' => 'https://playerservices.streamtheworld.com/api/livestream-redirect/IM_1.mp3',
-            'listen_url' => 'https://www.moodyradio.org/stations/praise-and-worship/',
-            'kind' => 'Music',
-        ],
-        [
-            'slug' => 'urban-praise',
-            'name' => 'Moody Radio Urban Praise',
-            'tagline' => 'Gospel music exalting the name of Jesus Christ all day.',
-            'stream_url' => 'https://playerservices.streamtheworld.com/api/livestream-redirect/IM_3.mp3',
-            'listen_url' => 'https://www.moodyradio.org/stations/urban-praise/',
-            'kind' => 'Gospel',
-        ],
-        [
-            'slug' => 'majesty-radio',
-            'name' => 'Moody Radio Majesty',
-            'tagline' => 'Hymns, sacred classics, and reverent worship centered on Christ.',
-            'stream_url' => 'https://player.listenlive.co/63701',
-            'listen_url' => 'https://www.moodyradio.org/stations/majesty-radio/',
-            'kind' => 'Hymns',
-        ],
-    ];
-}
-
-function good_news_default_radio_links(): array
-{
-    return [
-        [
-            'name' => 'K-LOVE',
-            'url' => 'https://www.klove.com/music/ways-to-listen?sLk2cOLJnOUBRf3=MrbZo9Pz',
-        ],
-        [
-            'name' => 'Air1',
-            'url' => 'https://www.air1.com/music/ways-to-listen',
-        ],
-    ];
-}
-
 $pageTitle = 'Good News';
 $activePage = 'good-news';
 $user = is_logged_in() ? refresh_current_user() : null;
 $pageError = null;
-$upcomingEvents = [];
 $recentNotes = [];
 $recentBookmarks = [];
-$activeGoals = [];
 $prayerEntries = [];
 $foundationCards = good_news_foundation_cards();
 $scripturePath = good_news_scripture_path();
-$currentYear = (int) date('Y');
 $prayerPageUrl = app_url($user !== null ? 'library.php?view=prayer' : 'login.php');
 $responseSteps = good_news_response_steps($user !== null, $prayerPageUrl);
 $guestEncouragement = good_news_guest_encouragement();
-$radioStations = good_news_default_radio_stations();
-$radioLinks = good_news_default_radio_links();
-$defaultRadioStation = $radioStations[0] ?? null;
 
 try {
-    $upcomingEvents = fetch_upcoming_events(4);
-
-    if (public_radio_stations_available()) {
-        $managedStations = fetch_public_radio_stations();
-
-        if ($managedStations !== []) {
-            $radioStations = array_values(array_filter(
-                $managedStations,
-                static fn(array $station): bool => (
-                    trim((string) ($station['stream_url'] ?? '')) !== ''
-                    || trim((string) ($station['youtube_playlist_id'] ?? '')) !== ''
-                    || (
-                        (int) ($station['is_live'] ?? 0) === 1
-                        && trim((string) ($station['youtube_live_video_id'] ?? '')) !== ''
-                    )
-                )
-            ));
-            $radioLinks = array_values(array_filter(
-                $managedStations,
-                static fn(array $station): bool => (
-                    trim((string) ($station['stream_url'] ?? '')) === ''
-                    && trim((string) ($station['youtube_playlist_id'] ?? '')) === ''
-                    && !(
-                        (int) ($station['is_live'] ?? 0) === 1
-                        && trim((string) ($station['youtube_live_video_id'] ?? '')) !== ''
-                    )
-                )
-            ));
-            $defaultRadioStation = $radioStations[0] ?? null;
-        }
-    }
-
     if ($user !== null) {
         $recentNotes = fetch_recent_notes((int) $user['id'], 2);
         $recentBookmarks = fetch_recent_bookmarks((int) $user['id'], 2);
-        $activeGoals = array_slice(fetch_yearly_goals_for_user((int) $user['id'], $currentYear), 0, 2);
         $prayerEntries = array_slice(fetch_prayer_entries_for_user((int) $user['id'], 4), 0, 2);
     }
 } catch (Throwable $exception) {
@@ -212,8 +164,8 @@ require_once __DIR__ . '/includes/header.php';
                 </p>
 
                 <div class="hero-actions">
-                    <a class="button button-primary" href="<?= e(app_url('bible.php?q=' . urlencode('John 3:16') . '&translation=' . urlencode(APP_DEFAULT_TRANSLATION))); ?>">Read John 3:16</a>
-                    <a class="button button-secondary" href="<?= e(app_url('bible.php?q=' . urlencode('John 14:6') . '&translation=' . urlencode(APP_DEFAULT_TRANSLATION))); ?>">Read John 14:6</a>
+                    <a class="button button-primary" href="<?= e(scripture_reference_reader_url('John 3:16')); ?>">Read John 3:16</a>
+                    <a class="button button-secondary" href="<?= e(scripture_reference_reader_url('John 14:6')); ?>">Read John 14:6</a>
                     <a class="button button-secondary" href="<?= e($prayerPageUrl); ?>"><?= $user !== null ? 'Pray Now' : 'Open Prayer' ?></a>
                 </div>
 
@@ -234,9 +186,9 @@ require_once __DIR__ . '/includes/header.php';
 
                 <div class="good-news-hero-scripture">
                     <strong>Start here</strong>
-                    <a href="<?= e(app_url('bible.php?q=' . urlencode('Proverbs 3:5-6') . '&translation=' . urlencode(APP_DEFAULT_TRANSLATION))); ?>">Proverbs 3:5-6</a>
-                    <a href="<?= e(app_url('bible.php?q=' . urlencode('Ephesians 2:8-9') . '&translation=' . urlencode(APP_DEFAULT_TRANSLATION))); ?>">Ephesians 2:8-9</a>
-                    <a href="<?= e(app_url('bible.php?q=' . urlencode('Romans 10:9-10') . '&translation=' . urlencode(APP_DEFAULT_TRANSLATION))); ?>">Romans 10:9-10</a>
+                    <a href="<?= e(scripture_reference_reader_url('Proverbs 3:5-6')); ?>">Proverbs 3:5-6</a>
+                    <a href="<?= e(scripture_reference_reader_url('Ephesians 2:8-9')); ?>">Ephesians 2:8-9</a>
+                    <a href="<?= e(scripture_reference_reader_url('Romans 10:9-10')); ?>">Romans 10:9-10</a>
                 </div>
             </aside>
         </section>
@@ -262,118 +214,25 @@ require_once __DIR__ . '/includes/header.php';
 
             <div class="good-news-scripture-grid top-gap-sm">
                 <?php foreach ($scripturePath as $passage): ?>
+                    <?php
+                    $passageReference = (string) $passage['reference'];
+                    $passageTerms = good_news_resource_terms((string) $passage['title'] . ' ' . (string) $passage['summary']);
+                    ?>
                     <article class="good-news-scripture-card">
-                        <span class="pill"><?= e($passage['reference']); ?></span>
+                        <span class="pill"><?= e($passageReference); ?></span>
                         <h3><?= e($passage['title']); ?></h3>
                         <p><?= e($passage['summary']); ?></p>
-                        <a class="button button-secondary" href="<?= e(app_url('bible.php?q=' . urlencode($passage['reference']) . '&translation=' . urlencode(APP_DEFAULT_TRANSLATION))); ?>">Open Passage</a>
+                        <nav class="good-news-resource-row" aria-label="<?= e($passageReference); ?> resources">
+                            <a href="<?= e(scripture_reference_reader_url($passageReference)); ?>">Read Passage</a>
+                            <a href="<?= e(app_url('dictionary.php?q=' . urlencode($passageReference))); ?>">Reference</a>
+                            <?php foreach ($passageTerms as $term): ?>
+                                <a href="<?= e(app_url('dictionary.php?q=' . urlencode($term))); ?>"><?= e(mb_convert_case($term, MB_CASE_TITLE, 'UTF-8')); ?></a>
+                            <?php endforeach; ?>
+                        </nav>
                     </article>
                 <?php endforeach; ?>
             </div>
         </section>
-
-        <?php if ($radioStations !== [] || $radioLinks !== []): ?>
-            <section class="panel good-news-radio-panel" id="christian-radio">
-                <div class="panel-heading">
-                    <div>
-                        <p class="eyebrow">Christian Radio</p>
-                        <h2>Listen to worship, gospel, and Bible teaching</h2>
-                        <p class="muted-copy">Keep Scripture and Christ-centered encouragement playing while you read, pray, or reflect.</p>
-                    </div>
-                </div>
-
-                <?php if ($defaultRadioStation !== null): ?>
-                    <?php
-                    $defaultPlaylistId = trim((string) ($defaultRadioStation['youtube_playlist_id'] ?? ''));
-                    $defaultPlaylistEmbedUrl = $defaultPlaylistId !== ''
-                        ? 'https://www.youtube-nocookie.com/embed/videoseries?list=' . rawurlencode($defaultPlaylistId)
-                        : '';
-                    $defaultIsLive = (int) ($defaultRadioStation['is_live'] ?? 0) === 1;
-                    $defaultLiveVideoId = trim((string) ($defaultRadioStation['youtube_live_video_id'] ?? ''));
-                    $defaultLiveEmbedUrl = $defaultIsLive && $defaultLiveVideoId !== ''
-                        ? 'https://www.youtube-nocookie.com/embed/' . rawurlencode($defaultLiveVideoId)
-                        : '';
-                    $defaultActiveEmbedUrl = $defaultLiveEmbedUrl !== '' ? $defaultLiveEmbedUrl : $defaultPlaylistEmbedUrl;
-                    ?>
-                    <div class="good-news-radio-player top-gap-sm" data-good-news-radio>
-                        <div class="good-news-radio-now">
-                            <div class="radio-now-header">
-                                <span class="pill pill-dark" data-radio-kind><?= e((string) $defaultRadioStation['kind']); ?></span>
-                                <?php if ($defaultIsLive): ?>
-                                    <span class="radio-live-badge" data-radio-live-indicator>Live</span>
-                                <?php else: ?>
-                                    <span class="radio-live-badge" data-radio-live-indicator hidden>Live</span>
-                                <?php endif; ?>
-                            </div>
-                            <h3 data-radio-name><?= e((string) $defaultRadioStation['name']); ?></h3>
-                            <p data-radio-tagline><?= e((string) $defaultRadioStation['tagline']); ?></p>
-                            <audio
-                                class="good-news-radio-audio"
-                                controls
-                                preload="none"
-                                data-radio-audio
-                                src="<?= e((string) $defaultRadioStation['stream_url']); ?>"
-                                <?= $defaultActiveEmbedUrl !== '' ? 'hidden' : ''; ?>
-                            ></audio>
-                            <div class="good-news-radio-video" data-radio-video-wrapper <?= $defaultActiveEmbedUrl === '' ? 'hidden' : ''; ?>>
-                                <iframe
-                                    class="good-news-radio-video-frame"
-                                    data-radio-video
-                                    src="<?= e($defaultActiveEmbedUrl); ?>"
-                                    title="<?= $defaultIsLive ? 'YouTube live stream player' : 'YouTube playlist player'; ?>"
-                                    loading="lazy"
-                                    referrerpolicy="strict-origin-when-cross-origin"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                    allowfullscreen
-                                ></iframe>
-                            </div>
-                            <div class="inline-actions">
-                                <a class="button button-secondary" href="<?= e((string) $defaultRadioStation['listen_url']); ?>" target="_blank" rel="noreferrer noopener" data-radio-link>Open official station page</a>
-                            </div>
-                        </div>
-
-                        <div class="good-news-radio-stations">
-                            <?php foreach ($radioStations as $index => $station): ?>
-                                <?php $stationIsLive = (int) ($station['is_live'] ?? 0) === 1; ?>
-                                <button
-                                    class="good-news-radio-station <?= $index === 0 ? 'is-active' : ''; ?>"
-                                    type="button"
-                                    data-radio-station
-                                    data-name="<?= e((string) $station['name']); ?>"
-                                    data-kind="<?= e((string) $station['kind']); ?>"
-                                    data-tagline="<?= e((string) $station['tagline']); ?>"
-                                    data-stream-url="<?= e((string) $station['stream_url']); ?>"
-                                    data-listen-url="<?= e((string) $station['listen_url']); ?>"
-                                    data-youtube-playlist-id="<?= e((string) ($station['youtube_playlist_id'] ?? '')); ?>"
-                                    data-live-video-id="<?= e((string) ($station['youtube_live_video_id'] ?? '')); ?>"
-                                    data-is-live="<?= $stationIsLive ? '1' : '0'; ?>"
-                                >
-                                    <div class="radio-station-header">
-                                        <span class="pill"><?= e((string) $station['kind']); ?></span>
-                                        <?php if ($stationIsLive): ?>
-                                            <span class="radio-live-badge">Live</span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <strong><?= e((string) $station['name']); ?></strong>
-                                    <span><?= e((string) $station['tagline']); ?></span>
-                                </button>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
-                <?php if ($radioLinks !== []): ?>
-                    <div class="good-news-radio-links top-gap-sm">
-                        <?php foreach ($radioLinks as $link): ?>
-                            <?php $radioLinkUrl = (string) ($link['url'] ?? $link['listen_url'] ?? ''); ?>
-                            <a class="button button-secondary" href="<?= e($radioLinkUrl); ?>" target="_blank" rel="noreferrer noopener">
-                                <?= e((string) $link['name']); ?> official listening options
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            </section>
-        <?php endif; ?>
 
         <div class="two-column top-gap">
             <section class="panel good-news-panel-emphasis">
@@ -415,6 +274,10 @@ require_once __DIR__ . '/includes/header.php';
                                     <strong><?= e(format_verse_reference($bookmark)); ?></strong>
                                     <span><?= e(truncate_text((string) $bookmark['verse_text'], 115)); ?></span>
                                 </div>
+                                <div class="inline-actions top-gap-sm">
+                                    <a class="button button-secondary" href="<?= e(app_url('bible.php?translation=' . urlencode((string) $bookmark['translation']) . '&book_id=' . (int) $bookmark['book_id'] . '&chapter=' . (int) $bookmark['chapter_number'] . '&verse=' . (int) $bookmark['verse_number'])); ?>">Open</a>
+                                    <a class="button button-secondary" href="<?= e(app_url('library.php?view=saved')); ?>">Library</a>
+                                </div>
                             </article>
                         <?php endforeach; ?>
 
@@ -424,6 +287,9 @@ require_once __DIR__ . '/includes/header.php';
                                     <span class="pill">Study Note</span>
                                     <strong><?= e((string) $note['title']); ?></strong>
                                     <span><?= e(truncate_text((string) $note['content'], 115)); ?></span>
+                                </div>
+                                <div class="inline-actions top-gap-sm">
+                                    <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes&edit_note=' . (int) $note['id'])); ?>">Open</a>
                                 </div>
                             </article>
                         <?php endforeach; ?>
@@ -437,6 +303,9 @@ require_once __DIR__ . '/includes/header.php';
                                         <span><?= e(truncate_text((string) $entry['details'], 115)); ?></span>
                                     <?php endif; ?>
                                 </div>
+                                <div class="inline-actions top-gap-sm">
+                                    <a class="button button-secondary" href="<?= e(app_url('library.php?view=prayer')); ?>">Open Prayer</a>
+                                </div>
                             </article>
                         <?php endforeach; ?>
                     <?php else: ?>
@@ -446,77 +315,6 @@ require_once __DIR__ . '/includes/header.php';
                                 <p><?= e($encouragement); ?></p>
                             </article>
                         <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-            </section>
-        </div>
-
-        <div class="two-column top-gap">
-            <section class="panel" id="good-news-events">
-                <div class="panel-heading">
-                    <div>
-                        <p class="eyebrow">Fellowship</p>
-                        <h2>Gather with other believers</h2>
-                        <p class="muted-copy">Faith grows in Scripture, prayer, worship, and shared life with the body of Christ.</p>
-                    </div>
-                    <a class="button button-secondary" href="<?= e(app_url('community.php')); ?>">Open Community</a>
-                </div>
-
-                <?php if ($upcomingEvents === []): ?>
-                    <article class="good-news-mini-card top-gap-sm">
-                        <strong>No upcoming events are published yet</strong>
-                        <p>Return soon for worship nights, Bible studies, service opportunities, and fellowship gatherings.</p>
-                    </article>
-                <?php else: ?>
-                    <div class="stack-list top-gap-sm">
-                        <?php foreach ($upcomingEvents as $event): ?>
-                            <article class="list-card list-card-block">
-                                <div>
-                                    <span class="pill"><?= e((string) ($event['category_label'] ?? 'Community')); ?></span>
-                                    <strong><?= e((string) $event['title']); ?></strong>
-                                    <span><?= e(truncate_text((string) $event['description'], 120)); ?></span>
-                                </div>
-                                <div class="inline-actions">
-                                    <span class="pill pill-dark"><?= e(format_event_date((string) $event['start_at'])); ?></span>
-                                    <a class="button button-secondary" href="<?= e(app_url('community-event-calendar.php?event_id=' . (int) $event['id'])); ?>">Add to Calendar</a>
-                                </div>
-                            </article>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            </section>
-
-            <section class="panel">
-                <div class="panel-heading">
-                    <div>
-                        <p class="eyebrow">Next Step</p>
-                        <h2>Build a steady rhythm with God</h2>
-                        <p class="muted-copy">Let salvation lead into a life shaped by Scripture, prayer, and faithful habits.</p>
-                    </div>
-                    <a class="button button-secondary" href="<?= e(app_url('planner.php')); ?>">Open Planner</a>
-                </div>
-
-                <div class="stack-list top-gap-sm">
-                    <?php if ($user !== null && $activeGoals !== []): ?>
-                        <?php foreach ($activeGoals as $goal): ?>
-                            <?php $progress = calculate_goal_progress_percent($goal); ?>
-                            <article class="good-news-mini-card">
-                                <span class="pill"><?= e((string) ucfirst((string) $goal['goal_type'])); ?></span>
-                                <strong><?= e((string) $goal['goal_title']); ?></strong>
-                                <p><?= e((string) $goal['current_value']); ?> / <?= e((string) $goal['target_value']); ?> complete<?= $progress !== null ? ' · ' . e((string) $progress) . '%' : ''; ?></p>
-                            </article>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <article class="good-news-mini-card">
-                            <span class="pill">Begin</span>
-                            <strong>Open the Bible and start with the words of Jesus</strong>
-                            <p>Read John, save the verses that shape your faith, and return daily with expectation.</p>
-                        </article>
-                        <article class="good-news-mini-card">
-                            <span class="pill">Continue</span>
-                            <strong>Keep prayer close to your reading life</strong>
-                            <p>Talk to the Lord as you read, ask for understanding, and record what He is teaching you.</p>
-                        </article>
                     <?php endif; ?>
                 </div>
             </section>
