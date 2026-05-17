@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/helpers.php';
 
 function curated_studies_available(): bool
 {
@@ -12,12 +13,15 @@ function curated_studies_available(): bool
         return $available;
     }
 
-    try {
-        $statement = db()->query("SHOW TABLES LIKE 'studies'");
-        $available = $statement->fetch() !== false;
-    } catch (Throwable $exception) {
-        $available = false;
-    }
+    $available = (bool) app_cache_remember('schema.table.studies.v1.' . DB_NAME, 300, static function (): bool {
+        try {
+            $statement = db()->query("SHOW TABLES LIKE 'studies'");
+
+            return $statement->fetch() !== false;
+        } catch (Throwable $exception) {
+            return false;
+        }
+    });
 
     return $available;
 }
@@ -35,12 +39,15 @@ function study_table_exists(string $tableName): bool
         return $cache[$safeName];
     }
 
-    try {
-        $statement = db()->query("SHOW TABLES LIKE " . db()->quote($safeName));
-        $cache[$safeName] = $statement->fetch() !== false;
-    } catch (Throwable $exception) {
-        $cache[$safeName] = false;
-    }
+    $cache[$safeName] = (bool) app_cache_remember('schema.table.' . DB_NAME . '.' . $safeName, 300, static function () use ($safeName): bool {
+        try {
+            $statement = db()->query("SHOW TABLES LIKE " . db()->quote($safeName));
+
+            return $statement->fetch() !== false;
+        } catch (Throwable $exception) {
+            return false;
+        }
+    });
 
     return $cache[$safeName];
 }
@@ -208,6 +215,17 @@ function study_slug_exists(string $slug, ?int $ignoreStudyId = null): bool
 }
 
 function fetch_public_studies(?int $userId = null): array
+{
+    if ($userId === null) {
+        return app_cache_remember('plans.public_index.v1.' . DB_NAME, 300, static function (): array {
+            return fetch_public_studies_uncached(null);
+        });
+    }
+
+    return fetch_public_studies_uncached($userId);
+}
+
+function fetch_public_studies_uncached(?int $userId = null): array
 {
     $enrollmentSelect = $userId !== null ? ', e.id AS current_user_enrollment_id, e.completed_at AS current_user_completed_at' : '';
     $enrollmentJoin = $userId !== null ? 'LEFT JOIN user_study_enrollments e ON e.study_id = s.id AND e.user_id = :user_id' : '';

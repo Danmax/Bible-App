@@ -61,43 +61,6 @@ function recent_bible_searches(): array
     ));
 }
 
-function bible_analysis_stop_words(): array
-{
-    return array_fill_keys([
-        'the', 'and', 'for', 'that', 'with', 'from', 'into', 'your', 'you', 'are', 'was', 'were',
-        'have', 'has', 'had', 'not', 'but', 'all', 'any', 'can', 'his', 'her', 'him', 'our', 'out',
-        'who', 'what', 'when', 'where', 'why', 'how', 'let', 'there', 'their', 'them', 'then', 'than',
-        'this', 'these', 'those', 'will', 'shall', 'would', 'could', 'should', 'about', 'over', 'under',
-        'through', 'after', 'before', 'because', 'been', 'being', 'also', 'unto', 'upon', 'they', 'she',
-        'himself', 'herself', 'themselves', 'ourselves', 'which', 'whom', 'whose', 'said', 'says', 'say',
-        'did', 'does', 'doing', 'very', 'more', 'most', 'much', 'many', 'each', 'every', 'some', 'such',
-        'just', 'like', 'make', 'made', 'than', 'them', 'its', 'itself', 'again', 'still', 'here', 'there',
-        'only', 'thou', 'thee', 'thy', 'thine', 'hast', 'hath', 'dost', 'doth', 'ye', 'wherefore',
-        'wherein', 'wherewith', 'whence', 'hence', 'behold', 'saying',
-    ], true);
-}
-
-function bible_extract_analysis_tokens(string $text): array
-{
-    $matched = preg_match_all("/[\p{L}][\p{L}'-]*/u", $text, $matches);
-
-    if ($matched === false) {
-        return [];
-    }
-
-    $tokens = [];
-
-    foreach ($matches[0] ?? [] as $token) {
-        $normalized = trim(mb_strtolower((string) $token), "'- ");
-
-        if ($normalized !== '') {
-            $tokens[] = $normalized;
-        }
-    }
-
-    return $tokens;
-}
-
 function bible_build_scripture_analysis(array $verses, string $query = '', int $limit = 8): ?array
 {
     if ($verses === []) {
@@ -108,8 +71,8 @@ function bible_build_scripture_analysis(array $verses, string $query = '', int $
         static fn(array $verse): string => trim((string) ($verse['verse_text'] ?? '')),
         $verses
     )));
-    $allTokens = bible_extract_analysis_tokens($combinedText);
-    $stopWords = bible_analysis_stop_words();
+    $allTokens = scripture_analysis_tokens($combinedText);
+    $stopWords = scripture_analysis_stop_words();
     $termCounts = [];
 
     foreach ($allTokens as $token) {
@@ -144,7 +107,7 @@ function bible_build_scripture_analysis(array $verses, string $query = '', int $
     $relatedItems = [];
     $relatedTerms = [];
 
-    foreach (bible_extract_analysis_tokens($query) as $queryTerm) {
+    foreach (scripture_analysis_tokens($query) as $queryTerm) {
         if (mb_strlen($queryTerm) < 3 || isset($stopWords[$queryTerm])) {
             continue;
         }
@@ -194,20 +157,7 @@ function bible_reference_query_for_verse(array $verse): string
 
 function bible_resource_terms_for_text(string $text, int $limit = 3): array
 {
-    $stopWords = bible_analysis_stop_words();
-    $counts = [];
-
-    foreach (bible_extract_analysis_tokens($text) as $token) {
-        if (mb_strlen($token) < 4 || isset($stopWords[$token])) {
-            continue;
-        }
-
-        $counts[$token] = ($counts[$token] ?? 0) + 1;
-    }
-
-    arsort($counts);
-
-    return array_slice(array_keys($counts), 0, $limit);
+    return scripture_focus_terms($text, $limit, 4);
 }
 
 function bible_share_reference(array $verses, string $translation): string
@@ -540,14 +490,7 @@ try {
             : ($translations[0] ?? APP_DEFAULT_TRANSLATION);
     }
 
-    foreach ($translations as $translation) {
-        $translationAvailability[$translation] = uses_external_translation($translation)
-            ? external_translation_available($translation)
-            : count_records(
-                'SELECT COUNT(*) FROM verses WHERE translation = :translation',
-                ['translation' => $translation]
-            ) > 0;
-    }
+    $translationAvailability = fetch_translation_availability_map($translations);
 
     $bookCatalog = fetch_book_catalog($selectedTranslation);
     $selectedTranslationHasData = $translationAvailability[$selectedTranslation] ?? false;
@@ -1136,8 +1079,22 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []): ?>
-                <nav class="scripture-resource-trail top-gap-sm" aria-label="Passage resources">
-                    <span class="scripture-resource-trail-label">Study this passage</span>
+                <details class="passage-resource-drawer top-gap-sm" open>
+                    <summary>
+                        <span>Resources for this passage</span>
+                        <span><?= e(bible_share_reference($browseVerses, $selectedTranslation)); ?></span>
+                    </summary>
+                    <div class="passage-resource-actions">
+                        <?php if (is_logged_in()): ?>
+                            <button class="button button-primary" type="button" data-mobile-highlight-tip>Save to Library</button>
+                            <a class="button button-secondary" href="<?= e($canvasNoteUrl); ?>">Start Note</a>
+                        <?php else: ?>
+                            <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In To Save</a>
+                            <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create Account</a>
+                        <?php endif; ?>
+                    </div>
+                    <nav class="scripture-resource-trail" aria-label="Passage resources">
+                    <span class="scripture-resource-trail-label">Explore</span>
                     <?php if ($selectedBook): ?>
                         <a href="<?= e($bookOverviewUrl ?? bible_reader_url([
                             'translation' => $selectedTranslation,
@@ -1158,7 +1115,8 @@ require_once __DIR__ . '/includes/header.php';
                     <?php foreach ($passageFocusTerms as $term): ?>
                         <a href="<?= e(app_url('dictionary.php?q=' . urlencode($term))); ?>"><?= e(mb_convert_case($term, MB_CASE_TITLE, 'UTF-8')); ?></a>
                     <?php endforeach; ?>
-                </nav>
+                    </nav>
+                </details>
             <?php endif; ?>
 
             <?php if ($displayMode === 'catalog' && $themedSeries !== []): ?>

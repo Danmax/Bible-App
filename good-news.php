@@ -53,37 +53,7 @@ function good_news_scripture_path(): array
 
 function good_news_resource_terms(string $text, int $limit = 3): array
 {
-    $stopWords = array_fill_keys([
-        'the', 'and', 'for', 'that', 'with', 'from', 'into', 'your', 'you', 'are', 'was', 'were',
-        'have', 'has', 'had', 'not', 'but', 'all', 'any', 'his', 'her', 'him', 'our', 'out',
-        'who', 'what', 'when', 'where', 'why', 'how', 'this', 'these', 'those', 'will', 'shall',
-        'would', 'could', 'should', 'about', 'over', 'under', 'through', 'after', 'before',
-        'because', 'been', 'being', 'also', 'unto', 'upon', 'they', 'them', 'then', 'than',
-        'said', 'says', 'say', 'did', 'does', 'doing', 'very', 'more', 'most', 'much', 'many',
-        'each', 'every', 'some', 'such', 'just', 'like', 'make', 'made', 'again', 'still',
-        'here', 'there', 'only', 'thou', 'thee', 'thy', 'thine', 'hast', 'hath', 'dost', 'doth',
-    ], true);
-    $matched = preg_match_all("/[\p{L}][\p{L}'-]*/u", $text, $matches);
-
-    if ($matched === false) {
-        return [];
-    }
-
-    $counts = [];
-
-    foreach ($matches[0] ?? [] as $token) {
-        $normalized = trim(mb_strtolower((string) $token), "'- ");
-
-        if (mb_strlen($normalized) < 4 || isset($stopWords[$normalized])) {
-            continue;
-        }
-
-        $counts[$normalized] = ($counts[$normalized] ?? 0) + 1;
-    }
-
-    arsort($counts);
-
-    return array_slice(array_keys($counts), 0, $limit);
+    return scripture_focus_terms($text, $limit, 4);
 }
 
 function good_news_response_steps(bool $isLoggedIn, string $prayerPageUrl): array

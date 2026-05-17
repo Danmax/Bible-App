@@ -115,14 +115,8 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                             ],
                         ];
                         $moreSections[] = [
-                            'label' => 'Rhythm',
+                            'label' => 'Advanced',
                             'links' => [
-                                [
-                                    'label' => 'Prayer',
-                                    'href' => app_url('library.php?view=prayer'),
-                                    'active' => $activePage === 'prayer',
-                                    'class' => '',
-                                ],
                                 [
                                     'label' => 'Planner',
                                     'href' => app_url('planner.php'),

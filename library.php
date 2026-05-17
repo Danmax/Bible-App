@@ -337,9 +337,14 @@ require_once __DIR__ . '/includes/header.php';
 
                 <div class="card-grid card-grid-2 top-gap-sm">
                     <?php if ($bookmarks === []): ?>
-                        <article class="list-card list-card-block">
+                        <article class="library-empty-card">
+                            <span class="pill">Saved Scripture</span>
                             <strong>No saved Scripture yet</strong>
-                            <span>Open the Bible reader, select a verse, and save or highlight it.</span>
+                            <span>Open a passage, tap a verse, and save a bookmark or highlight. Your saved verses will collect here with tags, notes, and colors.</span>
+                            <div class="inline-actions">
+                                <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Open Bible</a>
+                                <a class="button button-secondary" href="<?= e(app_url('bible.php?q=John%203:16')); ?>">Preview John 3:16</a>
+                            </div>
                         </article>
                     <?php else: ?>
                         <?php foreach ($bookmarks as $bookmark): ?>
@@ -438,7 +443,15 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                     <div class="stack-list top-gap-sm">
                         <?php if ($notes === []): ?>
-                            <p class="empty-state">No notes yet. Write one here or start from a saved verse.</p>
+                            <article class="library-empty-card">
+                                <span class="pill">Notes</span>
+                                <strong>No notes yet</strong>
+                                <span>Start with a title and a reflection here, or open a saved verse and create a note already linked to that passage.</span>
+                                <div class="inline-actions">
+                                    <a class="button button-primary" href="<?= e(app_url('library.php?view=notes')); ?>">Start Note</a>
+                                    <a class="button button-secondary" href="<?= e(app_url('bible.php')); ?>">Find Scripture</a>
+                                </div>
+                            </article>
                         <?php else: ?>
                             <?php foreach ($notes as $note): ?>
                                 <article class="note-card">
@@ -448,6 +461,9 @@ require_once __DIR__ . '/includes/header.php';
                                     <?php endif; ?>
                                     <p><?= nl2br(e((string) $note['content'])); ?></p>
                                     <div class="inline-actions">
+                                        <?php if (!empty($note['book_name'])): ?>
+                                            <a class="button button-secondary" href="<?= e(library_reader_url($note)); ?>">Open in Bible</a>
+                                        <?php endif; ?>
                                         <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes&edit_note=' . (int) $note['id'])); ?>">Edit</a>
                                         <form method="post">
                                             <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
@@ -479,9 +495,14 @@ require_once __DIR__ . '/includes/header.php';
                             <span>Run the sermon notes migration to enable this feature.</span>
                         </article>
                     <?php elseif ($sermonNotes === []): ?>
-                        <article class="list-card list-card-block">
+                        <article class="library-empty-card">
+                            <span class="pill">Sermon Docs</span>
                             <strong>No sermon documents yet</strong>
                             <span>Create one when a teaching, service, or study needs a deeper document.</span>
+                            <div class="inline-actions">
+                                <a class="button button-primary" href="<?= e(app_url('sermon-notes.php?new=1')); ?>">New Sermon Doc</a>
+                                <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes')); ?>">Write Simple Note</a>
+                            </div>
                         </article>
                     <?php else: ?>
                         <?php foreach ($sermonNotes as $note): ?>
@@ -535,7 +556,15 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                     <div class="stack-list top-gap-sm">
                         <?php if ($prayerEntries === []): ?>
-                            <p class="empty-state">No prayer requests yet.</p>
+                            <article class="library-empty-card">
+                                <span class="pill">Prayer</span>
+                                <strong>No prayer requests yet</strong>
+                                <span>Add a request on the left, or save a verse in the Bible reader and use it as a prompt for prayer and reflection.</span>
+                                <div class="inline-actions">
+                                    <a class="button button-secondary" href="<?= e(app_url('bible.php?q=Psalm%2023')); ?>">Open Psalm 23</a>
+                                    <a class="button button-secondary" href="<?= e(app_url('library.php?view=saved')); ?>">Saved Verses</a>
+                                </div>
+                            </article>
                         <?php else: ?>
                             <?php foreach ($prayerEntries as $entry): ?>
                                 <article class="list-card list-card-block">

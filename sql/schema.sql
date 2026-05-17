@@ -110,6 +110,8 @@ CREATE TABLE IF NOT EXISTS verses (
     translation VARCHAR(20) NOT NULL DEFAULT 'KJV',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY unique_verse (book_id, chapter_number, verse_number, translation),
+    KEY idx_verses_translation (translation),
+    KEY idx_verses_translation_book_chapter (translation, book_id, chapter_number, verse_number),
     CONSTRAINT fk_verses_book FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

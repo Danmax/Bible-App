@@ -37,7 +37,7 @@ if (curated_studies_available()) {
     try {
         $studies = fetch_public_studies($user !== null ? (int) $user['id'] : null);
     } catch (Throwable $exception) {
-        $pageError = 'Bible studies could not be loaded because the database is unavailable.';
+        $pageError = 'Bible plans could not be loaded because the database is unavailable.';
     }
 }
 
@@ -49,7 +49,7 @@ require_once __DIR__ . '/includes/header.php';
             <div>
                 <p class="eyebrow">Plans</p>
                 <h1>Bible-centered plans for daily growth</h1>
-                <p>Join reading plans, devotionals, and group studies with Scripture, reflection questions, daily challenges, teaching videos, and progress tracking.</p>
+                <p>Join reading plans, devotionals, and group plans with Scripture, reflection questions, daily challenges, teaching videos, and progress tracking.</p>
             </div>
             <div class="quick-stat-row">
                 <span class="quick-stat"><strong><?= e((string) count($studies)); ?></strong><span>Available plans</span></span>
@@ -66,7 +66,7 @@ require_once __DIR__ . '/includes/header.php';
                         <form class="inline-actions" method="post">
                             <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                             <input type="hidden" name="action" value="request-editor">
-                            <input type="text" name="request_message" maxlength="500" placeholder="Why do you want to create studies?">
+                            <input type="text" name="request_message" maxlength="500" placeholder="Why do you want to create plans?">
                             <button class="button button-secondary" type="submit">Request Editor Access</button>
                         </form>
                     <?php endif; ?>
@@ -110,7 +110,7 @@ require_once __DIR__ . '/includes/header.php';
                         <p class="muted-copy"><?= e((string) ($study['step_count'] ?? 0)); ?> sections with Scripture, questions, and daily challenges.</p>
                         <div class="inline-actions">
                             <a class="button button-primary" href="<?= e(app_url('study.php?slug=' . urlencode((string) $study['slug']))); ?>">
-                                <?= !empty($study['current_user_enrollment_id']) ? 'Continue Study' : 'View Study'; ?>
+                                <?= !empty($study['current_user_enrollment_id']) ? 'Continue Plan' : 'Preview Plan'; ?>
                             </a>
                         </div>
                     </article>

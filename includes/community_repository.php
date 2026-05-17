@@ -3,19 +3,35 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/helpers.php';
 
 function fetch_event_categories(): array
 {
-    $statement = db()->query(
-        'SELECT *
-        FROM community_event_categories
-        ORDER BY label ASC'
-    );
+    return app_cache_remember('community.categories.v1.' . DB_NAME, 300, static function (): array {
+        $statement = db()->query(
+            'SELECT *
+            FROM community_event_categories
+            ORDER BY label ASC'
+        );
 
-    return $statement->fetchAll();
+        return $statement->fetchAll();
+    });
 }
 
 function fetch_community_events(?int $categoryId, ?int $userId, bool $canManageAllEvents): array
+{
+    if ($userId === null && !$canManageAllEvents) {
+        $cacheKey = 'community.public_events.v1.' . DB_NAME . '.' . ($categoryId === null ? 'all' : (string) $categoryId);
+
+        return app_cache_remember($cacheKey, 120, static function () use ($categoryId): array {
+            return fetch_community_events_uncached($categoryId, null, false);
+        });
+    }
+
+    return fetch_community_events_uncached($categoryId, $userId, $canManageAllEvents);
+}
+
+function fetch_community_events_uncached(?int $categoryId, ?int $userId, bool $canManageAllEvents): array
 {
     $params = [];
     $conditions = [];
@@ -654,12 +670,15 @@ function community_event_images_available(): bool
         return $available;
     }
 
-    try {
-        $statement = db()->query("SHOW COLUMNS FROM community_events LIKE 'image_url'");
-        $available = $statement->fetch() !== false;
-    } catch (Throwable $exception) {
-        $available = false;
-    }
+    $available = (bool) app_cache_remember('schema.column.' . DB_NAME . '.community_events.image_url', 300, static function (): bool {
+        try {
+            $statement = db()->query("SHOW COLUMNS FROM community_events LIKE 'image_url'");
+
+            return $statement->fetch() !== false;
+        } catch (Throwable $exception) {
+            return false;
+        }
+    });
 
     return $available;
 }

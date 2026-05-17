@@ -30,12 +30,12 @@ $inviteLink = null;
 $invite = null;
 
 if (!curated_studies_available()) {
-    $pageTitle = 'Bible Study';
+    $pageTitle = 'Bible Plan';
     require_once __DIR__ . '/includes/header.php';
     ?>
     <section class="section">
         <div class="container">
-            <div class="flash flash-warning">Curated Bible studies are not installed yet. Run <strong>sql/add_curated_bible_studies.sql</strong> to enable this feature.</div>
+            <div class="flash flash-warning">Curated Bible plans are not installed yet. Run <strong>sql/add_curated_bible_studies.sql</strong> to enable this feature.</div>
         </div>
     </section>
     <?php
@@ -56,7 +56,7 @@ if ($inviteToken !== '') {
 $slug = trim((string) ($_GET['slug'] ?? ''));
 
 if ($slug === '') {
-    set_flash('Choose a Bible study first.', 'warning');
+    set_flash('Choose a Bible plan first.', 'warning');
     redirect('studies.php');
 }
 
@@ -64,17 +64,17 @@ $study = fetch_study_by_slug($slug, $user !== null ? (int) $user['id'] : null, c
 
 if ($study === null) {
     http_response_code(404);
-    $pageTitle = 'Study Not Found';
+    $pageTitle = 'Plan Not Found';
     require_once __DIR__ . '/includes/header.php';
     ?>
     <section class="section">
         <div class="container">
             <div class="section-heading">
-                <p class="eyebrow">Bible Studies</p>
-                <h1>Study not found</h1>
-                <p>This study may be unpublished or the link may be incorrect.</p>
+                <p class="eyebrow">Bible Plans</p>
+                <h1>Plan not found</h1>
+                <p>This plan may be unpublished or the link may be incorrect.</p>
             </div>
-            <a class="button button-primary" href="<?= e(app_url('studies.php')); ?>">Browse Studies</a>
+            <a class="button button-primary" href="<?= e(app_url('studies.php')); ?>">Browse Plans</a>
         </div>
     </section>
     <?php
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
 
     if ($user === null) {
-        set_flash('Sign in first to join this Bible study.', 'warning');
+        set_flash('Sign in first to join this Bible plan.', 'warning');
         redirect('login.php');
     }
 
@@ -100,28 +100,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 accept_study_invite($inviteToken, (int) $user['id']);
             }
 
-            set_flash('Bible study added to your daily rhythm.', 'success');
+            set_flash('Bible plan added to your daily rhythm.', 'success');
             redirect('study-day.php?enrollment_id=' . $enrollmentId . '&day=1');
         }
 
         $enrollment = fetch_study_enrollment((int) $study['id'], (int) $user['id']);
 
         if ($enrollment === null) {
-            throw new RuntimeException('Join the study before posting or inviting friends.');
+            throw new RuntimeException('Join the plan before posting or inviting friends.');
         }
 
         if ($action === 'invite') {
             $recipientEmail = trim((string) ($_POST['recipient_email'] ?? ''));
             $createdInvite = create_study_invite((int) $study['id'], (int) $enrollment['id'], (int) $user['id'], $recipientEmail);
             $inviteLink = app_url('study.php?invite=' . urlencode((string) $createdInvite['invite_token']), true);
-            set_flash('Study invite link created.', 'success');
+            set_flash('Plan invite link created.', 'success');
         } elseif ($action === 'discussion') {
             create_study_discussion_message((int) $study['id'], (int) $enrollment['id'], (int) $user['id'], (string) ($_POST['message'] ?? ''));
             set_flash('Discussion message posted.', 'success');
             redirect('study.php?slug=' . urlencode((string) $study['slug']) . '#discussion');
         }
     } catch (Throwable $exception) {
-        $pageError = $exception instanceof RuntimeException ? $exception->getMessage() : 'Study action could not be completed.';
+        $pageError = $exception instanceof RuntimeException ? $exception->getMessage() : 'Plan action could not be completed.';
     }
 }
 
@@ -139,7 +139,7 @@ foreach ($steps as $step) {
 }
 
 $pageTitle = (string) $study['title'];
-$pageDescription = (string) ($study['summary'] ?: 'Curated Bible study with Scripture, reflection questions, daily challenges, and completion tracking.');
+$pageDescription = (string) ($study['summary'] ?: 'Curated Bible plan with Scripture, reflection questions, daily challenges, and completion tracking.');
 
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -147,7 +147,7 @@ require_once __DIR__ . '/includes/header.php';
     <div class="container">
         <div class="section-heading-rich">
             <div>
-                <p class="eyebrow">Bible Study</p>
+                <p class="eyebrow">Bible Plan</p>
                 <h1><?= e((string) $study['title']); ?></h1>
                 <p><?= e((string) ($study['summary'] ?? '')); ?></p>
             </div>
@@ -158,12 +158,12 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             <div class="inline-actions">
                 <?php if ($enrollment !== null): ?>
-                    <a class="button button-primary" href="<?= e(app_url('study-day.php?enrollment_id=' . (int) $enrollment['id'] . '&day=1')); ?>">Continue Study</a>
+                    <a class="button button-primary" href="<?= e(app_url('study-day.php?enrollment_id=' . (int) $enrollment['id'] . '&day=1')); ?>">Continue Plan</a>
                 <?php elseif ($user !== null): ?>
                     <form method="post">
                         <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                         <input type="hidden" name="action" value="join">
-                        <button class="button button-primary" type="submit">Join Study</button>
+                        <button class="button button-primary" type="submit">Join Plan</button>
                     </form>
                 <?php else: ?>
                     <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In To Join</a>
@@ -194,11 +194,17 @@ require_once __DIR__ . '/includes/header.php';
             </figure>
         <?php endif; ?>
 
-        <div class="two-column top-gap">
-            <section class="panel">
+        <nav class="filter-row top-gap" aria-label="Plan sections">
+            <a class="filter-chip is-active" href="#overview">Overview</a>
+            <a class="filter-chip" href="#days">Days</a>
+            <a class="filter-chip" href="#discussion">Discussion</a>
+        </nav>
+
+        <div class="two-column top-gap" id="overview">
+            <section class="panel" id="days">
                 <div class="panel-heading">
                     <div>
-                        <h2>Study Path</h2>
+                        <h2>Plan Days</h2>
                         <p class="muted-copy">Each day includes Scripture, questions, a challenge, and optional teaching video.</p>
                     </div>
                 </div>
@@ -224,14 +230,14 @@ require_once __DIR__ . '/includes/header.php';
                                 <div class="planner-item-header">
                                     <div>
                                         <strong>Day <?= e((string) $step['day_number']); ?>: <?= e((string) $step['title']); ?></strong>
-                                        <p class="muted-copy"><?= e((string) ($step['section_title'] ?? 'Daily Study')); ?></p>
+                                        <p class="muted-copy"><?= e((string) ($step['section_title'] ?? 'Daily Plan')); ?></p>
                                     </div>
                                     <span class="study-complete-mark <?= !empty($progress['completed_at']) ? 'is-complete' : ''; ?>" aria-label="<?= !empty($progress['completed_at']) ? 'Completed' : 'Open'; ?>"></span>
                                 </div>
                                 <?php if ($dayReferences !== []): ?>
                                     <nav class="study-resource-row" aria-label="Day <?= e((string) $step['day_number']); ?> Scripture">
                                         <?php foreach ($dayReferences as $reference): ?>
-                                            <a href="<?= e(scripture_reference_reader_url($reference)); ?>"><?= e($reference); ?></a>
+                                            <a href="<?= e(scripture_reference_reader_url($reference)); ?>">Preview <?= e($reference); ?></a>
                                         <?php endforeach; ?>
                                     </nav>
                                 <?php endif; ?>
@@ -248,7 +254,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <aside class="stack-list">
                 <section class="panel">
-                    <h2>About this study</h2>
+                    <h2>Overview</h2>
                     <p><?= nl2br(e((string) ($study['description'] ?? ''))); ?></p>
                     <?php if (!empty($enrollment['completed_at'])): ?>
                         <div class="flash flash-success">Completion badge earned.</div>
@@ -258,7 +264,7 @@ require_once __DIR__ . '/includes/header.php';
                 <?php if ($enrollment !== null): ?>
                     <section class="panel">
                         <h2>Invite friends</h2>
-                        <p class="muted-copy">Create a share link for this study.</p>
+                        <p class="muted-copy">Create a share link for this plan.</p>
                         <form class="form-stack" method="post">
                             <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                             <input type="hidden" name="action" value="invite">
@@ -278,7 +284,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="panel-heading">
                     <div>
                         <h2>Discussion Board</h2>
-                        <p class="muted-copy">Share what stood out, ask questions, and encourage everyone in the study.</p>
+                        <p class="muted-copy">Share what stood out, ask questions, and encourage everyone in the plan.</p>
                     </div>
                 </div>
                 <form class="form-stack" method="post">

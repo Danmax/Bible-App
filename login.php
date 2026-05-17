@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
 
 if (is_logged_in()) {
-    redirect('dashboard.php');
+    redirect('library.php');
 }
 
 $email = '';
@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 session_regenerate_id(true);
                 log_in_user($user);
                 set_flash('You are signed in.', 'success');
-                redirect('dashboard.php');
+                redirect('library.php');
             }
         } catch (Throwable $exception) {
             $errorMessage = 'Database access is unavailable right now. Check the MySQL connection and try again.';
