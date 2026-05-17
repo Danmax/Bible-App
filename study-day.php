@@ -42,6 +42,48 @@ function study_day_youtube_embed_url(string $value): string
     return $videoId !== '' ? 'https://www.youtube-nocookie.com/embed/' . rawurlencode($videoId) : '';
 }
 
+function study_day_resource_terms(string $text, int $limit = 4): array
+{
+    $stopWords = array_fill_keys([
+        'the', 'and', 'for', 'that', 'with', 'from', 'into', 'your', 'you', 'are', 'was', 'were',
+        'have', 'has', 'had', 'not', 'but', 'all', 'any', 'his', 'her', 'him', 'our', 'out',
+        'who', 'what', 'when', 'where', 'why', 'how', 'this', 'these', 'those', 'will', 'shall',
+        'would', 'could', 'should', 'about', 'over', 'under', 'through', 'after', 'before',
+        'because', 'been', 'being', 'also', 'unto', 'upon', 'they', 'them', 'then', 'than',
+        'said', 'says', 'say', 'did', 'does', 'doing', 'very', 'more', 'most', 'much', 'many',
+        'each', 'every', 'some', 'such', 'just', 'like', 'make', 'made', 'again', 'still',
+        'here', 'there', 'only', 'thou', 'thee', 'thy', 'thine', 'hast', 'hath', 'dost', 'doth',
+        'wherefore', 'wherein', 'wherewith', 'whence', 'hence', 'behold', 'saying',
+    ], true);
+
+    $matched = preg_match_all("/[\p{L}][\p{L}'-]*/u", $text, $matches);
+
+    if ($matched === false) {
+        return [];
+    }
+
+    $counts = [];
+
+    foreach ($matches[0] ?? [] as $token) {
+        $normalized = trim(mb_strtolower((string) $token), "'- ");
+
+        if (mb_strlen($normalized) < 4 || isset($stopWords[$normalized])) {
+            continue;
+        }
+
+        $counts[$normalized] = ($counts[$normalized] ?? 0) + 1;
+    }
+
+    arsort($counts);
+
+    return array_slice(array_keys($counts), 0, $limit);
+}
+
+function study_day_resource_url(string $reference): string
+{
+    return scripture_reference_reader_url($reference);
+}
+
 $enrollmentId = (int) ($_GET['enrollment_id'] ?? $_POST['enrollment_id'] ?? 0);
 $dayNumber = max(1, (int) ($_GET['day'] ?? $_POST['day'] ?? 1));
 $enrollment = $enrollmentId > 0 ? fetch_study_enrollment_by_id($enrollmentId, (int) $user['id']) : null;
@@ -158,11 +200,16 @@ require_once __DIR__ . '/includes/header.php';
                             $itemDone = !empty($itemProgressMap[$itemId]['completed_at']) || $completeDone;
                             $locked = (string) ($item['unlock_rule'] ?? 'none') === 'after_previous' && !$previousItemComplete;
                             $previousItemComplete = $itemDone;
+                            $itemType = (string) ($item['item_type'] ?? 'devotional');
+                            $itemReference = trim((string) ($item['bible_reference'] ?? ''));
+                            $itemResourceUrl = trim((string) ($item['resource_url'] ?? ''));
+                            $itemText = trim((string) ($item['title'] ?? '') . ' ' . (string) ($item['body'] ?? ''));
+                            $itemTerms = study_day_resource_terms($itemText);
                             ?>
                             <article class="study-day-item <?= $locked ? 'is-locked' : ''; ?> <?= $itemDone ? 'is-complete' : ''; ?>">
                                 <div class="planner-item-header">
                                     <div>
-                                        <span class="pill"><?= e(ucwords(str_replace('_', ' ', (string) ($item['item_type'] ?? 'devotional')))); ?></span>
+                                        <span class="pill"><?= e(ucwords(str_replace('_', ' ', $itemType))); ?></span>
                                         <h3><?= e((string) ($item['title'] ?? 'Study item')); ?></h3>
                                     </div>
                                     <label class="study-item-check">
@@ -173,10 +220,10 @@ require_once __DIR__ . '/includes/header.php';
                                 <?php if ($locked): ?>
                                     <p class="muted-copy">Complete the previous item to unlock this one.</p>
                                 <?php else: ?>
-                                    <?php if ((string) ($item['item_type'] ?? '') === 'image' && trim((string) ($item['resource_url'] ?? '')) !== ''): ?>
-                                        <img class="study-reflection-image" src="<?= e((string) $item['resource_url']); ?>" alt="">
-                                    <?php elseif ((string) ($item['item_type'] ?? '') === 'video' && trim((string) ($item['resource_url'] ?? '')) !== ''): ?>
-                                        <?php $itemEmbedUrl = study_day_youtube_embed_url((string) $item['resource_url']); ?>
+                                    <?php if ($itemType === 'image' && $itemResourceUrl !== ''): ?>
+                                        <img class="study-reflection-image" src="<?= e($itemResourceUrl); ?>" alt="">
+                                    <?php elseif ($itemType === 'video' && $itemResourceUrl !== ''): ?>
+                                        <?php $itemEmbedUrl = study_day_youtube_embed_url($itemResourceUrl); ?>
                                         <?php if ($itemEmbedUrl !== ''): ?>
                                             <div class="study-video-frame">
                                                 <iframe
@@ -187,15 +234,28 @@ require_once __DIR__ . '/includes/header.php';
                                                     allowfullscreen
                                                 ></iframe>
                                             </div>
-                                        <?php elseif (filter_var((string) $item['resource_url'], FILTER_VALIDATE_URL)): ?>
-                                            <a class="button button-secondary button-with-icon" href="<?= e((string) $item['resource_url']); ?>" target="_blank" rel="noopener"><span aria-hidden="true">></span><span>Open Video</span></a>
+                                        <?php elseif (filter_var($itemResourceUrl, FILTER_VALIDATE_URL)): ?>
+                                            <a class="button button-secondary button-with-icon" href="<?= e($itemResourceUrl); ?>" target="_blank" rel="noopener"><span aria-hidden="true">></span><span>Open Video</span></a>
                                         <?php endif; ?>
-                                    <?php endif; ?>
-                                    <?php if (trim((string) ($item['bible_reference'] ?? '')) !== ''): ?>
-                                        <a class="pill" href="<?= e(app_url('bible.php?q=' . urlencode((string) $item['bible_reference']))); ?>"><?= e((string) $item['bible_reference']); ?></a>
                                     <?php endif; ?>
                                     <?php if (trim((string) ($item['body'] ?? '')) !== ''): ?>
                                         <p><?= nl2br(e((string) $item['body'])); ?></p>
+                                    <?php endif; ?>
+                                    <?php if ($itemReference !== '' || $itemTerms !== [] || ($itemResourceUrl !== '' && !in_array($itemType, ['image', 'video'], true))): ?>
+                                        <nav class="study-resource-row" aria-label="<?= e((string) ($item['title'] ?? 'Study item')); ?> resources">
+                                            <?php if ($itemReference !== ''): ?>
+                                                <?php foreach (scripture_reference_parts($itemReference) as $referencePart): ?>
+                                                    <a href="<?= e(study_day_resource_url($referencePart)); ?>">Read <?= e($referencePart); ?></a>
+                                                <?php endforeach; ?>
+                                                <a href="<?= e(app_url('dictionary.php?q=' . urlencode($itemReference))); ?>">Reference</a>
+                                            <?php endif; ?>
+                                            <?php foreach ($itemTerms as $term): ?>
+                                                <a href="<?= e(app_url('dictionary.php?q=' . urlencode($term))); ?>"><?= e(mb_convert_case($term, MB_CASE_TITLE, 'UTF-8')); ?></a>
+                                            <?php endforeach; ?>
+                                            <?php if ($itemResourceUrl !== '' && !in_array($itemType, ['image', 'video'], true) && filter_var($itemResourceUrl, FILTER_VALIDATE_URL)): ?>
+                                                <a href="<?= e($itemResourceUrl); ?>" target="_blank" rel="noopener">Open Resource</a>
+                                            <?php endif; ?>
+                                        </nav>
                                     <?php endif; ?>
                                 <?php endif; ?>
                             </article>
@@ -206,9 +266,13 @@ require_once __DIR__ . '/includes/header.php';
                 <?php if (!$hasDayItems && ($step['verses'] ?? []) !== []): ?>
                     <div class="top-gap">
                         <h3>Verses</h3>
-                        <div class="inline-actions">
+                        <div class="study-resource-row">
                             <?php foreach ($step['verses'] as $verse): ?>
-                                <a class="pill" href="<?= e(app_url('bible.php?q=' . urlencode((string) $verse['reference_text']))); ?>"><?= e((string) $verse['reference_text']); ?></a>
+                                <?php $referenceText = (string) $verse['reference_text']; ?>
+                                <?php foreach (scripture_reference_parts($referenceText) as $referencePart): ?>
+                                    <a href="<?= e(study_day_resource_url($referencePart)); ?>">Read <?= e($referencePart); ?></a>
+                                    <a href="<?= e(app_url('dictionary.php?q=' . urlencode($referencePart))); ?>">Reference</a>
+                                <?php endforeach; ?>
                             <?php endforeach; ?>
                         </div>
                     </div>

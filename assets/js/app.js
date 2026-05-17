@@ -2565,7 +2565,7 @@ if (chapterReader && bookmarkPopup) {
         }
 
         if (popupNoteLink) {
-            popupNoteLink.setAttribute('href', `/notes.php?verse_id=${encodeURIComponent(verseId)}`);
+            popupNoteLink.setAttribute('href', `/library.php?view=notes&verse_id=${encodeURIComponent(verseId)}`);
         }
 
         bookmarkPopup.hidden = false;

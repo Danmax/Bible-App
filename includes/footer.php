@@ -14,7 +14,7 @@ $pageScripts = isset($pageScripts) && is_array($pageScripts) ? $pageScripts : []
                 </div>
                 <div>
                     <h4>Core Areas</h4>
-                    <p>Bible reading, bookmarks, notes, yearly planning, and community events.</p>
+                    <p>Bible reading, Library, Plans, and Bible-centered community.</p>
                 </div>
                 <div>
                     <h4>Verse</h4>
