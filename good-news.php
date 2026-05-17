@@ -143,7 +143,7 @@ $prayerEntries = [];
 $foundationCards = good_news_foundation_cards();
 $scripturePath = good_news_scripture_path();
 $currentYear = (int) date('Y');
-$prayerPageUrl = app_url($user !== null ? 'prayer.php' : 'login.php');
+$prayerPageUrl = app_url($user !== null ? 'library.php?view=prayer' : 'login.php');
 $responseSteps = good_news_response_steps($user !== null, $prayerPageUrl);
 $guestEncouragement = good_news_guest_encouragement();
 $radioStations = good_news_default_radio_stations();

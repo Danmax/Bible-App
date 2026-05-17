@@ -81,14 +81,15 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
 
                 <nav class="primary-nav" id="primary-nav">
                     <a class="<?= $activePage === 'home' ? 'is-active' : ''; ?>" href="<?= e(app_url('index.php')); ?>">Home</a>
-                    <a class="<?= $activePage === 'good-news' ? 'is-active' : ''; ?>" href="<?= e(app_url('good-news.php')); ?>">Good News</a>
                     <?php
-                    $bibleActivePages = ['bible', 'dictionary', 'bookmarks', 'notes', 'sermon-notes', 'sermon-note-view'];
-                    $communityActivePages = ['community', 'sessions', 'friends', 'prayer'];
-                    $dashboardActivePages = ['dashboard', 'planner'];
+                    $bibleActivePages = ['bible', 'dictionary', 'good-news'];
+                    $libraryActivePages = ['library', 'bookmarks', 'notes', 'sermon-notes', 'sermon-note-view', 'prayer'];
+                    $planActivePages = ['studies'];
+                    $communityActivePages = ['community', 'sessions', 'friends'];
                     ?>
                     <a class="<?= in_array($activePage, $bibleActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('bible.php')); ?>">Bible</a>
-                    <a class="<?= $activePage === 'studies' ? 'is-active' : ''; ?>" href="<?= e(app_url('studies.php')); ?>">Studies</a>
+                    <a class="<?= in_array($activePage, $libraryActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('library.php')); ?>">Library</a>
+                    <a class="<?= in_array($activePage, $planActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('studies.php')); ?>">Plans</a>
                     <a class="<?= in_array($activePage, $communityActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('community.php')); ?>">Community</a>
                     <?php
                     $morePages = ['dashboard', 'planner', 'profile', 'admin'];
@@ -97,12 +98,29 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
 
                     if (is_logged_in()) {
                         $moreSections[] = [
-                            'label' => 'Dashboard',
+                            'label' => 'Account',
                             'links' => [
                                 [
                                     'label' => 'Dashboard',
                                     'href' => app_url('dashboard.php'),
                                     'active' => $activePage === 'dashboard',
+                                    'class' => '',
+                                ],
+                                [
+                                    'label' => 'Profile',
+                                    'href' => app_url('profile.php'),
+                                    'active' => $activePage === 'profile',
+                                    'class' => '',
+                                ],
+                            ],
+                        ];
+                        $moreSections[] = [
+                            'label' => 'Rhythm',
+                            'links' => [
+                                [
+                                    'label' => 'Prayer',
+                                    'href' => app_url('library.php?view=prayer'),
+                                    'active' => $activePage === 'prayer',
                                     'class' => '',
                                 ],
                                 [
@@ -114,36 +132,18 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                             ],
                         ];
                         $moreSections[] = [
-                            'label' => 'Bible',
+                            'label' => 'Resources',
                             'links' => [
+                                [
+                                    'label' => 'Gospel Path',
+                                    'href' => app_url('good-news.php'),
+                                    'active' => $activePage === 'good-news',
+                                    'class' => '',
+                                ],
                                 [
                                     'label' => 'Dictionary',
                                     'href' => app_url('dictionary.php'),
                                     'active' => $activePage === 'dictionary',
-                                    'class' => '',
-                                ],
-                                [
-                                    'label' => 'Saved',
-                                    'href' => app_url('bookmarks.php'),
-                                    'active' => $activePage === 'bookmarks',
-                                    'class' => '',
-                                ],
-                                [
-                                    'label' => 'Notes',
-                                    'href' => app_url('notes.php'),
-                                    'active' => $activePage === 'notes',
-                                    'class' => '',
-                                ],
-                                [
-                                    'label' => 'Sermons',
-                                    'href' => app_url('sermon-notes.php'),
-                                    'active' => $activePage === 'sermon-notes' || $activePage === 'sermon-note-view',
-                                    'class' => '',
-                                ],
-                                [
-                                    'label' => 'Studies',
-                                    'href' => app_url('studies.php'),
-                                    'active' => $activePage === 'studies',
                                     'class' => '',
                                 ],
                             ],
@@ -165,24 +165,15 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                                 ],
                                 [
                                     'label' => 'Prayer',
-                                    'href' => app_url('prayer.php'),
+                                    'href' => app_url('library.php?view=prayer'),
                                     'active' => $activePage === 'prayer',
                                     'class' => '',
                                 ],
                             ],
                         ];
 
-                        $accountLinks = [
-                            [
-                                'label' => 'Profile',
-                                'href' => app_url('profile.php'),
-                                'active' => $activePage === 'profile',
-                                'class' => '',
-                            ],
-                        ];
-
                         if (current_user_has_role(['admin'])) {
-                            $accountLinks[] = [
+                            $moreSections[0]['links'][] = [
                                 'label' => 'Admin',
                                 'href' => app_url('admin/index.php'),
                                 'active' => $activePage === 'admin',
@@ -190,31 +181,26 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                             ];
                         }
 
-                        $accountLinks[] = [
+                        $moreSections[0]['links'][] = [
                             'label' => 'Logout',
                             'href' => app_url('logout.php'),
                             'active' => false,
                             'class' => 'nav-action',
                         ];
-
-                        $moreSections[] = [
-                            'label' => 'Account',
-                            'links' => $accountLinks,
-                        ];
                     } else {
                         $moreSections[] = [
-                            'label' => 'Bible',
+                            'label' => 'Resources',
                             'links' => [
+                                [
+                                    'label' => 'Gospel Path',
+                                    'href' => app_url('good-news.php'),
+                                    'active' => $activePage === 'good-news',
+                                    'class' => '',
+                                ],
                                 [
                                     'label' => 'Dictionary',
                                     'href' => app_url('dictionary.php'),
                                     'active' => $activePage === 'dictionary',
-                                    'class' => '',
-                                ],
-                                [
-                                    'label' => 'Sermons',
-                                    'href' => app_url('sermon-notes.php'),
-                                    'active' => $activePage === 'sermon-notes' || $activePage === 'sermon-note-view',
                                     'class' => '',
                                 ],
                             ],
@@ -249,26 +235,8 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                         ];
                     }
                     ?>
-                    <details class="theme-nav more-nav" data-theme-nav>
-                        <summary>Theme</summary>
-                        <div class="more-nav-menu theme-nav-menu">
-                            <div class="theme-nav-swatches">
-                                <?php foreach ($appThemeOptions as $themeOption): ?>
-                                    <button
-                                        class="theme-swatch theme-swatch-sm"
-                                        type="button"
-                                        data-app-theme-option="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>"
-                                        title="<?= e((string) ($themeOption['label'] ?? 'Theme')); ?>"
-                                    >
-                                        <span><?= e((string) ($themeOption['label'] ?? 'Theme')); ?></span>
-                                    </button>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                    </details>
-
                     <details class="more-nav">
-                        <summary class="<?= $moreIsActive ? 'is-active' : ''; ?>">More</summary>
+                        <summary class="<?= $moreIsActive ? 'is-active' : ''; ?>">Account</summary>
                         <div class="more-nav-menu">
                             <?php foreach ($moreSections as $section): ?>
                                 <div class="more-nav-group">
@@ -287,21 +255,6 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                     </details>
 
                     <div class="more-nav-mobile" aria-label="More">
-                        <div class="more-nav-group">
-                            <p class="more-nav-group-label">Appearance</p>
-                            <div class="theme-mobile-swatches">
-                                <?php foreach ($appThemeOptions as $themeOption): ?>
-                                    <button
-                                        class="theme-swatch theme-swatch-sm"
-                                        type="button"
-                                        data-app-theme-option="<?= e((string) ($themeOption['value'] ?? 'good-news')); ?>"
-                                        title="<?= e((string) ($themeOption['label'] ?? 'Theme')); ?>"
-                                    >
-                                        <span><?= e((string) ($themeOption['label'] ?? 'Theme')); ?></span>
-                                    </button>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
                         <?php foreach ($moreSections as $section): ?>
                             <div class="more-nav-group">
                                 <p class="more-nav-group-label"><?= e((string) ($section['label'] ?? 'More')); ?></p>

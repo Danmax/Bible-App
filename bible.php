@@ -72,6 +72,8 @@ function bible_analysis_stop_words(): array
         'himself', 'herself', 'themselves', 'ourselves', 'which', 'whom', 'whose', 'said', 'says', 'say',
         'did', 'does', 'doing', 'very', 'more', 'most', 'much', 'many', 'each', 'every', 'some', 'such',
         'just', 'like', 'make', 'made', 'than', 'them', 'its', 'itself', 'again', 'still', 'here', 'there',
+        'only', 'thou', 'thee', 'thy', 'thine', 'hast', 'hath', 'dost', 'doth', 'ye', 'wherefore',
+        'wherein', 'wherewith', 'whence', 'hence', 'behold', 'saying',
     ], true);
 }
 
@@ -178,6 +180,34 @@ function bible_build_scripture_analysis(array $verses, string $query = '', int $
         'top_terms' => $topTerms,
         'related_items' => $relatedItems,
     ];
+}
+
+function bible_reference_query_for_verse(array $verse): string
+{
+    return sprintf(
+        '%s %d:%d',
+        (string) ($verse['book_name'] ?? 'Scripture'),
+        (int) ($verse['chapter_number'] ?? 0),
+        (int) ($verse['verse_number'] ?? 0)
+    );
+}
+
+function bible_resource_terms_for_text(string $text, int $limit = 3): array
+{
+    $stopWords = bible_analysis_stop_words();
+    $counts = [];
+
+    foreach (bible_extract_analysis_tokens($text) as $token) {
+        if (mb_strlen($token) < 4 || isset($stopWords[$token])) {
+            continue;
+        }
+
+        $counts[$token] = ($counts[$token] ?? 0) + 1;
+    }
+
+    arsort($counts);
+
+    return array_slice(array_keys($counts), 0, $limit);
 }
 
 function bible_share_reference(array $verses, string $translation): string
@@ -741,10 +771,16 @@ $analysisTitle = $displayMode === 'search' ? 'Search Concordance' : 'Passage Con
 $analysisIntro = $displayMode === 'search'
     ? 'Study repeated words and related search paths drawn from the verses returned above.'
     : 'Study repeated words and related search paths drawn from the passage above.';
+$passageFocusTerms = $scriptureAnalysis !== null
+    ? array_slice(array_map(
+        static fn(array $term): string => (string) $term['term'],
+        (array) $scriptureAnalysis['top_terms']
+    ), 0, 5)
+    : [];
 
 $sharePayloadJson = null;
 $canvasVerse = $browseVerses[0] ?? null;
-$canvasNoteUrl = app_url('notes.php');
+$canvasNoteUrl = app_url('library.php?view=notes');
 
 if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) {
     if ($selectedVerseNumber > 0) {
@@ -757,7 +793,7 @@ if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 
     }
 
     if (is_array($canvasVerse) && (int) ($canvasVerse['id'] ?? 0) > 0) {
-        $canvasNoteUrl = app_url('notes.php?verse_id=' . (int) $canvasVerse['id']);
+        $canvasNoteUrl = app_url('library.php?view=notes&verse_id=' . (int) $canvasVerse['id']);
     }
 
     $shareParams = array_filter([
@@ -1099,6 +1135,32 @@ require_once __DIR__ . '/includes/header.php';
                 <p class="empty-state top-gap-sm"><?= e($searchMessage); ?></p>
             <?php endif; ?>
 
+            <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []): ?>
+                <nav class="scripture-resource-trail top-gap-sm" aria-label="Passage resources">
+                    <span class="scripture-resource-trail-label">Study this passage</span>
+                    <?php if ($selectedBook): ?>
+                        <a href="<?= e($bookOverviewUrl ?? bible_reader_url([
+                            'translation' => $selectedTranslation,
+                            'book_id' => $selectedBookId,
+                            'reader_mode' => $readerMode,
+                        ])); ?>">Book</a>
+                    <?php endif; ?>
+                    <?php if ($wholeChapterUrl || $selectedChapter > 0): ?>
+                        <a href="<?= e($wholeChapterUrl ?: bible_reader_url([
+                            'translation' => $selectedTranslation,
+                            'book_id' => $selectedBookId,
+                            'chapter' => $selectedChapter,
+                            'reader_mode' => $readerMode,
+                        ])); ?>">Chapter</a>
+                    <?php endif; ?>
+                    <a href="<?= e($canvasNoteUrl); ?>">Note</a>
+                    <a href="<?= e(app_url('library.php?view=saved')); ?>">Saved</a>
+                    <?php foreach ($passageFocusTerms as $term): ?>
+                        <a href="<?= e(app_url('dictionary.php?q=' . urlencode($term))); ?>"><?= e(mb_convert_case($term, MB_CASE_TITLE, 'UTF-8')); ?></a>
+                    <?php endforeach; ?>
+                </nav>
+            <?php endif; ?>
+
             <?php if ($displayMode === 'catalog' && $themedSeries !== []): ?>
                 <div class="top-gap">
                     <div class="panel-heading">
@@ -1156,6 +1218,9 @@ require_once __DIR__ . '/includes/header.php';
                     <?php foreach ($browseVerses as $verse): ?>
                         <?php
                         $verseBookmarkSet = $chapterBookmarks[(int) $verse['id']] ?? [];
+                        $verseReferenceQuery = bible_reference_query_for_verse($verse);
+                        $verseNoteUrl = app_url('library.php?view=notes&verse_id=' . (int) $verse['id']);
+                        $verseTerms = bible_resource_terms_for_text((string) $verse['verse_text']);
                         $readerClasses = ['reader-verse'];
                         if ($displayMode !== 'verse' && $selectedVerseNumber === (int) $verse['verse_number']) {
                             $readerClasses[] = 'is-target';
@@ -1191,6 +1256,16 @@ require_once __DIR__ . '/includes/header.php';
                                     data-verse-number="<?= e((string) $verse['verse_number']); ?>"
                                 ><?= render_verse_text_with_highlights((string) $verse['verse_text'], $verseBookmarkSet); ?></span>
                             </p>
+                            <?php if ($readerMode === 'verse'): ?>
+                                <nav class="reader-verse-resources" aria-label="<?= e(format_verse_reference($verse)); ?> resources">
+                                    <a href="<?= e($verseFocusUrl); ?>">Open</a>
+                                    <a href="<?= e($verseNoteUrl); ?>">Note</a>
+                                    <a href="<?= e(app_url('dictionary.php?q=' . urlencode($verseReferenceQuery))); ?>">Reference</a>
+                                    <?php foreach ($verseTerms as $term): ?>
+                                        <a href="<?= e(app_url('dictionary.php?q=' . urlencode($term))); ?>"><?= e(mb_convert_case($term, MB_CASE_TITLE, 'UTF-8')); ?></a>
+                                    <?php endforeach; ?>
+                                </nav>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 </article>

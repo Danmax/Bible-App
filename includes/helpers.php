@@ -151,6 +151,32 @@ function e(?string $value): string
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+function scripture_reference_parts(string $value): array
+{
+    $parts = preg_split('/[,;\n]+/', $value) ?: [];
+    $references = [];
+
+    foreach ($parts as $part) {
+        $reference = trim((string) $part);
+
+        if ($reference !== '') {
+            $references[] = $reference;
+        }
+    }
+
+    return array_values(array_unique($references));
+}
+
+function scripture_reference_query(string $reference): string
+{
+    return str_replace(["\u{2013}", "\u{2014}"], '-', trim($reference));
+}
+
+function scripture_reference_reader_url(string $reference): string
+{
+    return app_url('bible.php?q=' . urlencode(scripture_reference_query($reference)));
+}
+
 function page_title(?string $title): string
 {
     return $title ? $title . ' | ' . APP_NAME : APP_NAME;

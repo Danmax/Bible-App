@@ -102,7 +102,7 @@ require_once __DIR__ . '/includes/header.php';
                         <h2>Recent saved verses</h2>
                         <p class="muted-copy">Quick access to the passages you saved most recently.</p>
                     </div>
-                    <a class="button button-secondary" href="<?= e(app_url('bookmarks.php')); ?>">Open Saved</a>
+                    <a class="button button-secondary" href="<?= e(app_url('library.php?view=saved')); ?>">Open Saved</a>
                 </div>
 
                 <?php if ($recentBookmarks === []): ?>
@@ -128,7 +128,7 @@ require_once __DIR__ . '/includes/header.php';
                         <h2>Recent notes</h2>
                         <p class="muted-copy">Continue the studies you were working on last.</p>
                     </div>
-                    <a class="button button-secondary" href="<?= e(app_url('notes.php')); ?>">Open Notes</a>
+                    <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes')); ?>">Open Notes</a>
                 </div>
 
                 <?php if ($recentNotes === []): ?>

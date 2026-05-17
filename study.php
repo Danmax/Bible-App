@@ -4,6 +4,25 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 
+function study_step_reference_links(array $step, int $limit = 3): array
+{
+    $references = [];
+
+    foreach ((array) ($step['verses'] ?? []) as $verse) {
+        foreach (scripture_reference_parts((string) ($verse['reference_text'] ?? '')) as $reference) {
+            $references[] = $reference;
+        }
+    }
+
+    foreach ((array) ($step['items'] ?? []) as $item) {
+        foreach (scripture_reference_parts((string) ($item['bible_reference'] ?? '')) as $reference) {
+            $references[] = $reference;
+        }
+    }
+
+    return array_slice(array_values(array_unique($references)), 0, $limit);
+}
+
 $activePage = 'studies';
 $user = is_logged_in() ? refresh_current_user() : null;
 $pageError = null;
@@ -188,6 +207,7 @@ require_once __DIR__ . '/includes/header.php';
                         <?php
                         $progress = $progressMap[(int) $step['id']] ?? null;
                         $dayImage = '';
+                        $dayReferences = study_step_reference_links($step);
 
                         foreach ((array) ($step['items'] ?? []) as $item) {
                             if ((string) ($item['item_type'] ?? '') === 'image' && trim((string) ($item['resource_url'] ?? '')) !== '') {
@@ -208,6 +228,13 @@ require_once __DIR__ . '/includes/header.php';
                                     </div>
                                     <span class="study-complete-mark <?= !empty($progress['completed_at']) ? 'is-complete' : ''; ?>" aria-label="<?= !empty($progress['completed_at']) ? 'Completed' : 'Open'; ?>"></span>
                                 </div>
+                                <?php if ($dayReferences !== []): ?>
+                                    <nav class="study-resource-row" aria-label="Day <?= e((string) $step['day_number']); ?> Scripture">
+                                        <?php foreach ($dayReferences as $reference): ?>
+                                            <a href="<?= e(scripture_reference_reader_url($reference)); ?>"><?= e($reference); ?></a>
+                                        <?php endforeach; ?>
+                                    </nav>
+                                <?php endif; ?>
                                 <?php if ($enrollment !== null): ?>
                                     <div class="top-gap-sm">
                                         <a class="button button-secondary button-with-icon" href="<?= e(app_url('study-day.php?enrollment_id=' . (int) $enrollment['id'] . '&day=' . (int) $step['day_number'])); ?>"><span aria-hidden="true">></span><span>Open Day</span></a>

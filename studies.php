@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 
-$pageTitle = 'Bible Studies';
-$pageDescription = 'Join curated Bible studies, devotionals, and group plans with daily Scripture, reflection questions, challenges, and completion badges.';
+$pageTitle = 'Plans';
+$pageDescription = 'Join Bible reading plans, devotionals, and group studies with daily Scripture, reflection questions, challenges, and completion tracking.';
 $activePage = 'studies';
 $user = is_logged_in() ? refresh_current_user() : null;
 $pageError = null;
@@ -47,18 +47,18 @@ require_once __DIR__ . '/includes/header.php';
     <div class="container">
         <div class="section-heading-rich">
             <div>
-                <p class="eyebrow">Bible Studies</p>
-                <h1>Curated plans for daily growth</h1>
-                <p>Join devotionals, group studies, and 30-day Scripture plans with reflection questions, daily challenges, locked teaching videos, and completion badges.</p>
+                <p class="eyebrow">Plans</p>
+                <h1>Bible-centered plans for daily growth</h1>
+                <p>Join reading plans, devotionals, and group studies with Scripture, reflection questions, daily challenges, teaching videos, and progress tracking.</p>
             </div>
             <div class="quick-stat-row">
-                <span class="quick-stat"><strong><?= e((string) count($studies)); ?></strong><span>Available studies</span></span>
+                <span class="quick-stat"><strong><?= e((string) count($studies)); ?></strong><span>Available plans</span></span>
                 <span class="quick-stat"><strong>3</strong><span>Starter formats</span></span>
                 <span class="quick-stat"><strong>1</strong><span>Daily rhythm</span></span>
             </div>
             <div class="inline-actions">
                 <?php if (current_user_can_manage_studies()): ?>
-                    <a class="button button-primary" href="<?= e(app_url('admin/studies.php')); ?>">Manage Studies</a>
+                    <a class="button button-primary" href="<?= e(app_url('admin/studies.php')); ?>">Manage Plans</a>
                 <?php elseif ($user !== null): ?>
                     <?php if (($editorRequest['status'] ?? '') === 'pending'): ?>
                         <span class="pill">Editor request pending</span>
@@ -75,16 +75,16 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <?php if (!curated_studies_available()): ?>
-            <div class="flash flash-warning">Curated Bible studies are not installed yet. Run <strong>sql/add_curated_bible_studies.sql</strong> to enable this feature.</div>
+            <div class="flash flash-warning">Bible plans are not installed yet. Run <strong>sql/add_curated_bible_studies.sql</strong> to enable this feature.</div>
         <?php elseif ($pageError !== null): ?>
             <div class="flash flash-warning"><?= e($pageError); ?></div>
         <?php elseif ($studies === []): ?>
             <section class="panel top-gap">
-                <h2>No studies published yet</h2>
-                <p class="muted-copy">Published curated studies will appear here once an admin creates one.</p>
+                <h2>No plans published yet</h2>
+                <p class="muted-copy">Published Bible plans will appear here once an admin creates one.</p>
                 <?php if (current_user_has_role(['admin'])): ?>
                     <div class="top-gap-sm">
-                        <a class="button button-primary" href="<?= e(app_url('admin/studies.php')); ?>">Create Study</a>
+                        <a class="button button-primary" href="<?= e(app_url('admin/studies.php')); ?>">Create Plan</a>
                     </div>
                 <?php endif; ?>
             </section>

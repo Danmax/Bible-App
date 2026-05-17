@@ -9,6 +9,9 @@ $verseReaderPath = 'bible.php?translation=' . urlencode((string) $verse['transla
     . '&verse=' . (int) $verse['verse_number'];
 $verseReaderUrl = app_url($verseReaderPath) . '#verse-' . (int) $verse['verse_number'];
 $verseShareUrl = app_url($verseReaderPath, true) . '#verse-' . (int) $verse['verse_number'];
+$verseResourceTerms = function_exists('bible_resource_terms_for_text')
+    ? bible_resource_terms_for_text((string) $verse['verse_text'])
+    : [];
 ?>
 <article class="scripture-result">
     <div class="scripture-result-top">
@@ -24,6 +27,13 @@ $verseShareUrl = app_url($verseReaderPath, true) . '#verse-' . (int) $verse['ver
             </p>
         </div>
     </div>
+
+    <nav class="scripture-result-resources" aria-label="<?= e($verseReference); ?> resources">
+        <a href="<?= e(app_url('dictionary.php?q=' . urlencode($verseReference))); ?>">Reference</a>
+        <?php foreach ($verseResourceTerms as $term): ?>
+            <a href="<?= e(app_url('dictionary.php?q=' . urlencode($term))); ?>"><?= e(mb_convert_case($term, MB_CASE_TITLE, 'UTF-8')); ?></a>
+        <?php endforeach; ?>
+    </nav>
 
     <div class="inline-actions">
         <button
@@ -58,7 +68,7 @@ $verseShareUrl = app_url($verseReaderPath, true) . '#verse-' . (int) $verse['ver
                 <input type="text" name="note" placeholder="Note or reason">
                 <button class="button button-primary" type="submit">Mark Verse</button>
             </form>
-            <a class="button button-secondary" href="<?= e(app_url('notes.php?verse_id=' . $verse['id'])); ?>">Add Note</a>
+            <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes&verse_id=' . $verse['id'])); ?>">Add Note</a>
         <?php elseif (is_logged_in()): ?>
             <span class="muted-copy">Marking for this result is unavailable until the verse is mapped locally.</span>
         <?php else: ?>
