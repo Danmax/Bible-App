@@ -1263,7 +1263,7 @@ require_once __DIR__ . '/includes/header.php';
                     <?php else: ?>
                         <span>Prev</span>
                     <?php endif; ?>
-                    <button type="button" data-mobile-highlight-tip>Highlight</button>
+                    <button type="button" data-mobile-study-open>Study</button>
                     <a href="<?= e($canvasNoteUrl); ?>">Note</a>
                     <?php if ($sharePayloadJson !== null): ?>
                         <button type="button" data-mobile-share-open>Share</button>
@@ -1276,6 +1276,126 @@ require_once __DIR__ . '/includes/header.php';
                         <span>Next</span>
                     <?php endif; ?>
                 </nav>
+
+                <div
+                    class="mobile-study-sheet"
+                    data-mobile-study-sheet
+                    data-note-base="<?= e(app_url('library.php?view=notes&verse_id=')); ?>"
+                    data-default-note-url="<?= e($canvasNoteUrl); ?>"
+                    data-default-reference="<?= e(bible_share_reference($browseVerses, $selectedTranslation)); ?>"
+                    hidden
+                >
+                    <button class="mobile-study-backdrop" type="button" data-study-sheet-close aria-label="Close study tools"></button>
+                    <section class="mobile-study-panel" role="dialog" aria-modal="true" aria-labelledby="mobile-study-title">
+                        <div class="mobile-study-handle" aria-hidden="true"></div>
+                        <div class="mobile-study-header">
+                            <div>
+                                <p class="eyebrow" data-study-context-label>Study Sheet</p>
+                                <h3 id="mobile-study-title" data-study-reference><?= e(bible_share_reference($browseVerses, $selectedTranslation)); ?></h3>
+                                <p class="muted-copy" data-study-preview><?= e(truncate_text(bible_share_text($browseVerses), 132)); ?></p>
+                            </div>
+                            <button class="popup-close" type="button" data-study-sheet-close>Close</button>
+                        </div>
+
+                        <div class="mobile-study-tabs" role="tablist" aria-label="Mobile study tools">
+                            <button class="is-active" type="button" role="tab" aria-selected="true" data-study-tab="actions">Actions</button>
+                            <button type="button" role="tab" aria-selected="false" data-study-tab="passage">Passage</button>
+                            <button type="button" role="tab" aria-selected="false" data-study-tab="word">Words</button>
+                            <button type="button" role="tab" aria-selected="false" data-study-tab="notes">Notes</button>
+                        </div>
+
+                        <div class="mobile-study-body">
+                            <div class="mobile-study-tab-panel is-active" data-study-tab-panel="actions">
+                                <div class="mobile-study-action-grid">
+                                    <?php if (is_logged_in()): ?>
+                                        <button class="button button-primary" type="button" data-study-save-selected>Save Verse</button>
+                                        <button class="button button-secondary" type="button" data-study-highlight-selected>Highlight Text</button>
+                                        <a class="button button-secondary" href="<?= e($canvasNoteUrl); ?>" data-study-note-link>Start Note</a>
+                                    <?php else: ?>
+                                        <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In To Save</a>
+                                        <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create Account</a>
+                                    <?php endif; ?>
+                                    <a class="button button-secondary" href="<?= e($wholeChapterUrl ?: bible_reader_url([
+                                        'translation' => $selectedTranslation,
+                                        'book_id' => $selectedBookId,
+                                        'chapter' => $selectedChapter,
+                                        'reader_mode' => $readerMode,
+                                    ])); ?>" data-study-open-link>Open Context</a>
+                                    <?php if ($sharePayloadJson !== null): ?>
+                                        <button class="button button-secondary" type="button" data-study-share-selected>Share</button>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <div class="mobile-study-tab-panel" data-study-tab-panel="passage">
+                                <div class="mobile-study-list">
+                                    <?php if ($selectedBook): ?>
+                                        <a href="<?= e($bookOverviewUrl ?? bible_reader_url([
+                                            'translation' => $selectedTranslation,
+                                            'book_id' => $selectedBookId,
+                                            'reader_mode' => $readerMode,
+                                        ])); ?>">
+                                            <strong>Book Context</strong>
+                                            <span><?= e((string) $selectedBook['name']); ?></span>
+                                        </a>
+                                    <?php endif; ?>
+                                    <?php if ($wholeChapterUrl || $selectedChapter > 0): ?>
+                                        <a href="<?= e($wholeChapterUrl ?: bible_reader_url([
+                                            'translation' => $selectedTranslation,
+                                            'book_id' => $selectedBookId,
+                                            'chapter' => $selectedChapter,
+                                            'reader_mode' => $readerMode,
+                                        ])); ?>">
+                                            <strong>Chapter Context</strong>
+                                            <span><?= e($selectedBook ? (string) $selectedBook['name'] . ' ' . (string) $selectedChapter : 'Current chapter'); ?></span>
+                                        </a>
+                                    <?php endif; ?>
+                                    <a href="<?= e(app_url('dictionary.php' . ($query !== '' ? '?q=' . urlencode($query) : ''))); ?>">
+                                        <strong>Dictionary</strong>
+                                        <span>Definitions, people, places, and themes</span>
+                                    </a>
+                                    <a href="<?= e(app_url('library.php?view=saved')); ?>">
+                                        <strong>Saved Library</strong>
+                                        <span>Bookmarks, highlights, and notes</span>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="mobile-study-tab-panel" data-study-tab-panel="word">
+                                <?php if ($passageFocusTerms !== []): ?>
+                                    <div class="bible-chip-row">
+                                        <?php foreach ($passageFocusTerms as $term): ?>
+                                            <a class="filter-chip" href="<?= e(bible_reader_url([
+                                                'q' => $term,
+                                                'translation' => $selectedTranslation,
+                                                'reader_mode' => $readerMode,
+                                            ])); ?>"><?= e(mb_convert_case($term, MB_CASE_TITLE, 'UTF-8')); ?></a>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="muted-copy">Open a passage or search result to see repeated words and related study paths.</p>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="mobile-study-tab-panel" data-study-tab-panel="notes">
+                                <div class="mobile-study-list">
+                                    <a href="<?= e($canvasNoteUrl); ?>" data-study-note-link>
+                                        <strong>Start A Note</strong>
+                                        <span>Attach reflection to the selected verse or passage</span>
+                                    </a>
+                                    <a href="<?= e(app_url('library.php?view=notes')); ?>">
+                                        <strong>All Notes</strong>
+                                        <span>Review your study journal</span>
+                                    </a>
+                                    <a href="<?= e(app_url('bookmarks.php')); ?>">
+                                        <strong>Bookmarks</strong>
+                                        <span>Return to saved verses and highlights</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
 
                 <div class="bookmark-popup" data-bookmark-popup hidden>
                     <div class="bookmark-popup-card">

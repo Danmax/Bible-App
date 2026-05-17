@@ -2269,6 +2269,7 @@ document.querySelectorAll('[data-translation-switch-form]').forEach((form) => {
 const chapterReader = document.querySelector('[data-chapter-reader]');
 const bookmarkPopup = document.querySelector('[data-bookmark-popup]');
 const bookmarkPopupForm = document.querySelector('[data-bookmark-popup-form]');
+const mobileStudySheet = document.querySelector('[data-mobile-study-sheet]');
 
 if (chapterReader) {
     const scrollToTargetVerse = () => {
@@ -2323,6 +2324,7 @@ if (chapterReader && bookmarkPopup) {
     const rangeEndOffsetInput = bookmarkPopupForm?.querySelector('input[name="range_end_offset"]') || null;
     const tagInput = bookmarkPopupForm?.querySelector('input[name="tag"]') || null;
     const noteInput = bookmarkPopupForm?.querySelector('textarea[name="note"]') || null;
+    let activeStudyVerseCard = null;
 
     const closestMatch = (node, selector) => {
         if (node instanceof Element) {
@@ -2391,6 +2393,13 @@ if (chapterReader && bookmarkPopup) {
 
     const hidePopup = () => {
         bookmarkPopup.hidden = true;
+    };
+
+    const closeMobileStudySheet = () => {
+        if (mobileStudySheet instanceof HTMLElement) {
+            mobileStudySheet.hidden = true;
+            document.body.classList.remove('has-mobile-study-sheet');
+        }
     };
 
     const positionPopup = (anchorVerseCard) => {
@@ -2462,6 +2471,80 @@ if (chapterReader && bookmarkPopup) {
         return `${startReference} - ${endReference}`;
     };
 
+    const setStudySheetTab = (tabName) => {
+        if (!(mobileStudySheet instanceof HTMLElement)) {
+            return;
+        }
+
+        mobileStudySheet.querySelectorAll('[data-study-tab]').forEach((tab) => {
+            const isActive = tab.getAttribute('data-study-tab') === tabName;
+            tab.classList.toggle('is-active', isActive);
+            tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        mobileStudySheet.querySelectorAll('[data-study-tab-panel]').forEach((panel) => {
+            panel.classList.toggle('is-active', panel.getAttribute('data-study-tab-panel') === tabName);
+        });
+    };
+
+    const openMobileStudySheet = (verseCard = null, tabName = 'actions') => {
+        if (!(mobileStudySheet instanceof HTMLElement)) {
+            return false;
+        }
+
+        activeStudyVerseCard = verseCard instanceof HTMLElement
+            ? verseCard
+            : (activeStudyVerseCard instanceof HTMLElement ? activeStudyVerseCard : chapterReader.querySelector('[data-verse-card]'));
+
+        const referenceNode = mobileStudySheet.querySelector('[data-study-reference]');
+        const previewNode = mobileStudySheet.querySelector('[data-study-preview]');
+        const contextLabel = mobileStudySheet.querySelector('[data-study-context-label]');
+        const noteBase = mobileStudySheet.getAttribute('data-note-base') || '/library.php?view=notes&verse_id=';
+        const defaultNoteUrl = mobileStudySheet.getAttribute('data-default-note-url') || '/library.php?view=notes';
+        const defaultReference = mobileStudySheet.getAttribute('data-default-reference') || 'Current Passage';
+
+        if (activeStudyVerseCard instanceof HTMLElement) {
+            const verseId = activeStudyVerseCard.getAttribute('data-verse-id') || '';
+            const verseReference = activeStudyVerseCard.getAttribute('data-verse-reference') || defaultReference;
+            const verseText = activeStudyVerseCard.getAttribute('data-verse-text') || '';
+
+            if (contextLabel) {
+                contextLabel.textContent = 'Selected Verse';
+            }
+            if (referenceNode) {
+                referenceNode.textContent = verseReference;
+            }
+            if (previewNode) {
+                previewNode.textContent = verseText.length > 132 ? `${verseText.slice(0, 129).trim()}...` : verseText;
+            }
+
+            mobileStudySheet.querySelectorAll('[data-study-note-link]').forEach((link) => {
+                if (link instanceof HTMLAnchorElement) {
+                    link.href = verseId ? `${noteBase}${encodeURIComponent(verseId)}` : defaultNoteUrl;
+                }
+            });
+        } else {
+            if (contextLabel) {
+                contextLabel.textContent = 'Passage Study';
+            }
+            if (referenceNode) {
+                referenceNode.textContent = defaultReference;
+            }
+        }
+
+        setStudySheetTab(tabName);
+        mobileStudySheet.hidden = false;
+        document.body.classList.add('has-mobile-study-sheet');
+        window.setTimeout(() => {
+            const activeTab = mobileStudySheet.querySelector('[data-study-tab].is-active');
+            if (activeTab instanceof HTMLButtonElement) {
+                activeTab.focus({ preventScroll: true });
+            }
+        }, 80);
+
+        return true;
+    };
+
     const openPopupForSelection = ({
         startVerseCard,
         endVerseCard = startVerseCard,
@@ -2519,9 +2602,13 @@ if (chapterReader && bookmarkPopup) {
         }
 
         if (popupNoteLink) {
-            popupNoteLink.setAttribute('href', `/library.php?view=notes&verse_id=${encodeURIComponent(verseId)}`);
+            const noteBase = mobileStudySheet instanceof HTMLElement
+                ? (mobileStudySheet.getAttribute('data-note-base') || '/library.php?view=notes&verse_id=')
+                : '/library.php?view=notes&verse_id=';
+            popupNoteLink.setAttribute('href', `${noteBase}${encodeURIComponent(verseId)}`);
         }
 
+        closeMobileStudySheet();
         bookmarkPopup.hidden = false;
         positionPopup(startVerseCard);
     };
@@ -2602,6 +2689,11 @@ if (chapterReader && bookmarkPopup) {
                 return;
             }
 
+            if ((window.innerWidth || document.documentElement.clientWidth || 0) <= 760) {
+                openMobileStudySheet(verseCard, 'actions');
+                return;
+            }
+
             openPopupForSelection({ startVerseCard: verseCard });
         });
     });
@@ -2653,8 +2745,65 @@ if (chapterReader && bookmarkPopup) {
         if (event.key === 'Escape') {
             window.getSelection()?.removeAllRanges();
             hidePopup();
+            closeMobileStudySheet();
         }
     });
+
+    if (mobileStudySheet instanceof HTMLElement) {
+        mobileStudySheet.querySelectorAll('[data-study-sheet-close]').forEach((button) => {
+            button.addEventListener('click', closeMobileStudySheet);
+        });
+
+        mobileStudySheet.querySelectorAll('[data-study-tab]').forEach((tab) => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.getAttribute('data-study-tab') || 'actions';
+                setStudySheetTab(tabName);
+            });
+        });
+
+        document.querySelectorAll('[data-mobile-study-open]').forEach((button) => {
+            button.addEventListener('click', () => {
+                openMobileStudySheet(activeStudyVerseCard, 'actions');
+            });
+        });
+
+        mobileStudySheet.querySelector('[data-study-save-selected]')?.addEventListener('click', () => {
+            if (activeStudyVerseCard instanceof HTMLElement) {
+                openPopupForSelection({ startVerseCard: activeStudyVerseCard });
+            }
+        });
+
+        mobileStudySheet.querySelector('[data-study-highlight-selected]')?.addEventListener('click', () => {
+            closeMobileStudySheet();
+
+            if (activeStudyVerseCard instanceof HTMLElement) {
+                activeStudyVerseCard.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            } else {
+                chapterReader.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+
+            const highlightButtons = document.querySelectorAll('[data-mobile-study-open], [data-mobile-highlight-tip]');
+            highlightButtons.forEach((button) => {
+                if (!(button instanceof HTMLButtonElement)) {
+                    return;
+                }
+
+                const originalLabel = button.textContent || 'Study';
+                button.textContent = 'Select text';
+                window.setTimeout(() => {
+                    button.textContent = originalLabel;
+                }, 1800);
+            });
+        });
+
+        mobileStudySheet.querySelector('[data-study-share-selected]')?.addEventListener('click', () => {
+            closeMobileStudySheet();
+
+            if (shareComposerToggle instanceof HTMLButtonElement && !shareComposerToggle.hidden) {
+                shareComposerToggle.click();
+            }
+        });
+    }
 
     resetPopupFields();
     setActiveColor(colorInput?.value || 'neon-yellow');
