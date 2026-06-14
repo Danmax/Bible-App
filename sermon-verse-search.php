@@ -52,6 +52,9 @@ try {
 
         $normalized[] = [
             'verse_id' => (int) $verse['id'],
+            'book_id' => (int) ($verse['book_id'] ?? 0),
+            'chapter_number' => (int) ($verse['chapter_number'] ?? 0),
+            'verse_number' => (int) ($verse['verse_number'] ?? 0),
             'reference_label' => format_verse_reference($verse),
             'verse_text' => trim((string) ($verse['verse_text'] ?? '')),
             'translation' => trim((string) ($verse['translation'] ?? $translation)),

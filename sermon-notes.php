@@ -302,16 +302,15 @@ require_once __DIR__ . '/includes/header.php';
             <div class="flash flash-warning"><?= e($formError); ?></div>
         <?php endif; ?>
 
-        <nav class="sermon-mobile-tabs" data-sermon-tabs aria-label="Sermon note sections">
-            <button class="is-active" type="button" data-sermon-tab="library">Library</button>
-            <button type="button" data-sermon-tab="details">Details</button>
-            <button type="button" data-sermon-tab="notes">Notes</button>
-            <button type="button" data-sermon-tab="tools">Tools</button>
+        <nav class="sermon-tabs" data-sermon-tabs aria-label="Sermon note sections">
+            <button type="button" data-sermon-tab="library">Library</button>
+            <button class="is-active" type="button" data-sermon-tab="notes">Write</button>
+            <button type="button" data-sermon-tab="tools">Bible Text</button>
             <button type="button" data-sermon-tab="board">Board</button>
         </nav>
 
         <div class="sermon-workspace<?= $selectedNote ? ' has-note-selected' : ''; ?>" data-sermon-workspace>
-            <aside class="panel sermon-left-rail sermon-tab-panel is-active" data-sermon-tab-panel="library">
+            <aside class="panel sermon-left-rail sermon-tab-panel" data-sermon-tab-panel="library">
                 <div class="panel-heading">
                     <div>
                         <h2>Folders</h2>
@@ -405,7 +404,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
 
                     <div class="inline-actions">
-                        <button class="button button-secondary" type="button" data-sermon-open-tools>Tools</button>
+                        <button class="button button-secondary" type="button" data-sermon-open-tools>Bible Text</button>
                     </div>
                 </div>
 
@@ -419,8 +418,16 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="verse_refs_json" value="<?= e($verseRefsJson); ?>" data-sermon-verse-refs-json>
                     <input type="hidden" name="storm_board_json" value="<?= e($stormBoardJson); ?>" data-sermon-storm-board-json>
 
-                    <div class="sermon-tab-panel" data-sermon-tab-panel="details">
-                    <div class="sermon-meta-grid">
+                    <div class="sermon-tab-panel is-active" data-sermon-tab-panel="notes">
+                    <div class="sermon-note-details">
+                        <div class="panel-heading">
+                            <div>
+                                <h3>Document Details</h3>
+                                <p class="muted-copy">Title, speaker, folder, and publishing state stay with the note.</p>
+                            </div>
+                        </div>
+
+                        <div class="sermon-meta-grid">
                         <label>
                             <span>Title</span>
                             <input type="text" name="title" value="<?= e($form['title']); ?>" required>
@@ -480,10 +487,9 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="checkbox" name="is_starred" value="1" <?= $form['is_starred'] === '1' ? 'checked' : ''; ?>>
                             <span>Star this sermon note</span>
                         </label>
-                    </div>
+                        </div>
                     </div>
 
-                    <div class="sermon-tab-panel is-active" data-sermon-tab-panel="notes">
                     <div class="sermon-toolbar" data-sermon-toolbar>
                         <div class="sermon-toolbar-group">
                             <button class="button button-secondary" type="button" data-editor-block="h1">Title</button>
@@ -675,6 +681,10 @@ require_once __DIR__ . '/includes/header.php';
                         <?php endif; ?>
                     </div>
                 </div>
+
+                <div class="inline-actions">
+                    <button class="button button-primary" type="submit" form="sermon-note-form" <?= $migrationNeeded ? 'disabled' : ''; ?>>Save Sermon Note</button>
+                </div>
             </aside>
         </div>
     </div>
@@ -695,7 +705,8 @@ require_once __DIR__ . '/includes/header.php';
 
         <div class="inline-actions top-gap-sm">
             <button class="button button-primary" type="button" data-sermon-insert-citation>Insert Citation</button>
-            <button class="button button-secondary" type="button" data-sermon-insert-full-verse>Full Verse</button>
+            <button class="button button-secondary" type="button" data-sermon-insert-quoted-verse>Quoted Link</button>
+            <button class="button button-secondary" type="button" data-sermon-insert-full-verse>Full Verse Block</button>
             <button class="button button-secondary" type="button" data-sermon-paraphrase-verse>Highlighted Paraphrase</button>
         </div>
 

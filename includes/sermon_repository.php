@@ -614,7 +614,7 @@ function sanitize_sermon_note_html(string $html): string
     }
 
     if (!class_exists(DOMDocument::class)) {
-        $fallback = strip_tags($trimmed, '<p><br><div><strong><b><em><i><u><span><ul><ol><li><blockquote><h2><h3><a>');
+        $fallback = strip_tags($trimmed, '<p><br><div><strong><b><em><i><u><span><ul><ol><li><blockquote><h1><h2><h3><a>');
 
         return $fallback !== '' ? $fallback : '<p></p>';
     }
@@ -622,7 +622,7 @@ function sanitize_sermon_note_html(string $html): string
     $internalErrors = libxml_use_internal_errors(true);
     $dom = new DOMDocument('1.0', 'UTF-8');
     $wrappedHtml = '<!DOCTYPE html><html><body>' . $trimmed . '</body></html>';
-    $encodedHtml = mb_convert_encoding($wrappedHtml, 'HTML-ENTITIES', 'UTF-8');
+    $encodedHtml = mb_encode_numericentity($wrappedHtml, [0x80, 0x10FFFF, 0, 0xFFFFFF], 'UTF-8');
     $dom->loadHTML($encodedHtml, LIBXML_HTML_NODEFDTD | LIBXML_HTML_NOIMPLIED);
     $body = $dom->getElementsByTagName('body')->item(0);
 
@@ -662,11 +662,12 @@ function sanitize_sermon_note_dom_node(DOMNode $node): void
         'em' => [],
         'i' => [],
         'u' => [],
-        'span' => ['class', 'data-verse-id', 'data-verse-reference', 'data-verse-text', 'contenteditable'],
+        'span' => ['class', 'data-verse-id', 'data-book-id', 'data-chapter-number', 'data-verse-number', 'data-verse-reference', 'data-verse-text', 'contenteditable'],
         'ul' => [],
         'ol' => [],
         'li' => [],
         'blockquote' => ['class'],
+        'h1' => [],
         'h2' => [],
         'h3' => [],
         'a' => ['href', 'target', 'rel', 'class'],
@@ -675,6 +676,10 @@ function sanitize_sermon_note_dom_node(DOMNode $node): void
         'note-highlight-green',
         'note-highlight-theme',
         'note-verse-chip',
+        'note-verse-link',
+        'note-full-verse',
+        'note-quoted-verse',
+        'note-highlighted-paraphrase',
         'note-inline-link',
     ];
     $children = [];
@@ -773,7 +778,7 @@ function unwrap_sermon_note_dom_node(DOMElement $node): void
 function sermon_note_html_to_text(string $html): string
 {
     $normalizedHtml = preg_replace('/<br\s*\/?>/i', "\n", $html) ?? $html;
-    $normalizedHtml = preg_replace('/<\/(p|div|li|blockquote|h2|h3)>/i', "$0\n", $normalizedHtml) ?? $normalizedHtml;
+    $normalizedHtml = preg_replace('/<\/(p|div|li|blockquote|h1|h2|h3)>/i', "$0\n", $normalizedHtml) ?? $normalizedHtml;
     $text = trim(strip_tags($normalizedHtml));
     $text = preg_replace("/\n{3,}/", "\n\n", $text) ?? $text;
     $text = preg_replace('/[ \t]+/', ' ', $text) ?? $text;
@@ -833,7 +838,7 @@ function normalize_sermon_note_verse_refs(mixed $verseRefs): array
             continue;
         }
 
-        if (!in_array($kind, ['citation', 'paraphrase', 'preview', 'mentioned'], true)) {
+        if (!in_array($kind, ['citation', 'paraphrase', 'preview', 'mentioned', 'full_verse', 'quoted_verse', 'highlighted_paraphrase'], true)) {
             $kind = 'citation';
         }
 

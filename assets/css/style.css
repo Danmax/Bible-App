@@ -5342,6 +5342,7 @@ textarea:focus {
     grid-template-columns: minmax(0, 1fr);
 }
 
+.sermon-tabs,
 .sermon-mobile-tabs {
     position: sticky;
     top: calc(var(--sticky-header-offset) - 3.5rem);
@@ -5357,6 +5358,7 @@ textarea:focus {
     box-shadow: 0 10px 24px rgba(10, 9, 8, 0.08);
 }
 
+.sermon-tabs button,
 .sermon-mobile-tabs button {
     flex: 0 0 auto;
     min-height: 2.55rem;
@@ -5369,6 +5371,7 @@ textarea:focus {
     cursor: pointer;
 }
 
+.sermon-tabs button.is-active,
 .sermon-mobile-tabs button.is-active {
     border-color: rgba(44, 95, 45, 0.35);
     background: rgba(233, 245, 229, 0.96);
@@ -5471,6 +5474,15 @@ textarea:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.sermon-note-details {
+    display: grid;
+    gap: 0.85rem;
+    padding: 0.9rem;
+    border: 1px solid rgba(34, 51, 59, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+}
+
 .sermon-checkbox-field {
     display: flex;
     align-items: center;
@@ -5527,12 +5539,14 @@ textarea:focus {
 .sermon-rich-editor blockquote,
 .sermon-rich-editor ul,
 .sermon-rich-editor ol,
+.sermon-rich-editor h1,
 .sermon-rich-editor h2,
 .sermon-rich-editor h3 {
     margin: 0 0 0.95rem;
 }
 
 .sermon-rich-editor h2,
+.sermon-rich-editor h1,
 .sermon-rich-editor h3 {
     font-family: "Outfit", sans-serif;
 }
@@ -5564,6 +5578,10 @@ textarea:focus {
     cursor: pointer;
 }
 
+.note-verse-link {
+    font-weight: 800;
+}
+
 .note-inline-link {
     color: #255f65;
     text-decoration: underline;
@@ -5572,6 +5590,10 @@ textarea:focus {
 
 .note-full-verse {
     border-left: 4px solid rgba(44, 95, 45, 0.45);
+}
+
+.note-quoted-verse {
+    border-left: 4px solid rgba(37, 95, 101, 0.45);
 }
 
 .note-highlighted-paraphrase {
