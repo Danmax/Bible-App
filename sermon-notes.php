@@ -391,6 +391,9 @@ require_once __DIR__ . '/includes/header.php';
 
                     <div class="inline-actions">
                         <button class="button button-primary" type="submit" <?= $migrationNeeded ? 'disabled' : ''; ?>>Save Sermon Note</button>
+                        <?php if ($shareUrl !== ''): ?>
+                            <a class="button button-secondary" href="<?= e($shareUrl); ?>" target="_blank" rel="noopener noreferrer">View Mode</a>
+                        <?php endif; ?>
                         <a class="button button-secondary" href="<?= e(sermon_notes_page_url([
                             'folder' => $selectedFolderId,
                             'new' => 1,

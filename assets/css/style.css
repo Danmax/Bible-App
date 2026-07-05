@@ -5546,6 +5546,21 @@ textarea:focus {
     font-family: "Outfit", sans-serif;
 }
 
+.sermon-read-view {
+    min-height: 0;
+    padding: 0;
+    background: transparent;
+}
+
+.sermon-read-view a {
+    overflow-wrap: anywhere;
+}
+
+.sermon-read-view .note-scripture-link,
+.sermon-read-view .note-verse-chip {
+    text-decoration: none;
+}
+
 .note-highlight-green {
     background: rgba(138, 212, 132, 0.42);
     padding: 0.02rem 0.18rem;
@@ -5684,6 +5699,25 @@ textarea:focus {
     align-items: center;
 }
 
+.sermon-view-ref-card {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid rgba(34, 51, 59, 0.1);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sermon-view-ref-card:hover,
+.sermon-view-ref-card:focus-visible {
+    border-color: rgba(44, 95, 45, 0.35);
+    background: rgba(233, 245, 229, 0.95);
+    outline: none;
+}
+
 .sermon-verse-ref-card div {
     display: grid;
     gap: 0.2rem;
@@ -5701,6 +5735,11 @@ textarea:focus {
 
 .sermon-verse-modal .panel-modal-card {
     width: min(40rem, calc(100vw - 2rem));
+}
+
+.sermon-study-modal .panel-modal-card {
+    max-height: min(42rem, calc(100vh - 2rem));
+    overflow-y: auto;
 }
 
 .sermon-input-modal .panel-modal-card {
