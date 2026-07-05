@@ -610,12 +610,6 @@ if (sermonWorkspace) {
         return `bible.php${query === '' ? '' : `?${query}`}`;
     };
 
-    const verseReferenceLinkHtml = (verse, reference, linkText = reference) => {
-        const href = verseReaderUrl(verse);
-
-        return `<a class="note-inline-link note-verse-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(linkText)}</a>`;
-    };
-
     const verseDataAttributes = (verse, reference) => (
         `data-verse-id="${escapeHtml(verse.verse_id)}" ` +
         `data-book-id="${escapeHtml(verse.book_id || '')}" ` +
@@ -628,6 +622,8 @@ if (sermonWorkspace) {
     const scriptureLinkHtml = (verse, reference, linkText = reference) => (
         `<a class="note-inline-link note-verse-link note-scripture-link" href="${escapeHtml(verseReaderUrl(verse))}" ${verseDataAttributes(verse, reference)} target="_blank" rel="noopener noreferrer">${escapeHtml(linkText)}</a>`
     );
+
+    const verseReferenceLinkHtml = (verse, reference, linkText = reference) => scriptureLinkHtml(verse, reference, linkText);
 
     const openVerseModal = (verse) => {
         activeVerse = verse;
@@ -925,7 +921,7 @@ if (sermonWorkspace) {
 
         const reference = String(activeVerse.reference_label || 'Verse');
         insertHtmlAtSelection(
-            `<span class="note-verse-chip" ${verseDataAttributes(activeVerse, reference)} contenteditable="false">${escapeHtml(reference)}</span>&nbsp;`
+            `${scriptureLinkHtml(activeVerse, reference)}&nbsp;`
         );
         addVerseRef({
             verse_id: Number(activeVerse.verse_id),
@@ -1009,7 +1005,7 @@ if (sermonWorkspace) {
             }
 
             insertHtmlAtSelection(
-                `<blockquote class="note-highlighted-paraphrase"><p><span class="note-highlight-theme">${escapeHtml(paraphrase)}</span></p><p><span class="note-verse-chip" data-verse-id="${escapeHtml(activeVerse.verse_id)}" data-verse-reference="${escapeHtml(reference)}" data-verse-text="${escapeHtml(activeVerse.verse_text || '')}" contenteditable="false">${escapeHtml(reference)}</span></p></blockquote>`
+                `<blockquote class="note-highlighted-paraphrase"><p><span class="note-highlight-theme">${escapeHtml(paraphrase)}</span></p><p>${scriptureLinkHtml(activeVerse, reference)}</p></blockquote>`
             );
             addVerseRef({
                 verse_id: Number(activeVerse.verse_id),

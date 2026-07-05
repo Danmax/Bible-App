@@ -303,92 +303,6 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
 
         <div class="sermon-workspace<?= $selectedNote ? ' has-note-selected' : ''; ?>" data-sermon-workspace>
-            <aside class="panel sermon-left-rail">
-                <div class="panel-heading">
-                    <div>
-                        <h2>Folders</h2>
-                        <p class="muted-copy">Keep sermons grouped by series, speaker, or season.</p>
-                    </div>
-                </div>
-
-                <form class="form-stack compact-form" method="post">
-                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                    <input type="hidden" name="action" value="create_folder">
-                    <label>
-                        <span>New folder</span>
-                        <input type="text" name="folder_name" placeholder="Sunday AM, Romans Series">
-                    </label>
-                    <button class="button button-secondary" type="submit" <?= $migrationNeeded ? 'disabled' : ''; ?>>Add Folder</button>
-                </form>
-
-                <div class="sermon-folder-list top-gap-sm">
-                    <a class="sermon-folder-link<?= $selectedFolderId === null ? ' is-active' : ''; ?>" href="<?= e(sermon_notes_page_url()); ?>">
-                        <span>All Documents</span>
-                        <strong><?= e((string) $allNotesCount); ?></strong>
-                    </a>
-
-                    <?php foreach ($folders as $folder): ?>
-                        <a
-                            class="sermon-folder-link<?= $selectedFolderId === (int) $folder['id'] ? ' is-active' : ''; ?>"
-                            href="<?= e(sermon_notes_page_url(['folder' => (int) $folder['id']])); ?>"
-                        >
-                            <span><?= e((string) $folder['name']); ?></span>
-                            <strong><?= e((string) ($folder['note_count'] ?? 0)); ?></strong>
-                        </a>
-                    <?php endforeach; ?>
-                </div>
-
-                <?php if ($selectedFolder): ?>
-                    <div class="sermon-folder-manage top-gap">
-                        <form class="form-stack compact-form" method="post">
-                            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                            <input type="hidden" name="action" value="rename_folder">
-                            <input type="hidden" name="manage_folder_id" value="<?= e((string) $selectedFolder['id']); ?>">
-                            <input type="hidden" name="note_id" value="<?= e((string) ($selectedNote['id'] ?? '')); ?>">
-                            <label>
-                                <span>Rename folder</span>
-                                <input type="text" name="folder_name" value="<?= e((string) $selectedFolder['name']); ?>">
-                            </label>
-                            <button class="button button-secondary" type="submit">Update Folder</button>
-                        </form>
-
-                        <form class="top-gap-sm" method="post">
-                            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                            <input type="hidden" name="action" value="delete_folder">
-                            <input type="hidden" name="manage_folder_id" value="<?= e((string) $selectedFolder['id']); ?>">
-                            <button class="button button-secondary" type="submit">Remove Folder</button>
-                        </form>
-                    </div>
-                <?php endif; ?>
-
-                <div class="panel-heading top-gap">
-                    <div>
-                        <h2>Documents</h2>
-                        <p class="muted-copy"><?= $selectedFolder ? 'This folder view is filtered.' : 'Recent sermon note documents.'; ?></p>
-                    </div>
-                </div>
-
-                <div class="sermon-document-list">
-                    <?php if ($notes === []): ?>
-                        <p class="empty-state">No sermon notes yet. Start a new document to begin.</p>
-                    <?php else: ?>
-                        <?php foreach ($notes as $note): ?>
-                            <a
-                                class="sermon-document-link<?= $selectedNoteId === (int) $note['id'] ? ' is-active' : ''; ?>"
-                                href="<?= e(sermon_notes_page_url([
-                                    'folder' => $selectedFolderId,
-                                    'note' => (int) $note['id'],
-                                ])); ?>"
-                            >
-                                <strong><?= e((string) $note['title']); ?></strong>
-                                <span><?= e((string) $note['content_excerpt']); ?></span>
-                                <small><?= e(date('M j, Y g:i A', strtotime((string) $note['updated_at']))); ?></small>
-                            </a>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-            </aside>
-
             <section class="panel sermon-editor-panel" data-sermon-editor-panel>
                 <div class="panel-heading">
                     <div>
@@ -405,6 +319,7 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                     <input type="hidden" name="action" value="save_note">
                     <input type="hidden" name="note_id" value="<?= e($form['note_id']); ?>">
+                    <input type="hidden" name="folder_id" value="<?= e($form['folder_id']); ?>">
                     <input type="hidden" name="content_html" value="" data-sermon-content-html>
                     <input type="hidden" name="content_text" value="" data-sermon-content-text>
                     <input type="hidden" name="reference_tags_json" value="<?= e($referenceTagsJson); ?>" data-sermon-reference-tags-json>
@@ -437,18 +352,6 @@ require_once __DIR__ . '/includes/header.php';
                         <label>
                             <span>Speaker</span>
                             <input type="text" name="speaker_name" value="<?= e($form['speaker_name']); ?>">
-                        </label>
-
-                        <label>
-                            <span>Folder</span>
-                            <select name="folder_id">
-                                <option value="">Unfiled</option>
-                                <?php foreach ($folders as $folder): ?>
-                                    <option value="<?= e((string) $folder['id']); ?>" <?= $form['folder_id'] === (string) $folder['id'] ? 'selected' : ''; ?>>
-                                        <?= e((string) $folder['name']); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
                         </label>
 
                         <label>
