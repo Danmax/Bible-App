@@ -1081,43 +1081,6 @@ require_once __DIR__ . '/includes/header.php';
                 <p class="empty-state top-gap-sm"><?= e($searchMessage); ?></p>
             <?php endif; ?>
 
-            <?php if ($selectedBook && $selectedBookContext !== null): ?>
-                <section class="book-context-panel top-gap-sm" aria-labelledby="book-context-title">
-                    <div class="book-context-main">
-                        <p class="eyebrow"><?= e((string) ($selectedBook['testament'] ?? 'Book Context')); ?></p>
-                        <h3 id="book-context-title"><?= e((string) $selectedBook['name']); ?> Context</h3>
-                        <p><?= e((string) $selectedBookContext['intro']); ?></p>
-                    </div>
-
-                    <div class="book-context-facts" aria-label="<?= e((string) $selectedBook['name']); ?> study context">
-                        <div class="book-context-fact">
-                            <span>Author</span>
-                            <strong><?= e((string) $selectedBookContext['author']); ?></strong>
-                        </div>
-                        <div class="book-context-fact">
-                            <span>Date</span>
-                            <strong><?= e((string) $selectedBookContext['date']); ?></strong>
-                        </div>
-                        <div class="book-context-fact">
-                            <span>Audience</span>
-                            <strong><?= e((string) $selectedBookContext['audience']); ?></strong>
-                        </div>
-                    </div>
-
-                    <?php if (($selectedBookContext['themes'] ?? []) !== []): ?>
-                        <div class="book-context-themes" aria-label="<?= e((string) $selectedBook['name']); ?> themes">
-                            <?php foreach ((array) $selectedBookContext['themes'] as $theme): ?>
-                                <a class="filter-chip" href="<?= e(bible_reader_url([
-                                    'q' => (string) $theme,
-                                    'translation' => $selectedTranslation,
-                                    'reader_mode' => $readerMode,
-                                ])); ?>"><?= e((string) $theme); ?></a>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </section>
-            <?php endif; ?>
-
             <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []): ?>
                 <details class="passage-resource-drawer top-gap-sm" open>
                     <summary>
@@ -1516,6 +1479,43 @@ require_once __DIR__ . '/includes/header.php';
                         <?php endif; ?>
                     </div>
                 </div>
+            <?php endif; ?>
+
+            <?php if ($selectedBook && $selectedBookContext !== null): ?>
+                <section class="book-context-panel top-gap" aria-labelledby="book-context-title">
+                    <div class="book-context-main">
+                        <p class="eyebrow"><?= e((string) ($selectedBook['testament'] ?? 'Book Context')); ?></p>
+                        <h3 id="book-context-title"><?= e((string) $selectedBook['name']); ?> Context</h3>
+                        <p><?= e((string) $selectedBookContext['intro']); ?></p>
+                    </div>
+
+                    <div class="book-context-facts" aria-label="<?= e((string) $selectedBook['name']); ?> study context">
+                        <div class="book-context-fact">
+                            <span>Author</span>
+                            <strong><?= e((string) $selectedBookContext['author']); ?></strong>
+                        </div>
+                        <div class="book-context-fact">
+                            <span>Date</span>
+                            <strong><?= e((string) $selectedBookContext['date']); ?></strong>
+                        </div>
+                        <div class="book-context-fact">
+                            <span>Audience</span>
+                            <strong><?= e((string) $selectedBookContext['audience']); ?></strong>
+                        </div>
+                    </div>
+
+                    <?php if (($selectedBookContext['themes'] ?? []) !== []): ?>
+                        <div class="book-context-themes" aria-label="<?= e((string) $selectedBook['name']); ?> themes">
+                            <?php foreach ((array) $selectedBookContext['themes'] as $theme): ?>
+                                <a class="filter-chip" href="<?= e(bible_reader_url([
+                                    'q' => (string) $theme,
+                                    'translation' => $selectedTranslation,
+                                    'reader_mode' => $readerMode,
+                                ])); ?>"><?= e((string) $theme); ?></a>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
             <?php endif; ?>
 
             <?php if ($scriptureAnalysis !== null): ?>
