@@ -29,6 +29,7 @@ if (sermonWorkspace) {
     const aiReferencesButton = sermonWorkspace.querySelector('[data-sermon-ai-references]');
     const toolbar = sermonWorkspace.querySelector('[data-sermon-toolbar]');
     const boardRoot = sermonWorkspace.querySelector('[data-sermon-board]');
+    const linkTextInput = toolbar?.querySelector('[data-editor-link-text-input]');
     const linkInput = toolbar?.querySelector('[data-editor-link-input]');
     const linkApplyButton = toolbar?.querySelector('[data-editor-link-apply]');
     const csrfInput = noteForm?.querySelector('input[name="csrf_token"]');
@@ -58,6 +59,8 @@ if (sermonWorkspace) {
     let activeVerse = null;
     let activeTab = 'notes';
     let pendingInputAction = null;
+    let autoLinkTimer = null;
+    const pendingAutoLinkedReferences = new Set();
 
     const setStatus = (message) => {
         if (statusField instanceof HTMLElement) {
@@ -298,17 +301,19 @@ if (sermonWorkspace) {
     const selectedEditorText = () => {
         const selection = window.getSelection();
 
-        if (!selection || selection.rangeCount === 0) {
-            return '';
+        if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+
+            if (editor instanceof HTMLElement && editor.contains(range.commonAncestorContainer)) {
+                return selection.toString().trim();
+            }
         }
 
-        const range = selection.getRangeAt(0);
-
-        if (!(editor instanceof HTMLElement) || !editor.contains(range.commonAncestorContainer)) {
-            return '';
+        if (savedRange && editor instanceof HTMLElement && editor.contains(savedRange.commonAncestorContainer)) {
+            return savedRange.toString().trim();
         }
 
-        return selection.toString().trim();
+        return '';
     };
 
     const applyDictionaryTerm = (term) => {
@@ -625,6 +630,20 @@ if (sermonWorkspace) {
 
     const verseReferenceLinkHtml = (verse, reference, linkText = reference) => scriptureLinkHtml(verse, reference, linkText);
 
+    const normalizeUrl = (value) => {
+        const trimmed = String(value || '').trim();
+
+        if (trimmed === '') {
+            return '';
+        }
+
+        if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) || trimmed.startsWith('mailto:') || trimmed.startsWith('/')) {
+            return trimmed;
+        }
+
+        return `https://${trimmed}`;
+    };
+
     const openVerseModal = (verse) => {
         activeVerse = verse;
 
@@ -785,6 +804,162 @@ if (sermonWorkspace) {
         }
     };
 
+    const fetchFirstVerseResult = async (query) => {
+        const normalizedQuery = String(query || '').trim();
+
+        if (normalizedQuery === '') {
+            return null;
+        }
+
+        const params = new URLSearchParams();
+        params.set('q', normalizedQuery);
+        const response = await fetch(`sermon-verse-search.php?${params.toString()}`, {
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        const rawText = await response.text();
+        const payload = rawText ? JSON.parse(rawText) : {};
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const result = Array.isArray(payload.results) ? payload.results[0] : null;
+
+        if (!result) {
+            return null;
+        }
+
+        return {
+            verse_id: Number(result.verse_id || 0),
+            book_id: Number(result.book_id || 0),
+            chapter_number: Number(result.chapter_number || 0),
+            verse_number: Number(result.verse_number || 0),
+            reference_label: String(result.reference_label || normalizedQuery),
+            verse_text: String(result.verse_text || ''),
+            translation: String(result.translation || ''),
+        };
+    };
+
+    const isInsideLink = (node) => {
+        const parent = node instanceof Element ? node : node?.parentElement;
+
+        return Boolean(parent?.closest('a, .note-verse-chip'));
+    };
+
+    const scriptureReferencePattern = () => {
+        const books = [
+            'Genesis', 'Gen', 'Exodus', 'Exod', 'Ex', 'Leviticus', 'Lev', 'Numbers', 'Num', 'Deuteronomy', 'Deut', 'Joshua', 'Josh',
+            'Judges', 'Judg', 'Ruth', 'Samuel', 'Sam', 'Kings', 'Kgs', 'Chronicles', 'Chron', 'Chr', 'Ezra', 'Nehemiah', 'Neh',
+            'Esther', 'Esth', 'Job', 'Psalms', 'Psalm', 'Ps', 'Proverbs', 'Prov', 'Ecclesiastes', 'Eccl', 'Song of Solomon',
+            'Song', 'Isaiah', 'Isa', 'Jeremiah', 'Jer', 'Lamentations', 'Lam', 'Ezekiel', 'Ezek', 'Daniel', 'Dan', 'Hosea', 'Hos',
+            'Joel', 'Amos', 'Obadiah', 'Obad', 'Jonah', 'Micah', 'Mic', 'Nahum', 'Nah', 'Habakkuk', 'Hab', 'Zephaniah', 'Zeph',
+            'Haggai', 'Hag', 'Zechariah', 'Zech', 'Malachi', 'Mal', 'Matthew', 'Matt', 'Mark', 'Luke', 'John', 'Jn', 'Acts',
+            'Romans', 'Rom', 'Corinthians', 'Cor', 'Galatians', 'Gal', 'Ephesians', 'Eph', 'Philippians', 'Phil', 'Colossians',
+            'Col', 'Thessalonians', 'Thess', 'Timothy', 'Tim', 'Titus', 'Philemon', 'Phlm', 'Hebrews', 'Heb', 'James', 'Jas',
+            'Peter', 'Pet', 'Jude', 'Revelation', 'Rev',
+        ].sort((a, b) => b.length - a.length);
+        const escapedBooks = books.map((book) => book.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+
+        return new RegExp(`\\b(?:[1-3]\\s*)?(?:${escapedBooks})\\s+\\d{1,3}:\\d{1,3}(?:[-,]\\s*\\d{1,3})?\\b`, 'gi');
+    };
+
+    const replaceTextNodeReference = (textNode, reference, verse) => {
+        if (!(textNode instanceof Text) || !(editor instanceof HTMLElement) || isInsideLink(textNode)) {
+            return false;
+        }
+
+        const text = textNode.nodeValue || '';
+        const index = text.toLowerCase().indexOf(reference.toLowerCase());
+
+        if (index < 0) {
+            return false;
+        }
+
+        const actualText = text.slice(index, index + reference.length);
+        const wrapper = document.createElement('span');
+        wrapper.innerHTML = scriptureLinkHtml(verse, String(verse.reference_label || actualText), actualText);
+        const link = wrapper.firstElementChild;
+
+        if (!(link instanceof HTMLElement)) {
+            return false;
+        }
+
+        const after = textNode.splitText(index);
+        after.nodeValue = after.nodeValue?.slice(reference.length) || '';
+        textNode.parentNode?.insertBefore(link, after);
+        addVerseRef({
+            verse_id: Number(verse.verse_id),
+            reference_kind: 'auto_scripture_link',
+            reference_label: String(verse.reference_label || actualText),
+            quote_text: String(verse.verse_text || ''),
+        });
+        syncHiddenFields();
+
+        return true;
+    };
+
+    const autoLinkScriptureReferences = async () => {
+        if (!(editor instanceof HTMLElement)) {
+            return;
+        }
+
+        const pattern = scriptureReferencePattern();
+        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                if (!(node instanceof Text) || isInsideLink(node)) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+
+                pattern.lastIndex = 0;
+
+                return pattern.test(node.nodeValue || '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            },
+        });
+        const matches = [];
+
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const text = node.nodeValue || '';
+            pattern.lastIndex = 0;
+            let match = pattern.exec(text);
+
+            while (match) {
+                matches.push({ node, reference: match[0] });
+                match = pattern.exec(text);
+            }
+        }
+
+        for (const match of matches.slice(0, 6)) {
+            const key = match.reference.toLowerCase();
+
+            if (pendingAutoLinkedReferences.has(key)) {
+                continue;
+            }
+
+            pendingAutoLinkedReferences.add(key);
+
+            try {
+                const verse = await fetchFirstVerseResult(match.reference);
+
+                if (verse && Number(verse.verse_id || 0) > 0) {
+                    replaceTextNodeReference(match.node, match.reference, verse);
+                }
+            } catch (error) {
+                // Ignore auto-link misses; manual verse search remains available.
+            } finally {
+                pendingAutoLinkedReferences.delete(key);
+            }
+        }
+    };
+
+    const scheduleAutoLinkScriptureReferences = () => {
+        window.clearTimeout(autoLinkTimer);
+        autoLinkTimer = window.setTimeout(autoLinkScriptureReferences, 650);
+    };
+
     toolbar?.querySelectorAll('[data-editor-command]').forEach((button) => {
         button.addEventListener('click', () => {
             const command = button.getAttribute('data-editor-command');
@@ -825,27 +1000,35 @@ if (sermonWorkspace) {
             return;
         }
 
-        const url = linkInput.value.trim();
+        const url = normalizeUrl(linkInput.value);
 
         if (url === '') {
             return;
         }
 
-        editor.focus();
-        restoreSelection();
-        document.execCommand('createLink', false, url);
-        editor.querySelectorAll('a').forEach((anchor) => {
-            anchor.classList.add('note-inline-link');
-            anchor.setAttribute('target', '_blank');
-            anchor.setAttribute('rel', 'noopener noreferrer');
-        });
+        const selectedText = selectedEditorText();
+        const typedText = linkTextInput instanceof HTMLInputElement ? linkTextInput.value.trim() : '';
+        const linkText = typedText !== '' ? typedText : (selectedText !== '' ? selectedText : url);
+
+        insertHtmlAtSelection(
+            `<a class="note-inline-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(linkText)}</a>`
+        );
+        linkInput.value = '';
+
+        if (linkTextInput instanceof HTMLInputElement) {
+            linkTextInput.value = '';
+        }
+
         rememberSelection();
         syncHiddenFields();
     });
 
     editor?.addEventListener('mouseup', rememberSelection);
     editor?.addEventListener('keyup', rememberSelection);
-    editor?.addEventListener('input', syncHiddenFields);
+    editor?.addEventListener('input', () => {
+        syncHiddenFields();
+        scheduleAutoLinkScriptureReferences();
+    });
     editor?.addEventListener('focus', rememberSelection);
     editor?.addEventListener('contextmenu', showContextMenu);
     editor?.addEventListener('keyup', (event) => {
