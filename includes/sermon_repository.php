@@ -670,7 +670,7 @@ function sanitize_sermon_note_dom_node(DOMNode $node): void
         'h1' => [],
         'h2' => [],
         'h3' => [],
-        'a' => ['href', 'target', 'rel', 'class'],
+        'a' => ['href', 'target', 'rel', 'class', 'data-verse-id', 'data-book-id', 'data-chapter-number', 'data-verse-number', 'data-verse-reference', 'data-verse-text', 'data-translation'],
     ];
     $allowedClasses = [
         'note-highlight-green',
@@ -681,6 +681,7 @@ function sanitize_sermon_note_dom_node(DOMNode $node): void
         'note-quoted-verse',
         'note-highlighted-paraphrase',
         'note-inline-link',
+        'note-scripture-link',
     ];
     $children = [];
 

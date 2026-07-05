@@ -5335,11 +5335,11 @@ textarea:focus {
     display: grid;
     gap: 1rem;
     align-items: start;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(13rem, 0.7fr) minmax(0, 1.45fr) minmax(16rem, 0.85fr);
 }
 
 .sermon-workspace.is-side-panel-open {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(13rem, 0.7fr) minmax(0, 1.45fr) minmax(16rem, 0.85fr);
 }
 
 .sermon-tabs,
@@ -5387,11 +5387,6 @@ textarea:focus {
     gap: 1rem;
 }
 
-.sermon-workspace[data-active-sermon-tab="library"] .sermon-editor-panel,
-.sermon-workspace[data-active-sermon-tab="tools"] .sermon-editor-panel {
-    display: none;
-}
-
 .sermon-left-rail,
 .sermon-editor-panel,
 .sermon-side-panel {
@@ -5399,7 +5394,7 @@ textarea:focus {
 }
 
 .sermon-side-panel {
-    display: none;
+    display: grid;
     gap: 1rem;
 }
 
@@ -5580,6 +5575,13 @@ textarea:focus {
 
 .note-verse-link {
     font-weight: 800;
+}
+
+.note-scripture-link {
+    border-radius: 5px;
+    background: rgba(250, 220, 120, 0.46);
+    padding: 0.02rem 0.18rem;
+    cursor: pointer;
 }
 
 .note-inline-link {
