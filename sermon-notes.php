@@ -379,6 +379,7 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
 
                         <div class="sermon-toolbar-group sermon-toolbar-link-group">
+                            <input type="text" placeholder="Link text" data-editor-link-text-input>
                             <input type="url" placeholder="https://..." data-editor-link-input>
                             <button class="button button-secondary" type="button" data-editor-link-apply>Add Link</button>
                         </div>
