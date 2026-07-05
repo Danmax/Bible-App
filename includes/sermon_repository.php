@@ -839,7 +839,7 @@ function normalize_sermon_note_verse_refs(mixed $verseRefs): array
             continue;
         }
 
-        if (!in_array($kind, ['citation', 'paraphrase', 'preview', 'mentioned', 'full_verse', 'quoted_verse', 'highlighted_paraphrase'], true)) {
+        if (!in_array($kind, ['citation', 'paraphrase', 'preview', 'mentioned', 'full_verse', 'quoted_verse', 'highlighted_paraphrase', 'scripture_link', 'auto_scripture_link'], true)) {
             $kind = 'citation';
         }
 
