@@ -5335,11 +5335,11 @@ textarea:focus {
     display: grid;
     gap: 1rem;
     align-items: start;
-    grid-template-columns: minmax(13rem, 0.7fr) minmax(0, 1.45fr) minmax(16rem, 0.85fr);
+    grid-template-columns: minmax(0, 1.45fr) minmax(16rem, 0.85fr);
 }
 
 .sermon-workspace.is-side-panel-open {
-    grid-template-columns: minmax(13rem, 0.7fr) minmax(0, 1.45fr) minmax(16rem, 0.85fr);
+    grid-template-columns: minmax(0, 1.45fr) minmax(16rem, 0.85fr);
 }
 
 .sermon-tabs,
