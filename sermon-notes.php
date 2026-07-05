@@ -302,16 +302,8 @@ require_once __DIR__ . '/includes/header.php';
             <div class="flash flash-warning"><?= e($formError); ?></div>
         <?php endif; ?>
 
-        <nav class="sermon-mobile-tabs" data-sermon-tabs aria-label="Sermon note sections">
-            <button class="is-active" type="button" data-sermon-tab="library">Library</button>
-            <button type="button" data-sermon-tab="details">Details</button>
-            <button type="button" data-sermon-tab="notes">Notes</button>
-            <button type="button" data-sermon-tab="tools">Tools</button>
-            <button type="button" data-sermon-tab="board">Board</button>
-        </nav>
-
         <div class="sermon-workspace<?= $selectedNote ? ' has-note-selected' : ''; ?>" data-sermon-workspace>
-            <aside class="panel sermon-left-rail sermon-tab-panel is-active" data-sermon-tab-panel="library">
+            <aside class="panel sermon-left-rail">
                 <div class="panel-heading">
                     <div>
                         <h2>Folders</h2>
@@ -401,11 +393,11 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="panel-heading">
                     <div>
                         <h2><?= $selectedNote ? 'Edit Sermon Note' : 'New Sermon Note'; ?></h2>
-                        <p class="muted-copy">The writing surface stores rich note content, verses, references, and a storm board in one document.</p>
+                        <p class="muted-copy">Write the note, link Scripture, and save the teaching in one focused editor.</p>
                     </div>
 
                     <div class="inline-actions">
-                        <button class="button button-secondary" type="button" data-sermon-open-tools>Tools</button>
+                        <button class="button button-secondary" type="button" data-sermon-open-tools>Search Scripture</button>
                     </div>
                 </div>
 
@@ -418,9 +410,25 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="reference_tags_json" value="<?= e($referenceTagsJson); ?>" data-sermon-reference-tags-json>
                     <input type="hidden" name="verse_refs_json" value="<?= e($verseRefsJson); ?>" data-sermon-verse-refs-json>
                     <input type="hidden" name="storm_board_json" value="<?= e($stormBoardJson); ?>" data-sermon-storm-board-json>
+                    <input type="hidden" name="series_name" value="<?= e($form['series_name']); ?>">
+                    <input type="hidden" name="source_url" value="<?= e($form['source_url']); ?>">
+                    <input type="hidden" name="summary_text" value="<?= e($form['summary_text']); ?>" data-sermon-summary-field>
+                    <input type="hidden" name="speaker_notes_text" value="<?= e($form['speaker_notes_text']); ?>" data-sermon-speaker-notes-field>
+                    <input type="hidden" name="status" value="<?= e($form['status']); ?>">
+                    <input type="hidden" name="layout_mode" value="<?= e($form['layout_mode']); ?>">
+                    <?php if ($form['is_starred'] === '1'): ?>
+                        <input type="hidden" name="is_starred" value="1">
+                    <?php endif; ?>
 
-                    <div class="sermon-tab-panel" data-sermon-tab-panel="details">
-                    <div class="sermon-meta-grid">
+                    <div class="sermon-note-details">
+                        <div class="panel-heading">
+                            <div>
+                                <h3>Note Details</h3>
+                                <p class="muted-copy">Only the basics needed to find this note later.</p>
+                            </div>
+                        </div>
+
+                        <div class="sermon-meta-grid">
                         <label>
                             <span>Title</span>
                             <input type="text" name="title" value="<?= e($form['title']); ?>" required>
@@ -429,11 +437,6 @@ require_once __DIR__ . '/includes/header.php';
                         <label>
                             <span>Speaker</span>
                             <input type="text" name="speaker_name" value="<?= e($form['speaker_name']); ?>">
-                        </label>
-
-                        <label>
-                            <span>Series</span>
-                            <input type="text" name="series_name" value="<?= e($form['series_name']); ?>">
                         </label>
 
                         <label>
@@ -453,41 +456,12 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="date" name="service_date" value="<?= e($form['service_date']); ?>">
                         </label>
 
-                        <label>
-                            <span>Source URL</span>
-                            <input type="url" name="source_url" value="<?= e($form['source_url']); ?>" placeholder="https://example.com/sermon">
-                        </label>
-
-                        <label>
-                            <span>Layout</span>
-                            <select name="layout_mode" data-sermon-layout-select>
-                                <?php foreach (sermon_note_layout_options() as $value => $label): ?>
-                                    <option value="<?= e($value); ?>" <?= $form['layout_mode'] === $value ? 'selected' : ''; ?>><?= e($label); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-
-                        <label>
-                            <span>Status</span>
-                            <select name="status">
-                                <?php foreach (sermon_note_status_options() as $value => $label): ?>
-                                    <option value="<?= e($value); ?>" <?= $form['status'] === $value ? 'selected' : ''; ?>><?= e($label); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-
-                        <label class="sermon-checkbox-field">
-                            <input type="checkbox" name="is_starred" value="1" <?= $form['is_starred'] === '1' ? 'checked' : ''; ?>>
-                            <span>Star this sermon note</span>
-                        </label>
-                    </div>
+                        </div>
                     </div>
 
-                    <div class="sermon-tab-panel is-active" data-sermon-tab-panel="notes">
                     <div class="sermon-toolbar" data-sermon-toolbar>
                         <div class="sermon-toolbar-group">
-                            <button class="button button-secondary" type="button" data-editor-block="h1">Title</button>
-                            <button class="button button-secondary" type="button" data-editor-block="h2">H2</button>
+                            <button class="button button-secondary" type="button" data-editor-block="h2">Heading</button>
                             <button class="button button-secondary" type="button" data-editor-block="h3">H3</button>
                             <button class="button button-secondary" type="button" data-editor-command="bold">Bold</button>
                             <button class="button button-secondary" type="button" data-editor-command="italic">Italic</button>
@@ -497,6 +471,7 @@ require_once __DIR__ . '/includes/header.php';
                             <button class="button button-secondary" type="button" data-editor-command="insertOrderedList">Numbers</button>
                             <button class="button button-secondary" type="button" data-editor-highlight="note-highlight-green">Green Highlight</button>
                             <button class="button button-secondary" type="button" data-editor-highlight="note-highlight-theme">Thematic</button>
+                            <button class="button button-secondary" type="button" data-editor-scripture-link>Scripture Link</button>
                             <button class="button button-secondary" type="button" data-editor-command="removeFormat">Clear</button>
                         </div>
 
@@ -508,36 +483,6 @@ require_once __DIR__ . '/includes/header.php';
 
                     <div class="sermon-editor-surface">
                         <div class="sermon-rich-editor" contenteditable="true" spellcheck="true" data-sermon-rich-editor><?= $form['content_html']; ?></div>
-                    </div>
-                    </div>
-
-                    <div class="panel sermon-board-panel sermon-tab-panel" data-sermon-tab-panel="board">
-                        <div class="panel-heading">
-                            <div>
-                                <h3>Storm Board</h3>
-                                <p class="muted-copy">Keep fast-moving observations, application ideas, and prayer responses close to the document.</p>
-                            </div>
-                        </div>
-
-                        <div class="sermon-board-grid" data-sermon-board>
-                            <?php foreach ($initialBoard as $columnKey => $items): ?>
-                                <section class="sermon-board-column" data-board-column="<?= e($columnKey); ?>">
-                                    <div class="sermon-board-column-header">
-                                        <h4><?= e(mb_convert_case($columnKey, MB_CASE_TITLE, 'UTF-8')); ?></h4>
-                                        <button class="button button-secondary" type="button" data-board-add-card="<?= e($columnKey); ?>">Add Card</button>
-                                    </div>
-
-                                    <div class="sermon-board-card-list" data-board-card-list="<?= e($columnKey); ?>">
-                                        <?php foreach ($items as $item): ?>
-                                            <div class="sermon-board-card">
-                                                <textarea rows="3"><?= e((string) $item); ?></textarea>
-                                                <button class="button button-secondary" type="button" data-board-remove-card>Remove</button>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </section>
-                            <?php endforeach; ?>
-                        </div>
                     </div>
 
                     <div class="inline-actions">
@@ -560,32 +505,15 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endif; ?>
             </section>
 
-            <aside class="panel sermon-side-panel sermon-tab-panel" data-sermon-side-panel data-sermon-tab-panel="tools">
+            <aside class="panel sermon-side-panel" data-sermon-side-panel>
                 <div class="panel-heading">
                     <div>
-                        <h2>Bible Tools</h2>
-                        <p class="muted-copy">Summaries, verse search, references, and short links stay here.</p>
+                        <h2>Scripture</h2>
+                        <p class="muted-copy">Search a passage, preview it, then insert or link it in the note.</p>
                     </div>
-
-                    <button class="button button-secondary" type="button" data-sermon-side-panel-close>Close</button>
                 </div>
 
-                <label>
-                    <span>Summary</span>
-                    <textarea name="summary_text" rows="4" form="sermon-note-form" data-sermon-summary-field><?= e($form['summary_text']); ?></textarea>
-                </label>
-
-                <label>
-                    <span>Speaker notes or transcript</span>
-                    <textarea name="speaker_notes_text" rows="6" form="sermon-note-form" data-sermon-speaker-notes-field><?= e($form['speaker_notes_text']); ?></textarea>
-                </label>
-
-                <div class="inline-actions">
-                    <button class="button button-secondary" type="button" data-sermon-ai-summary>Summarize Notes</button>
-                    <button class="button button-secondary" type="button" data-sermon-ai-references>Suggest References</button>
-                </div>
-
-                <p class="muted-copy" data-sermon-ai-status>AI suggestions fill draft fields only. Review them before saving.</p>
+                <p class="muted-copy" data-sermon-ai-status>Select text in the editor, search a verse, then link the selection from the preview.</p>
 
                 <?php if ($shareUrl !== ''): ?>
                     <label class="top-gap-sm">
@@ -601,7 +529,7 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="panel-heading">
                         <div>
                             <h3>Verse Search</h3>
-                            <p class="muted-copy">Search Scripture, preview the verse, then insert a citation or paraphrase.</p>
+                            <p class="muted-copy">Highlight text in the editor first, then use a result to turn it into a Scripture link.</p>
                         </div>
                     </div>
 
@@ -618,47 +546,8 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="sermon-reference-panel top-gap">
                     <div class="panel-heading">
                         <div>
-                            <h3>Bible Dictionary</h3>
-                            <p class="muted-copy">Look up biblical terms while you write.</p>
-                        </div>
-                    </div>
-
-                    <form class="sermon-verse-search-row" method="get" action="<?= e(app_url('dictionary.php')); ?>">
-                        <input type="search" name="q" placeholder="Grace, covenant, atonement">
-                        <button class="button button-secondary" type="submit">Open</button>
-                    </form>
-                </div>
-
-                <div class="sermon-reference-panel top-gap">
-                    <div class="panel-heading">
-                        <div>
-                            <h3>Reference Groups</h3>
-                            <p class="muted-copy">Use commas to track people, places, promises, homiletics, and themes tied to this sermon.</p>
-                        </div>
-                    </div>
-
-                    <div class="sermon-reference-grid">
-                        <?php foreach (sermon_note_reference_type_options() as $type => $label): ?>
-                            <?php
-                            $existingItems = $groupedReferenceTags[$type] ?? [];
-                            $existingValue = implode(', ', array_map(
-                                static fn(array $tag): string => (string) ($tag['label'] ?? ''),
-                                $existingItems
-                            ));
-                            ?>
-                            <label>
-                                <span><?= e($label); ?></span>
-                                <input type="text" value="<?= e($existingValue); ?>" data-reference-group="<?= e($type); ?>" placeholder="<?= e($label); ?>">
-                            </label>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-
-                <div class="sermon-reference-panel top-gap">
-                    <div class="panel-heading">
-                        <div>
-                            <h3>Verse References</h3>
-                            <p class="muted-copy">Inserted citations and paraphrases are tracked here.</p>
+                            <h3>Linked Verses</h3>
+                            <p class="muted-copy">Scripture linked or inserted in this note.</p>
                         </div>
                     </div>
 
@@ -674,6 +563,10 @@ require_once __DIR__ . '/includes/header.php';
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
+                </div>
+
+                <div class="inline-actions">
+                    <button class="button button-primary" type="submit" form="sermon-note-form" <?= $migrationNeeded ? 'disabled' : ''; ?>>Save Sermon Note</button>
                 </div>
             </aside>
         </div>
@@ -695,7 +588,9 @@ require_once __DIR__ . '/includes/header.php';
 
         <div class="inline-actions top-gap-sm">
             <button class="button button-primary" type="button" data-sermon-insert-citation>Insert Citation</button>
-            <button class="button button-secondary" type="button" data-sermon-insert-full-verse>Full Verse</button>
+            <button class="button button-secondary" type="button" data-sermon-link-selected-scripture>Link Selected Text</button>
+            <button class="button button-secondary" type="button" data-sermon-insert-quoted-verse>Quoted Link</button>
+            <button class="button button-secondary" type="button" data-sermon-insert-full-verse>Full Verse Block</button>
             <button class="button button-secondary" type="button" data-sermon-paraphrase-verse>Highlighted Paraphrase</button>
         </div>
 

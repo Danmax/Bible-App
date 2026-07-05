@@ -40,6 +40,8 @@ if (sermonWorkspace) {
     const verseModalStatus = verseModal?.querySelector('[data-sermon-verse-modal-status]');
     const verseModalClose = verseModal?.querySelector('[data-sermon-verse-modal-close]');
     const insertCitationButton = verseModal?.querySelector('[data-sermon-insert-citation]');
+    const linkSelectedScriptureButton = verseModal?.querySelector('[data-sermon-link-selected-scripture]');
+    const insertQuotedVerseButton = verseModal?.querySelector('[data-sermon-insert-quoted-verse]');
     const insertFullVerseButton = verseModal?.querySelector('[data-sermon-insert-full-verse]');
     const paraphraseVerseButton = verseModal?.querySelector('[data-sermon-paraphrase-verse]');
     const inputModal = document.querySelector('[data-sermon-input-modal]');
@@ -71,6 +73,18 @@ if (sermonWorkspace) {
         .replaceAll("'", '&#039;');
 
     const readBoard = () => {
+        if (!(boardRoot instanceof HTMLElement)) {
+            try {
+                const existingBoard = JSON.parse(stormBoardInput?.value || '{}');
+
+                return existingBoard && typeof existingBoard === 'object' && !Array.isArray(existingBoard)
+                    ? existingBoard
+                    : {};
+            } catch (error) {
+                return {};
+            }
+        }
+
         const board = {};
 
         boardRoot?.querySelectorAll('[data-board-column]').forEach((column) => {
@@ -560,10 +574,60 @@ if (sermonWorkspace) {
 
     const parseVerseCardPayload = (node) => ({
         verse_id: Number(node.getAttribute('data-verse-id') || '0'),
+        book_id: Number(node.getAttribute('data-book-id') || '0'),
+        chapter_number: Number(node.getAttribute('data-chapter-number') || '0'),
+        verse_number: Number(node.getAttribute('data-verse-number') || '0'),
         reference_label: node.getAttribute('data-reference-label') || '',
         verse_text: node.getAttribute('data-verse-text') || '',
         translation: node.getAttribute('data-translation') || '',
     });
+
+    const verseReaderUrl = (verse) => {
+        const params = new URLSearchParams();
+        const translation = String(verse.translation || '').trim();
+        const bookId = Number(verse.book_id || 0);
+        const chapter = Number(verse.chapter_number || 0);
+        const verseNumber = Number(verse.verse_number || 0);
+
+        if (translation !== '') {
+            params.set('translation', translation);
+        }
+
+        if (bookId > 0) {
+            params.set('book_id', String(bookId));
+        }
+
+        if (chapter > 0) {
+            params.set('chapter', String(chapter));
+        }
+
+        if (verseNumber > 0) {
+            params.set('verse', String(verseNumber));
+        }
+
+        const query = params.toString();
+
+        return `bible.php${query === '' ? '' : `?${query}`}`;
+    };
+
+    const verseReferenceLinkHtml = (verse, reference, linkText = reference) => {
+        const href = verseReaderUrl(verse);
+
+        return `<a class="note-inline-link note-verse-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(linkText)}</a>`;
+    };
+
+    const verseDataAttributes = (verse, reference) => (
+        `data-verse-id="${escapeHtml(verse.verse_id)}" ` +
+        `data-book-id="${escapeHtml(verse.book_id || '')}" ` +
+        `data-chapter-number="${escapeHtml(verse.chapter_number || '')}" ` +
+        `data-verse-number="${escapeHtml(verse.verse_number || '')}" ` +
+        `data-verse-reference="${escapeHtml(reference)}" ` +
+        `data-verse-text="${escapeHtml(verse.verse_text || '')}" ` +
+        `data-translation="${escapeHtml(verse.translation || '')}"`
+    );
+    const scriptureLinkHtml = (verse, reference, linkText = reference) => (
+        `<a class="note-inline-link note-verse-link note-scripture-link" href="${escapeHtml(verseReaderUrl(verse))}" ${verseDataAttributes(verse, reference)} target="_blank" rel="noopener noreferrer">${escapeHtml(linkText)}</a>`
+    );
 
     const openVerseModal = (verse) => {
         activeVerse = verse;
@@ -613,6 +677,20 @@ if (sermonWorkspace) {
             renderVerseRefs();
             syncHiddenFields();
         }
+    };
+
+    const linkSelectionToVerse = (verse) => {
+        const reference = String(verse.reference_label || 'Verse');
+        const selectedText = selectedEditorText();
+        const linkText = selectedText !== '' ? selectedText : reference;
+
+        insertHtmlAtSelection(scriptureLinkHtml(verse, reference, linkText));
+        addVerseRef({
+            verse_id: Number(verse.verse_id),
+            reference_kind: 'scripture_link',
+            reference_label: reference,
+            quote_text: String(verse.verse_text || ''),
+        });
     };
 
     const runAiRequest = async (endpoint, payload) => {
@@ -695,6 +773,9 @@ if (sermonWorkspace) {
                     type="button"
                     data-open-verse-modal
                     data-verse-id="${escapeHtml(result.verse_id)}"
+                    data-book-id="${escapeHtml(result.book_id)}"
+                    data-chapter-number="${escapeHtml(result.chapter_number)}"
+                    data-verse-number="${escapeHtml(result.verse_number)}"
                     data-reference-label="${escapeHtml(result.reference_label)}"
                     data-verse-text="${escapeHtml(result.verse_text)}"
                     data-translation="${escapeHtml(result.translation)}"
@@ -736,6 +817,13 @@ if (sermonWorkspace) {
         });
     });
 
+    toolbar?.querySelectorAll('[data-editor-scripture-link]').forEach((button) => {
+        button.addEventListener('click', () => {
+            rememberSelection();
+            searchSelectedVerse();
+        });
+    });
+
     linkApplyButton?.addEventListener('click', () => {
         if (!(linkInput instanceof HTMLInputElement) || !(editor instanceof HTMLElement)) {
             return;
@@ -771,7 +859,7 @@ if (sermonWorkspace) {
     });
     editor?.addEventListener('click', (event) => {
         const target = event.target;
-        const verseChip = target instanceof Element ? target.closest('.note-verse-chip') : null;
+        const verseChip = target instanceof Element ? target.closest('.note-verse-chip, .note-scripture-link') : null;
 
         if (!(verseChip instanceof HTMLElement)) {
             return;
@@ -783,9 +871,12 @@ if (sermonWorkspace) {
 
         openVerseModal({
             verse_id: verseId,
+            book_id: Number(verseChip.getAttribute('data-book-id') || '0'),
+            chapter_number: Number(verseChip.getAttribute('data-chapter-number') || '0'),
+            verse_number: Number(verseChip.getAttribute('data-verse-number') || '0'),
             reference_label: verseChip.getAttribute('data-verse-reference') || verseChip.textContent || 'Verse',
             verse_text: verseChip.getAttribute('data-verse-text') || String(matchingVerseRef?.quote_text || ''),
-            translation: '',
+            translation: verseChip.getAttribute('data-translation') || '',
         });
     });
 
@@ -834,13 +925,42 @@ if (sermonWorkspace) {
 
         const reference = String(activeVerse.reference_label || 'Verse');
         insertHtmlAtSelection(
-            `<span class="note-verse-chip" data-verse-id="${escapeHtml(activeVerse.verse_id)}" data-verse-reference="${escapeHtml(reference)}" data-verse-text="${escapeHtml(activeVerse.verse_text || '')}" contenteditable="false">${escapeHtml(reference)}</span>&nbsp;`
+            `<span class="note-verse-chip" ${verseDataAttributes(activeVerse, reference)} contenteditable="false">${escapeHtml(reference)}</span>&nbsp;`
         );
         addVerseRef({
             verse_id: Number(activeVerse.verse_id),
             reference_kind: 'citation',
             reference_label: reference,
             quote_text: String(activeVerse.verse_text || ''),
+        });
+        closeVerseModal();
+    });
+
+    linkSelectedScriptureButton?.addEventListener('click', () => {
+        if (!activeVerse) {
+            return;
+        }
+
+        linkSelectionToVerse(activeVerse);
+        closeVerseModal();
+    });
+
+    insertQuotedVerseButton?.addEventListener('click', () => {
+        if (!activeVerse) {
+            return;
+        }
+
+        const reference = String(activeVerse.reference_label || 'Verse');
+        const verseText = String(activeVerse.verse_text || '').trim();
+
+        insertHtmlAtSelection(
+            `<blockquote class="note-quoted-verse"><p>"${escapeHtml(verseText)}"</p><p>${verseReferenceLinkHtml(activeVerse, reference)}</p></blockquote>`
+        );
+        addVerseRef({
+            verse_id: Number(activeVerse.verse_id),
+            reference_kind: 'quoted_verse',
+            reference_label: reference,
+            quote_text: verseText,
         });
         closeVerseModal();
     });
@@ -854,7 +974,7 @@ if (sermonWorkspace) {
         const verseText = String(activeVerse.verse_text || '').trim();
 
         insertHtmlAtSelection(
-            `<blockquote class="note-full-verse"><p>${escapeHtml(verseText)}</p><p><span class="note-verse-chip" data-verse-id="${escapeHtml(activeVerse.verse_id)}" data-verse-reference="${escapeHtml(reference)}" data-verse-text="${escapeHtml(verseText)}" contenteditable="false">${escapeHtml(reference)}</span></p></blockquote>`
+            `<blockquote class="note-full-verse"><p>${escapeHtml(verseText)}</p><p>${verseReferenceLinkHtml(activeVerse, reference)}</p></blockquote>`
         );
         addVerseRef({
             verse_id: Number(activeVerse.verse_id),
@@ -1071,6 +1191,7 @@ if (sermonWorkspace) {
         if (event.key === 'Escape') {
             hideContextMenu();
             closeInputModal();
+            closeVerseModal();
         }
     });
 
