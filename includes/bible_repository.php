@@ -275,6 +275,147 @@ function search_scripture(string $query, string $translation): array
     return fetch_keyword_verses($query, $translation);
 }
 
+function scripture_search_synonym_map(): array
+{
+    return [
+        'afraid' => ['fear', 'fearful', 'troubled', 'dismayed'],
+        'anger' => ['wrath', 'angry', 'fury'],
+        'anxious' => ['careful', 'worry', 'worrying', 'troubled'],
+        'believe' => ['faith', 'trust', 'trusted', 'believed'],
+        'comfort' => ['peace', 'rest', 'encourage', 'consolation'],
+        'fear' => ['afraid', 'fearful', 'dismayed', 'troubled'],
+        'forgive' => ['forgiven', 'forgiveness', 'pardon', 'mercy'],
+        'grace' => ['favor', 'mercy', 'kindness'],
+        'heal' => ['healed', 'healing', 'restore', 'restored'],
+        'hope' => ['trust', 'wait', 'expectation'],
+        'joy' => ['rejoice', 'glad', 'gladness'],
+        'love' => ['charity', 'lovingkindness', 'kindness'],
+        'mercy' => ['compassion', 'grace', 'pity', 'kindness'],
+        'peace' => ['rest', 'comfort', 'quiet'],
+        'pray' => ['prayer', 'supplication', 'petition', 'ask'],
+        'redeem' => ['redeemed', 'redemption', 'save', 'saved'],
+        'repent' => ['repentance', 'turn', 'converted'],
+        'righteous' => ['righteousness', 'just', 'upright'],
+        'save' => ['saved', 'salvation', 'deliver', 'delivered'],
+        'sin' => ['sins', 'iniquity', 'transgression'],
+        'strength' => ['strong', 'power', 'might'],
+        'trust' => ['faith', 'believe', 'hope', 'confidence'],
+        'wisdom' => ['wise', 'understanding', 'knowledge'],
+    ];
+}
+
+function scripture_search_stem(string $term): string
+{
+    $term = mb_strtolower(trim($term));
+    $length = mb_strlen($term);
+
+    foreach (['ing', 'ness', 'ment', 'tion', 'ed', 'es', 's'] as $suffix) {
+        $suffixLength = mb_strlen($suffix);
+
+        if ($length > $suffixLength + 3 && mb_substr($term, -$suffixLength) === $suffix) {
+            return mb_substr($term, 0, $length - $suffixLength);
+        }
+    }
+
+    return $term;
+}
+
+function scripture_search_terms(string $query): array
+{
+    $stopWords = scripture_analysis_stop_words();
+    $terms = [];
+
+    foreach (scripture_analysis_tokens($query) as $token) {
+        if (mb_strlen($token) < 3 || isset($stopWords[$token])) {
+            continue;
+        }
+
+        $terms[] = $token;
+        $stem = scripture_search_stem($token);
+
+        if ($stem !== $token && mb_strlen($stem) >= 3) {
+            $terms[] = $stem;
+        }
+    }
+
+    return array_values(array_unique($terms));
+}
+
+function scripture_search_expanded_terms(array $terms): array
+{
+    $synonyms = scripture_search_synonym_map();
+    $expanded = $terms;
+
+    foreach ($terms as $term) {
+        $stem = scripture_search_stem($term);
+
+        foreach ([$term, $stem] as $lookup) {
+            foreach (($synonyms[$lookup] ?? []) as $relatedTerm) {
+                $expanded[] = $relatedTerm;
+                $expanded[] = scripture_search_stem($relatedTerm);
+            }
+        }
+    }
+
+    return array_values(array_unique(array_filter(
+        $expanded,
+        static fn(string $term): bool => mb_strlen($term) >= 3
+    )));
+}
+
+function scripture_search_score(array $verse, string $normalizedQuery, array $queryTerms, array $expandedTerms): int
+{
+    $verseText = mb_strtolower((string) ($verse['verse_text'] ?? ''));
+    $verseTokens = scripture_analysis_tokens($verseText);
+    $verseTermSet = [];
+
+    foreach ($verseTokens as $token) {
+        $verseTermSet[$token] = true;
+        $stem = scripture_search_stem($token);
+
+        if ($stem !== $token && mb_strlen($stem) >= 3) {
+            $verseTermSet[$stem] = true;
+        }
+    }
+
+    $score = 0;
+
+    if ($normalizedQuery !== '' && mb_strpos($verseText, $normalizedQuery) !== false) {
+        $score += 100;
+    }
+
+    foreach ($queryTerms as $term) {
+        if (isset($verseTermSet[$term])) {
+            $score += 24;
+        } elseif (mb_strpos($verseText, $term) !== false) {
+            $score += 12;
+        }
+    }
+
+    foreach ($expandedTerms as $term) {
+        if (in_array($term, $queryTerms, true)) {
+            continue;
+        }
+
+        if (isset($verseTermSet[$term])) {
+            $score += 8;
+        } elseif (mb_strpos($verseText, $term) !== false) {
+            $score += 4;
+        }
+    }
+
+    $queryCoverage = count(array_filter(
+        $queryTerms,
+        static fn(string $term): bool => isset($verseTermSet[$term]) || mb_strpos($verseText, $term) !== false
+    ));
+
+    if ($queryCoverage > 1) {
+        $score += $queryCoverage * 10;
+    }
+
+    return $score;
+}
+
 function search_external_translation(string $query, string $translation): array
 {
     $books = fetch_books();
@@ -386,23 +527,85 @@ function fetch_reference_verses(array $reference, string $translation): array
 
 function fetch_keyword_verses(string $query, string $translation, int $limit = 25): array
 {
+    $normalizedQuery = mb_strtolower(trim(preg_replace('/\s+/', ' ', $query) ?? $query));
+    $queryTerms = scripture_search_terms($query);
+    $expandedTerms = scripture_search_expanded_terms($queryTerms);
+
+    if ($normalizedQuery === '') {
+        return [
+            'mode' => 'keyword',
+            'results' => [],
+            'heading' => 'Search Results',
+        ];
+    }
+
+    $candidateTerms = array_slice(array_values(array_unique(array_merge(
+        [$normalizedQuery],
+        $queryTerms,
+        $expandedTerms
+    ))), 0, 12);
+
+    $whereParts = ['verses.verse_text LIKE :phrase'];
+    $params = [
+        'translation' => $translation,
+        'phrase' => '%' . trim($query) . '%',
+    ];
+
+    foreach ($candidateTerms as $index => $term) {
+        if ($term === '') {
+            continue;
+        }
+
+        $param = 'term_' . $index;
+        $whereParts[] = 'verses.verse_text LIKE :' . $param;
+        $params[$param] = '%' . $term . '%';
+    }
+
     $statement = db()->prepare(
         'SELECT verses.*, books.name AS book_name, books.abbreviation
         FROM verses
         INNER JOIN books ON books.id = verses.book_id
         WHERE verses.translation = :translation
-            AND verses.verse_text LIKE :query
+            AND (' . implode(' OR ', $whereParts) . ')
         ORDER BY books.id ASC, verses.chapter_number ASC, verses.verse_number ASC
-        LIMIT ' . (int) $limit
+        LIMIT 160'
     );
-    $statement->execute([
-        'translation' => $translation,
-        'query' => '%' . trim($query) . '%',
-    ]);
+    $statement->execute($params);
+
+    $rankedVerses = [];
+
+    foreach ($statement->fetchAll() as $verse) {
+        $score = scripture_search_score($verse, $normalizedQuery, $queryTerms, $expandedTerms);
+
+        if ($score <= 0) {
+            continue;
+        }
+
+        $verse['_search_score'] = $score;
+        $rankedVerses[] = $verse;
+    }
+
+    usort($rankedVerses, static function (array $left, array $right): int {
+        $scoreComparison = ((int) ($right['_search_score'] ?? 0)) <=> ((int) ($left['_search_score'] ?? 0));
+
+        if ($scoreComparison !== 0) {
+            return $scoreComparison;
+        }
+
+        return [
+            (int) ($left['book_id'] ?? 0),
+            (int) ($left['chapter_number'] ?? 0),
+            (int) ($left['verse_number'] ?? 0),
+        ] <=> [
+            (int) ($right['book_id'] ?? 0),
+            (int) ($right['chapter_number'] ?? 0),
+            (int) ($right['verse_number'] ?? 0),
+        ];
+    });
 
     return [
         'mode' => 'keyword',
-        'results' => $statement->fetchAll(),
+        'results' => array_slice($rankedVerses, 0, $limit),
         'heading' => 'Search Results',
     ];
 }
