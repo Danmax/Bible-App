@@ -2630,6 +2630,7 @@ if (chapterReader && bookmarkPopup) {
         focusNote = false,
     }) => {
         resetPopupFields();
+        activeStudyVerseCard = startVerseCard;
 
         const verseId = startVerseCard.getAttribute('data-verse-id') || '';
         const endVerseId = endVerseCard.getAttribute('data-verse-id') || verseId;
@@ -2781,11 +2782,6 @@ if (chapterReader && bookmarkPopup) {
                 return;
             }
 
-            if ((window.innerWidth || document.documentElement.clientWidth || 0) <= 760) {
-                openMobileStudySheet(verseCard, 'actions');
-                return;
-            }
-
             openPopupForSelection({ startVerseCard: verseCard });
         });
     });
@@ -2824,7 +2820,7 @@ if (chapterReader && bookmarkPopup) {
         button.addEventListener('click', () => {
             const color = button.getAttribute('data-color');
 
-            if (color) {
+            if (color !== null) {
                 setActiveColor(color);
             }
         });

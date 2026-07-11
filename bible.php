@@ -1430,21 +1430,24 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="hidden" name="return_reader_mode" value="<?= e($readerMode); ?>">
                                 <input type="hidden" name="highlight_color" value="">
 
-                                <div class="color-picker-row" data-color-picker>
+                                <div class="bookmark-mobile-section bookmark-color-section">
+                                    <p class="reader-tool-label">Color</p>
+                                    <div class="color-picker-row" data-color-picker>
                                     <button class="color-swatch color-swatch-none is-active" type="button" data-color="" aria-label="No highlight">None</button>
                                     <button class="color-swatch neon-yellow" type="button" data-color="neon-yellow" aria-label="Yellow highlight"></button>
                                     <button class="color-swatch neon-green" type="button" data-color="neon-green" aria-label="Neon green"></button>
                                     <button class="color-swatch neon-blue" type="button" data-color="neon-blue" aria-label="Neon blue"></button>
                                     <button class="color-swatch neon-orange" type="button" data-color="neon-orange" aria-label="Neon orange"></button>
                                     <button class="color-swatch neon-pink" type="button" data-color="neon-pink" aria-label="Neon pink"></button>
+                                    </div>
                                 </div>
 
-                                <label>
+                                <label class="bookmark-mobile-field bookmark-mobile-field-tag">
                                     <span>Bookmark tag</span>
                                     <input type="text" name="tag" placeholder="Prayer, promise, memory verse">
                                 </label>
 
-                                <label>
+                                <label class="bookmark-mobile-field bookmark-mobile-field-note">
                                     <span>Note</span>
                                     <div class="inline-actions top-gap-sm" data-voice-compose>
                                         <button class="button button-secondary voice-search-button" type="button" data-voice-compose-start aria-label="Speak your bookmark note">
@@ -1461,7 +1464,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <textarea name="note" rows="3" placeholder="Why are you saving this?"></textarea>
                                 </label>
 
-                                <div class="inline-actions">
+                                <div class="inline-actions bookmark-mobile-actions">
                                     <button class="button button-primary" type="submit" data-popup-submit>Save Bookmark</button>
                                     <button class="button button-secondary" type="button" data-popup-clear>Clear</button>
                                     <a class="button button-secondary" href="#" data-popup-note-link>Add Note</a>
