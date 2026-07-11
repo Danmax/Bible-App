@@ -1,4 +1,4 @@
-const menuToggle = document.querySelector('.menu-toggle');
+const mobileMenuTriggers = document.querySelectorAll('[data-mobile-menu-trigger]');
 const primaryNav = document.querySelector('.primary-nav');
 
 document.addEventListener('click', (event) => {
@@ -63,7 +63,7 @@ const prefetchPage = (href) => {
     }, 80);
 };
 
-document.querySelectorAll('.primary-nav > a').forEach((link) => {
+document.querySelectorAll('.primary-nav > a, .mobile-primary-nav > a').forEach((link) => {
     if (!(link instanceof HTMLAnchorElement)) {
         return;
     }
@@ -72,7 +72,7 @@ document.querySelectorAll('.primary-nav > a').forEach((link) => {
     link.addEventListener('focus', () => prefetchPage(link.href));
 });
 
-if (menuToggle && primaryNav) {
+if (mobileMenuTriggers.length > 0 && primaryNav) {
     const setMobileBodyLock = (isLocked) => {
         if (isLocked) {
             const scrollY = window.scrollY || window.pageYOffset || 0;
@@ -91,12 +91,14 @@ if (menuToggle && primaryNav) {
 
     const syncMobileNavState = (isOpen) => {
         primaryNav.classList.toggle('is-open', isOpen);
-        menuToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        mobileMenuTriggers.forEach((trigger) => trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false'));
         setMobileBodyLock(isOpen);
     };
 
-    menuToggle.addEventListener('click', () => {
-        syncMobileNavState(!primaryNav.classList.contains('is-open'));
+    mobileMenuTriggers.forEach((trigger) => {
+        trigger.addEventListener('click', () => {
+            syncMobileNavState(!primaryNav.classList.contains('is-open'));
+        });
     });
 
     primaryNav.querySelectorAll('a').forEach((link) => {
@@ -181,9 +183,9 @@ moreMenus.forEach((moreMenu) => {
                 moreMenu.open = false;
                 moreMenu.classList.remove('is-closing');
 
-                if (primaryNav && menuToggle) {
+                if (primaryNav && mobileMenuTriggers.length > 0) {
                     primaryNav.classList.remove('is-open');
-                    menuToggle.setAttribute('aria-expanded', 'false');
+                    mobileMenuTriggers.forEach((trigger) => trigger.setAttribute('aria-expanded', 'false'));
                     document.body.classList.remove('nav-open');
                 }
 
