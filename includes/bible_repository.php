@@ -9,7 +9,7 @@ require_once __DIR__ . '/system_repository.php';
 function fetch_recent_notes(int $userId, int $limit = 3): array
 {
     $statement = db()->prepare(
-        'SELECT study_notes.*, books.name AS book_name, verses.chapter_number, verses.verse_number, verses.translation
+        'SELECT study_notes.*, verses.book_id, books.name AS book_name, verses.chapter_number, verses.verse_number, verses.translation
         FROM study_notes
         LEFT JOIN verses ON verses.id = study_notes.verse_id
         LEFT JOIN books ON books.id = verses.book_id
@@ -788,7 +788,7 @@ function save_bookmark_record(
         if ($existing !== null) {
             $statement = db()->prepare(
                 'UPDATE bookmarks
-                SET tag = :tag, note = :note
+                SET tag = :tag, note = :note, highlight_color = :highlight_color
                 WHERE id = :id AND user_id = :user_id'
             );
             $statement->execute([
@@ -796,6 +796,7 @@ function save_bookmark_record(
                 'user_id' => $userId,
                 'tag' => $normalizedTag,
                 'note' => $normalizedNote,
+                'highlight_color' => $normalizedColor ?: null,
             ]);
 
             return;

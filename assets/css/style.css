@@ -1277,6 +1277,33 @@ span {
     font-size: 1.1rem;
 }
 
+.library-record-card {
+    display: grid;
+    align-content: start;
+    gap: 0.9rem;
+    min-height: 100%;
+    padding: 1rem;
+    border: 1px solid rgba(34, 51, 59, 0.1);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 252, 248, 0.72);
+}
+
+.library-record-card > div:first-child {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.library-record-card strong {
+    color: var(--primary-dark);
+    font-family: "Outfit", sans-serif;
+    font-size: 1.12rem;
+    line-height: 1.2;
+}
+
+.library-record-card .inline-actions {
+    align-self: end;
+}
+
 .card-grid {
     display: grid;
     gap: 1.2rem;
@@ -6142,5 +6169,560 @@ textarea:focus {
     .home-quick-tile {
         padding: 0.85rem 0.4rem;
         font-size: 0.72rem;
+    }
+}
+
+/* ── Shared navigation and responsive foundation ─────────────────────── */
+
+:root {
+    --container: 1200px;
+    --radius: 8px;
+    --radius-sm: 8px;
+    --mobile-nav-height: 0px;
+}
+
+.container {
+    width: min(var(--container), calc(100% - 2rem));
+}
+
+.site-header {
+    background: rgba(250, 248, 244, 0.94);
+    box-shadow: 0 1px 0 var(--header-border);
+}
+
+.header-row {
+    min-height: 4.75rem;
+    padding: 0.65rem 0;
+}
+
+.brand {
+    min-width: 0;
+    gap: 0.65rem;
+}
+
+.brand-mark {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+.brand strong {
+    letter-spacing: 0;
+}
+
+.primary-nav {
+    gap: 0.2rem;
+}
+
+.primary-nav a,
+.more-nav summary {
+    min-height: 2.6rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 8px;
+    letter-spacing: 0;
+}
+
+.more-nav-menu {
+    border-radius: 8px;
+    box-shadow: 0 16px 36px rgba(10, 9, 8, 0.14);
+}
+
+.menu-toggle,
+.mobile-primary-nav {
+    display: none;
+}
+
+.button,
+input,
+select,
+textarea,
+.filter-chip,
+.pill {
+    border-radius: 8px;
+}
+
+.button {
+    min-height: 2.75rem;
+    padding: 0.65rem 0.95rem;
+}
+
+.feature-card,
+.dashboard-card,
+.event-card,
+.bookmark-card,
+.stat-card,
+.timeline-card,
+.panel,
+.showcase-card,
+.library-record-card,
+.library-empty-card {
+    box-shadow: 0 8px 22px rgba(10, 9, 8, 0.07);
+}
+
+.feature-card:hover,
+.dashboard-card:hover,
+.event-card:hover,
+.bookmark-card:hover,
+.stat-card:hover,
+.timeline-card:hover,
+.panel:hover,
+.showcase-card:hover {
+    transform: none;
+    box-shadow: 0 8px 22px rgba(10, 9, 8, 0.1);
+}
+
+.section-heading-rich {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    letter-spacing: 0;
+}
+
+h1 {
+    font-size: 2.75rem;
+    line-height: 1.08;
+}
+
+h2 {
+    font-size: 1.75rem;
+    line-height: 1.15;
+}
+
+@media (max-width: 1024px) {
+    .container {
+        width: min(var(--container), calc(100% - 1.5rem));
+    }
+
+    .section,
+    .hero {
+        padding: 3rem 0;
+    }
+
+    .card-grid-4,
+    .card-grid-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .section-heading-rich {
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 760px) {
+    :root {
+        --mobile-nav-height: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    body {
+        padding-bottom: var(--mobile-nav-height);
+    }
+
+    .site-header {
+        position: sticky;
+    }
+
+    .site-header.is-hidden {
+        transform: none;
+    }
+
+    .header-row {
+        min-height: 4.25rem;
+    }
+
+    .brand small {
+        display: none;
+    }
+
+    .menu-toggle {
+        display: inline-flex;
+        min-height: 2.6rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: 8px;
+        box-shadow: none;
+    }
+
+    .primary-nav {
+        top: calc(4.75rem + env(safe-area-inset-top, 0px));
+        right: 0.75rem;
+        left: 0.75rem;
+        padding: 0.85rem;
+        border-radius: 8px;
+        background: rgba(250, 248, 244, 0.98);
+        box-shadow: 0 18px 42px rgba(10, 9, 8, 0.18);
+    }
+
+    .primary-nav .desktop-nav-link {
+        display: none;
+    }
+
+    .more-nav-mobile {
+        gap: 0.65rem;
+    }
+
+    .more-nav-mobile a {
+        min-height: 2.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.55rem 0.75rem;
+        border-radius: 8px;
+        background: rgba(34, 51, 59, 0.05);
+    }
+
+    .more-nav-mobile .more-nav-group + .more-nav-group {
+        padding-top: 0.65rem;
+    }
+
+    .mobile-primary-nav {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 45;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        min-height: var(--mobile-nav-height);
+        padding: 0.35rem 0.3rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid var(--border);
+        background: rgba(250, 248, 244, 0.98);
+        box-shadow: 0 -8px 22px rgba(10, 9, 8, 0.08);
+    }
+
+    .mobile-primary-nav a,
+    .mobile-primary-nav-more {
+        display: grid;
+        place-items: center;
+        min-width: 0;
+        min-height: 3.4rem;
+        padding: 0.35rem 0.2rem;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.72rem;
+        font-weight: 800;
+        line-height: 1.1;
+        text-align: center;
+    }
+
+    .mobile-primary-nav a.is-active,
+    .mobile-primary-nav-more.is-active {
+        background: var(--nav-active-bg);
+        color: var(--primary-dark);
+    }
+
+    .section,
+    .hero {
+        padding: 2.25rem 0;
+    }
+
+    h1 {
+        font-size: 2rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    .hero-grid,
+    .two-column,
+    .card-grid-4,
+    .card-grid-3,
+    .card-grid-2,
+    .footer-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .panel,
+    .showcase-card,
+    .timeline-card {
+        padding: 1rem;
+    }
+
+    .panel-heading {
+        gap: 0.75rem;
+    }
+
+    .panel-heading > .inline-actions {
+        width: 100%;
+    }
+
+    .panel-heading > .inline-actions .button {
+        flex: 1 1 9rem;
+    }
+
+    .filter-row {
+        flex-wrap: nowrap;
+        margin-inline: -0.75rem;
+        padding-inline: 0.75rem;
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        scrollbar-width: none;
+    }
+
+    .filter-row::-webkit-scrollbar {
+        display: none;
+    }
+
+    .filter-chip {
+        flex: 0 0 auto;
+    }
+
+    .inline-actions {
+        gap: 0.6rem;
+    }
+
+    .library-record-card {
+        gap: 0.75rem;
+    }
+
+    .library-record-card .inline-actions,
+    .library-record-card > .button {
+        width: 100%;
+    }
+
+    .library-record-card .inline-actions .button {
+        flex: 1 1 7rem;
+    }
+
+    .site-footer {
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+@media (max-width: 380px) {
+    .brand strong {
+        max-width: 11rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mobile-primary-nav a,
+    .mobile-primary-nav-more {
+        font-size: 0.67rem;
+    }
+}
+
+/* ── Bible reading surface ───────────────────────────────────────────── */
+
+.bible-canvas-shell,
+.bible-canvas-shell label,
+.bookmark-popup-card,
+.mobile-study-panel {
+    color: var(--ink);
+}
+
+.chapter-reader.is-paragraph {
+    max-width: 64rem;
+    padding: 1rem 0.5rem;
+    color: var(--ink);
+    font-family: "Manrope", sans-serif;
+    line-height: 1.85;
+}
+
+.chapter-reader.is-paragraph .reader-verse-copy {
+    font-size: 1.28rem;
+    line-height: 1.9;
+}
+
+.chapter-reader.is-paragraph .reader-verse-text {
+    color: var(--ink);
+}
+
+.reader-verse-copy {
+    color: var(--ink);
+}
+
+.reader-verse-copy sup {
+    color: var(--primary-dark);
+}
+
+.reader-tool-label {
+    margin: 0 0 0.55rem;
+    color: var(--primary-dark);
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.mobile-study-more-stack {
+    display: grid;
+    gap: 1rem;
+}
+
+.mobile-study-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.passage-resource-drawer {
+    background: rgba(255, 252, 248, 0.68);
+}
+
+.passage-resource-drawer summary {
+    color: var(--primary-dark);
+}
+
+.bible-canvas-action-bar {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.45rem;
+    margin-top: 1rem;
+    padding: 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(255, 252, 248, 0.92);
+    box-shadow: 0 8px 20px rgba(10, 9, 8, 0.06);
+}
+
+.bible-canvas-action-bar a,
+.bible-canvas-action-bar button,
+.bible-canvas-action-bar span {
+    min-width: 0;
+    min-height: 2.65rem;
+    padding: 0.45rem 0.3rem;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(34, 51, 59, 0.06);
+    color: var(--primary-dark);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 800;
+    line-height: 1.1;
+    text-align: center;
+    text-decoration: none;
+}
+
+.bible-canvas-action-bar a,
+.bible-canvas-action-bar button {
+    cursor: pointer;
+}
+
+.bible-canvas-action-bar a:hover,
+.bible-canvas-action-bar a:focus-visible,
+.bible-canvas-action-bar button:hover,
+.bible-canvas-action-bar button:focus-visible {
+    background: var(--primary-dark);
+    color: var(--bone);
+}
+
+.bible-canvas-action-bar span {
+    color: var(--muted);
+}
+
+.bookmark-popup-card {
+    border-radius: 8px;
+    border-color: var(--border-strong);
+    background: var(--input-bg);
+}
+
+.bookmark-popup-card .panel-heading {
+    align-items: flex-start;
+}
+
+.bookmark-popup-card .form-stack {
+    gap: 0.75rem;
+}
+
+.bookmark-popup-card textarea {
+    min-height: 5.25rem;
+}
+
+.color-picker-row {
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.color-swatch {
+    flex: 0 0 auto;
+    width: 2.35rem;
+    height: 2.35rem;
+}
+
+.color-swatch-none {
+    width: auto;
+    min-width: 3.7rem;
+    padding: 0 0.65rem;
+    border-color: var(--border);
+    background: transparent;
+    color: var(--primary-dark);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.popup-close {
+    border-radius: 8px;
+    color: var(--primary-dark);
+}
+
+@media (max-width: 760px) {
+    .bible-canvas-shell {
+        padding-bottom: 1rem;
+        border-radius: 8px;
+    }
+
+    .chapter-reader.is-paragraph {
+        padding: 0.75rem 0.25rem;
+    }
+
+    .chapter-reader.is-paragraph .reader-verse-copy {
+        font-size: 1.18rem;
+        line-height: 1.9;
+    }
+
+    .bible-canvas-action-bar {
+        position: static;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-bottom: 0.25rem;
+        border-radius: 8px;
+        box-shadow: none;
+    }
+
+    .bookmark-popup {
+        top: auto !important;
+        right: 0.65rem !important;
+        bottom: calc(0.65rem + env(safe-area-inset-bottom, 0px));
+        left: 0.65rem !important;
+        width: auto !important;
+        max-height: min(78dvh, 38rem);
+    }
+
+    .bookmark-popup-card {
+        max-height: min(78dvh, 38rem);
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 18px 42px rgba(10, 9, 8, 0.2);
+    }
+
+    .bookmark-popup-card .panel-heading {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+
+    .bookmark-popup-card .panel-heading > div {
+        min-width: 0;
+    }
+
+    .bookmark-popup-card .panel-heading h3 {
+        overflow-wrap: anywhere;
+        font-size: 1.2rem;
+    }
+
+    .bookmark-popup-card .inline-actions .button,
+    .bookmark-popup-card .inline-actions a {
+        flex: 1 1 8rem;
     }
 }
