@@ -2313,6 +2313,7 @@ if (chapterReader && bookmarkPopup) {
     const popupClose = bookmarkPopup.querySelector('[data-popup-close]');
     const popupClear = bookmarkPopup.querySelector('[data-popup-clear]');
     const popupNoteLink = bookmarkPopup.querySelector('[data-popup-note-link]');
+    const popupSubmit = bookmarkPopup.querySelector('[data-popup-submit]');
     const colorPicker = bookmarkPopup.querySelector('[data-color-picker]');
     const colorInput = bookmarkPopupForm?.querySelector('input[name="highlight_color"]') || null;
     const actionInput = bookmarkPopupForm?.querySelector('input[name="action"]') || null;
@@ -2391,6 +2392,16 @@ if (chapterReader && bookmarkPopup) {
         if (noteInput) {
             noteInput.value = '';
         }
+
+        if (popupModeLabel) {
+            popupModeLabel.textContent = 'Save Verse';
+        }
+
+        if (popupSubmit) {
+            popupSubmit.textContent = 'Save Bookmark';
+        }
+
+        setActiveColor('');
     };
 
     const hidePopup = () => {
@@ -2555,7 +2566,11 @@ if (chapterReader && bookmarkPopup) {
         selectionEnd = '',
         rangeStartOffset = '',
         rangeEndOffset = '',
+        highlightVerse = false,
+        focusNote = false,
     }) => {
+        resetPopupFields();
+
         const verseId = startVerseCard.getAttribute('data-verse-id') || '';
         const endVerseId = endVerseCard.getAttribute('data-verse-id') || verseId;
         const verseReference = buildVerseReference(startVerseCard, endVerseCard);
@@ -2590,7 +2605,15 @@ if (chapterReader && bookmarkPopup) {
         }
 
         if (popupModeLabel) {
-            popupModeLabel.textContent = selectedText ? 'Highlight Selection' : 'Save Verse';
+            popupModeLabel.textContent = selectedText
+                ? 'Highlight Selection'
+                : (highlightVerse ? 'Highlight Verse' : (focusNote ? 'Quick Note' : 'Save Verse'));
+        }
+
+        if (popupSubmit) {
+            popupSubmit.textContent = selectedText || highlightVerse
+                ? 'Save Highlight'
+                : (focusNote ? 'Save Note' : 'Save Bookmark');
         }
 
         if (popupReference) {
@@ -2612,7 +2635,12 @@ if (chapterReader && bookmarkPopup) {
 
         closeMobileStudySheet();
         bookmarkPopup.hidden = false;
+        setActiveColor(selectedText || highlightVerse ? 'neon-yellow' : '');
         positionPopup(startVerseCard);
+
+        if (focusNote && noteInput instanceof HTMLTextAreaElement) {
+            window.setTimeout(() => noteInput.focus(), 80);
+        }
     };
 
     const updateSelection = () => {
@@ -2776,26 +2804,21 @@ if (chapterReader && bookmarkPopup) {
         });
 
         mobileStudySheet.querySelector('[data-study-highlight-selected]')?.addEventListener('click', () => {
-            closeMobileStudySheet();
-
             if (activeStudyVerseCard instanceof HTMLElement) {
-                activeStudyVerseCard.scrollIntoView({ block: 'center', behavior: 'smooth' });
-            } else {
-                chapterReader.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                openPopupForSelection({
+                    startVerseCard: activeStudyVerseCard,
+                    highlightVerse: true,
+                });
             }
+        });
 
-            const highlightButtons = document.querySelectorAll('[data-mobile-study-open], [data-mobile-highlight-tip]');
-            highlightButtons.forEach((button) => {
-                if (!(button instanceof HTMLButtonElement)) {
-                    return;
-                }
-
-                const originalLabel = button.textContent || 'Study';
-                button.textContent = 'Select text';
-                window.setTimeout(() => {
-                    button.textContent = originalLabel;
-                }, 1800);
-            });
+        mobileStudySheet.querySelector('[data-study-quick-note]')?.addEventListener('click', () => {
+            if (activeStudyVerseCard instanceof HTMLElement) {
+                openPopupForSelection({
+                    startVerseCard: activeStudyVerseCard,
+                    focusNote: true,
+                });
+            }
         });
 
         mobileStudySheet.querySelector('[data-study-share-selected]')?.addEventListener('click', () => {

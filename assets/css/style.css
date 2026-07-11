@@ -6513,3 +6513,216 @@ h2 {
         font-size: 0.67rem;
     }
 }
+
+/* ── Bible reading surface ───────────────────────────────────────────── */
+
+.bible-canvas-shell,
+.bible-canvas-shell label,
+.bookmark-popup-card,
+.mobile-study-panel {
+    color: var(--ink);
+}
+
+.chapter-reader.is-paragraph {
+    max-width: 64rem;
+    padding: 1rem 0.5rem;
+    color: var(--ink);
+    font-family: "Manrope", sans-serif;
+    line-height: 1.85;
+}
+
+.chapter-reader.is-paragraph .reader-verse-copy {
+    font-size: 1.28rem;
+    line-height: 1.9;
+}
+
+.chapter-reader.is-paragraph .reader-verse-text {
+    color: var(--ink);
+}
+
+.reader-verse-copy {
+    color: var(--ink);
+}
+
+.reader-verse-copy sup {
+    color: var(--primary-dark);
+}
+
+.reader-tool-label {
+    margin: 0 0 0.55rem;
+    color: var(--primary-dark);
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.mobile-study-more-stack {
+    display: grid;
+    gap: 1rem;
+}
+
+.mobile-study-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.passage-resource-drawer {
+    background: rgba(255, 252, 248, 0.68);
+}
+
+.passage-resource-drawer summary {
+    color: var(--primary-dark);
+}
+
+.bible-canvas-action-bar {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.45rem;
+    margin-top: 1rem;
+    padding: 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(255, 252, 248, 0.92);
+    box-shadow: 0 8px 20px rgba(10, 9, 8, 0.06);
+}
+
+.bible-canvas-action-bar a,
+.bible-canvas-action-bar button,
+.bible-canvas-action-bar span {
+    min-width: 0;
+    min-height: 2.65rem;
+    padding: 0.45rem 0.3rem;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(34, 51, 59, 0.06);
+    color: var(--primary-dark);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 800;
+    line-height: 1.1;
+    text-align: center;
+    text-decoration: none;
+}
+
+.bible-canvas-action-bar a,
+.bible-canvas-action-bar button {
+    cursor: pointer;
+}
+
+.bible-canvas-action-bar a:hover,
+.bible-canvas-action-bar a:focus-visible,
+.bible-canvas-action-bar button:hover,
+.bible-canvas-action-bar button:focus-visible {
+    background: var(--primary-dark);
+    color: var(--bone);
+}
+
+.bible-canvas-action-bar span {
+    color: var(--muted);
+}
+
+.bookmark-popup-card {
+    border-radius: 8px;
+    border-color: var(--border-strong);
+    background: var(--input-bg);
+}
+
+.bookmark-popup-card .panel-heading {
+    align-items: flex-start;
+}
+
+.bookmark-popup-card .form-stack {
+    gap: 0.75rem;
+}
+
+.bookmark-popup-card textarea {
+    min-height: 5.25rem;
+}
+
+.color-picker-row {
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.color-swatch {
+    flex: 0 0 auto;
+    width: 2.35rem;
+    height: 2.35rem;
+}
+
+.color-swatch-none {
+    width: auto;
+    min-width: 3.7rem;
+    padding: 0 0.65rem;
+    border-color: var(--border);
+    background: transparent;
+    color: var(--primary-dark);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.popup-close {
+    border-radius: 8px;
+    color: var(--primary-dark);
+}
+
+@media (max-width: 760px) {
+    .bible-canvas-shell {
+        padding-bottom: 1rem;
+        border-radius: 8px;
+    }
+
+    .chapter-reader.is-paragraph {
+        padding: 0.75rem 0.25rem;
+    }
+
+    .chapter-reader.is-paragraph .reader-verse-copy {
+        font-size: 1.18rem;
+        line-height: 1.9;
+    }
+
+    .bible-canvas-action-bar {
+        position: static;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-bottom: 0.25rem;
+        border-radius: 8px;
+        box-shadow: none;
+    }
+
+    .bookmark-popup {
+        top: auto !important;
+        right: 0.65rem !important;
+        bottom: calc(0.65rem + env(safe-area-inset-bottom, 0px));
+        left: 0.65rem !important;
+        width: auto !important;
+        max-height: min(78dvh, 38rem);
+    }
+
+    .bookmark-popup-card {
+        max-height: min(78dvh, 38rem);
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 18px 42px rgba(10, 9, 8, 0.2);
+    }
+
+    .bookmark-popup-card .panel-heading {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+
+    .bookmark-popup-card .panel-heading > div {
+        min-width: 0;
+    }
+
+    .bookmark-popup-card .panel-heading h3 {
+        overflow-wrap: anywhere;
+        font-size: 1.2rem;
+    }
+
+    .bookmark-popup-card .inline-actions .button,
+    .bookmark-popup-card .inline-actions a {
+        flex: 1 1 8rem;
+    }
+}

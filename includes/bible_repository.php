@@ -788,7 +788,7 @@ function save_bookmark_record(
         if ($existing !== null) {
             $statement = db()->prepare(
                 'UPDATE bookmarks
-                SET tag = :tag, note = :note
+                SET tag = :tag, note = :note, highlight_color = :highlight_color
                 WHERE id = :id AND user_id = :user_id'
             );
             $statement->execute([
@@ -796,6 +796,7 @@ function save_bookmark_record(
                 'user_id' => $userId,
                 'tag' => $normalizedTag,
                 'note' => $normalizedNote,
+                'highlight_color' => $normalizedColor ?: null,
             ]);
 
             return;

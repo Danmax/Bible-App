@@ -19,7 +19,7 @@ function bible_normalize_reader_mode(?string $mode): string
 {
     $normalizedMode = strtolower(trim((string) $mode));
 
-    return in_array($normalizedMode, ['verse', 'paragraph'], true) ? $normalizedMode : 'verse';
+    return in_array($normalizedMode, ['verse', 'paragraph'], true) ? $normalizedMode : 'paragraph';
 }
 
 function push_recent_bible_search(string $query, string $translation): void
@@ -383,7 +383,7 @@ $selectedBookId = (int) ($_GET['book_id'] ?? 0);
 $selectedChapter = (int) ($_GET['chapter'] ?? 0);
 $selectedVerseNumber = (int) ($_GET['verse'] ?? 0);
 $selectedVerseEndNumber = (int) ($_GET['verse_end'] ?? 0);
-$readerMode = bible_normalize_reader_mode($_GET['reader_mode'] ?? 'verse');
+$readerMode = bible_normalize_reader_mode($_GET['reader_mode'] ?? 'paragraph');
 $translations = supported_translations();
 $searchResults = [];
 $searchHeading = 'Bible Reader';
@@ -1082,7 +1082,7 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []): ?>
-                <details class="passage-resource-drawer top-gap-sm" open>
+                <details class="passage-resource-drawer top-gap-sm">
                     <summary>
                         <span>Resources for this passage</span>
                         <span><?= e(bible_share_reference($browseVerses, $selectedTranslation)); ?></span>
@@ -1261,22 +1261,12 @@ require_once __DIR__ . '/includes/header.php';
 
                 <nav class="bible-canvas-action-bar" aria-label="Bible Canvas actions">
                     <button type="button" data-mobile-reader-focus>Book</button>
-                    <?php if (($selectedVerseNumber > 0 ? $previousVerseUrl : $previousChapterUrl) !== null): ?>
-                        <a href="<?= e($selectedVerseNumber > 0 ? (string) $previousVerseUrl : (string) $previousChapterUrl); ?>" aria-label="<?= e($selectedVerseNumber > 0 ? 'Previous verse' : 'Previous chapter'); ?>">Prev</a>
-                    <?php else: ?>
-                        <span>Prev</span>
-                    <?php endif; ?>
                     <button type="button" data-mobile-study-open>Study</button>
                     <a href="<?= e($canvasNoteUrl); ?>">Note</a>
                     <?php if ($sharePayloadJson !== null): ?>
                         <button type="button" data-mobile-share-open>Share</button>
                     <?php else: ?>
                         <span>Share</span>
-                    <?php endif; ?>
-                    <?php if (($selectedVerseNumber > 0 ? $nextVerseUrl : $nextChapterUrl) !== null): ?>
-                        <a href="<?= e($selectedVerseNumber > 0 ? (string) $nextVerseUrl : (string) $nextChapterUrl); ?>" aria-label="<?= e($selectedVerseNumber > 0 ? 'Next verse' : 'Next chapter'); ?>">Next</a>
-                    <?php else: ?>
-                        <span>Next</span>
                     <?php endif; ?>
                 </nav>
 
@@ -1302,9 +1292,8 @@ require_once __DIR__ . '/includes/header.php';
 
                         <div class="mobile-study-tabs" role="tablist" aria-label="Mobile study tools">
                             <button class="is-active" type="button" role="tab" aria-selected="true" data-study-tab="actions">Actions</button>
-                            <button type="button" role="tab" aria-selected="false" data-study-tab="passage">Passage</button>
-                            <button type="button" role="tab" aria-selected="false" data-study-tab="word">Words</button>
-                            <button type="button" role="tab" aria-selected="false" data-study-tab="notes">Notes</button>
+                            <button type="button" role="tab" aria-selected="false" data-study-tab="passage">Context</button>
+                            <button type="button" role="tab" aria-selected="false" data-study-tab="more">More</button>
                         </div>
 
                         <div class="mobile-study-body">
@@ -1312,8 +1301,8 @@ require_once __DIR__ . '/includes/header.php';
                                 <div class="mobile-study-action-grid">
                                     <?php if (is_logged_in()): ?>
                                         <button class="button button-primary" type="button" data-study-save-selected>Save Verse</button>
-                                        <button class="button button-secondary" type="button" data-study-highlight-selected>Highlight Text</button>
-                                        <a class="button button-secondary" href="<?= e($canvasNoteUrl); ?>" data-study-note-link>Start Note</a>
+                                        <button class="button button-secondary" type="button" data-study-highlight-selected>Highlight Verse</button>
+                                        <button class="button button-secondary" type="button" data-study-quick-note>Quick Note</button>
                                     <?php else: ?>
                                         <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In To Save</a>
                                         <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create Account</a>
@@ -1364,7 +1353,10 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
                             </div>
 
-                            <div class="mobile-study-tab-panel" data-study-tab-panel="word">
+                            <div class="mobile-study-tab-panel" data-study-tab-panel="more">
+                                <div class="mobile-study-more-stack">
+                                    <div>
+                                        <p class="reader-tool-label">Study words</p>
                                 <?php if ($passageFocusTerms !== []): ?>
                                     <div class="bible-chip-row">
                                         <?php foreach ($passageFocusTerms as $term): ?>
@@ -1378,22 +1370,17 @@ require_once __DIR__ . '/includes/header.php';
                                 <?php else: ?>
                                     <p class="muted-copy">Open a passage or search result to see repeated words and related study paths.</p>
                                 <?php endif; ?>
-                            </div>
-
-                            <div class="mobile-study-tab-panel" data-study-tab-panel="notes">
-                                <div class="mobile-study-list">
-                                    <a href="<?= e($canvasNoteUrl); ?>" data-study-note-link>
-                                        <strong>Start A Note</strong>
-                                        <span>Attach reflection to the selected verse or passage</span>
-                                    </a>
-                                    <a href="<?= e(app_url('library.php?view=notes')); ?>">
-                                        <strong>All Notes</strong>
-                                        <span>Review your study journal</span>
-                                    </a>
-                                    <a href="<?= e(app_url('bookmarks.php')); ?>">
-                                        <strong>Bookmarks</strong>
-                                        <span>Return to saved verses and highlights</span>
-                                    </a>
+                                    </div>
+                                    <div class="mobile-study-list">
+                                        <a href="<?= e(app_url('library.php?view=notes')); ?>">
+                                            <strong>All Notes</strong>
+                                            <span>Review your study journal</span>
+                                        </a>
+                                        <a href="<?= e(app_url('bookmarks.php')); ?>">
+                                            <strong>Saved Library</strong>
+                                            <span>Return to saved verses and highlights</span>
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1430,10 +1417,11 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="hidden" name="return_verse" value="<?= e((string) $selectedVerseNumber); ?>">
                                 <input type="hidden" name="return_verse_end" value="<?= e((string) $selectedVerseEndNumber); ?>">
                                 <input type="hidden" name="return_reader_mode" value="<?= e($readerMode); ?>">
-                                <input type="hidden" name="highlight_color" value="neon-yellow">
+                                <input type="hidden" name="highlight_color" value="">
 
                                 <div class="color-picker-row" data-color-picker>
-                                    <button class="color-swatch neon-yellow is-active" type="button" data-color="neon-yellow" aria-label="Neon yellow"></button>
+                                    <button class="color-swatch color-swatch-none is-active" type="button" data-color="" aria-label="No highlight">None</button>
+                                    <button class="color-swatch neon-yellow" type="button" data-color="neon-yellow" aria-label="Yellow highlight"></button>
                                     <button class="color-swatch neon-green" type="button" data-color="neon-green" aria-label="Neon green"></button>
                                     <button class="color-swatch neon-blue" type="button" data-color="neon-blue" aria-label="Neon blue"></button>
                                     <button class="color-swatch neon-orange" type="button" data-color="neon-orange" aria-label="Neon orange"></button>
@@ -1463,7 +1451,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </label>
 
                                 <div class="inline-actions">
-                                    <button class="button button-primary" type="submit">Save Bookmark</button>
+                                    <button class="button button-primary" type="submit" data-popup-submit>Save Bookmark</button>
                                     <button class="button button-secondary" type="button" data-popup-clear>Clear</button>
                                     <a class="button button-secondary" href="#" data-popup-note-link>Add Note</a>
                                 </div>
