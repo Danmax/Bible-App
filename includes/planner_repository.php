@@ -266,6 +266,43 @@ function create_prayer_entry_record(int $userId, string $title, ?string $details
     return (int) db()->lastInsertId();
 }
 
+function fetch_prayer_entry(int $entryId, int $userId): ?array
+{
+    $statement = db()->prepare(
+        'SELECT *
+        FROM prayer_entries
+        WHERE id = :id
+            AND user_id = :user_id
+        LIMIT 1'
+    );
+    $statement->execute([
+        'id' => $entryId,
+        'user_id' => $userId,
+    ]);
+    $entry = $statement->fetch();
+
+    return $entry ?: null;
+}
+
+function update_prayer_entry_record(int $entryId, int $userId, string $title, ?string $details = null, string $status = 'active'): void
+{
+    $statement = db()->prepare(
+        'UPDATE prayer_entries
+        SET title = :title,
+            details = :details,
+            status = :status
+        WHERE id = :id
+            AND user_id = :user_id'
+    );
+    $statement->execute([
+        'id' => $entryId,
+        'user_id' => $userId,
+        'title' => trim($title),
+        'details' => normalize_optional_text($details),
+        'status' => $status,
+    ]);
+}
+
 function update_prayer_entry_status(int $entryId, int $userId, string $status): void
 {
     $statement = db()->prepare(

@@ -1277,6 +1277,33 @@ span {
     font-size: 1.1rem;
 }
 
+.library-record-card {
+    display: grid;
+    align-content: start;
+    gap: 0.9rem;
+    min-height: 100%;
+    padding: 1rem;
+    border: 1px solid rgba(34, 51, 59, 0.1);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 252, 248, 0.72);
+}
+
+.library-record-card > div:first-child {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.library-record-card strong {
+    color: var(--primary-dark);
+    font-family: "Outfit", sans-serif;
+    font-size: 1.12rem;
+    line-height: 1.2;
+}
+
+.library-record-card .inline-actions {
+    align-self: end;
+}
+
 .card-grid {
     display: grid;
     gap: 1.2rem;

@@ -9,7 +9,7 @@ require_once __DIR__ . '/system_repository.php';
 function fetch_recent_notes(int $userId, int $limit = 3): array
 {
     $statement = db()->prepare(
-        'SELECT study_notes.*, books.name AS book_name, verses.chapter_number, verses.verse_number, verses.translation
+        'SELECT study_notes.*, verses.book_id, books.name AS book_name, verses.chapter_number, verses.verse_number, verses.translation
         FROM study_notes
         LEFT JOIN verses ON verses.id = study_notes.verse_id
         LEFT JOIN books ON books.id = verses.book_id

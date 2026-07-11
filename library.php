@@ -18,6 +18,7 @@ $sermonNotes = [];
 $prayerEntries = [];
 $noteableVerses = [];
 $editingNote = null;
+$editingPrayer = null;
 $sermonNotesEnabled = sermon_notes_available();
 $libraryViews = [
     'overview' => 'Overview',
@@ -66,6 +67,19 @@ try {
             $noteForm['verse_id'] = (string) $requestedVerseId;
             $noteForm['title'] = sprintf('Reflection on %s', format_verse_reference($selectedVerse));
             array_unshift($noteableVerses, $selectedVerse);
+        }
+    }
+
+    $editPrayerId = (int) ($_GET['edit_prayer'] ?? 0);
+    if ($editPrayerId > 0) {
+        $editingPrayer = fetch_prayer_entry($editPrayerId, (int) $user['id']);
+        if ($editingPrayer !== null) {
+            $activeView = 'prayer';
+            $prayerForm['title'] = (string) $editingPrayer['title'];
+            $prayerForm['details'] = (string) ($editingPrayer['details'] ?? '');
+            $prayerForm['status'] = in_array((string) ($editingPrayer['status'] ?? 'active'), ['active', 'answered'], true)
+                ? (string) $editingPrayer['status']
+                : 'active';
         }
     }
 } catch (Throwable $exception) {
@@ -129,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('library.php?view=notes');
         }
 
-        if ($action === 'create-prayer') {
+        if ($action === 'create-prayer' || $action === 'update-prayer') {
             $prayerForm['title'] = trim((string) ($_POST['title'] ?? ''));
             $prayerForm['details'] = trim((string) ($_POST['details'] ?? ''));
             $prayerForm['status'] = in_array((string) ($_POST['status'] ?? 'active'), ['active', 'answered'], true)
@@ -140,8 +154,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Enter a prayer title.');
             }
 
-            create_prayer_entry_record((int) $user['id'], $prayerForm['title'], $prayerForm['details'], $prayerForm['status']);
-            set_flash('Prayer request saved.', 'success');
+            if ($action === 'update-prayer') {
+                update_prayer_entry_record(
+                    (int) ($_POST['entry_id'] ?? 0),
+                    (int) $user['id'],
+                    $prayerForm['title'],
+                    $prayerForm['details'],
+                    $prayerForm['status']
+                );
+                set_flash('Prayer request updated.', 'success');
+            } else {
+                create_prayer_entry_record((int) $user['id'], $prayerForm['title'], $prayerForm['details'], $prayerForm['status']);
+                set_flash('Prayer request saved.', 'success');
+            }
+
             redirect('library.php?view=prayer');
         }
 
@@ -165,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activeView = match ($action) {
             'update-bookmark', 'delete-bookmark' => 'saved',
             'create-note', 'update-note', 'delete-note' => 'notes',
-            'create-prayer', 'mark-prayer-answered', 'reopen-prayer', 'delete-prayer' => 'prayer',
+            'create-prayer', 'update-prayer', 'mark-prayer-answered', 'reopen-prayer', 'delete-prayer' => 'prayer',
             default => $activeView,
         };
     }
@@ -186,6 +212,7 @@ try {
 $recentBookmarks = array_slice($bookmarks, 0, 3);
 $recentNotes = array_slice($notes, 0, 3);
 $recentSermonNotes = array_slice($sermonNotes, 0, 3);
+$recentPrayerEntries = array_slice($prayerEntries, 0, 3);
 $activePrayerEntries = array_values(array_filter(
     $prayerEntries,
     static fn(array $entry): bool => (string) ($entry['status'] ?? 'active') === 'active'
@@ -244,42 +271,39 @@ require_once __DIR__ . '/includes/header.php';
         </nav>
 
         <?php if ($activeView === 'overview'): ?>
-            <div class="card-grid card-grid-4 top-gap">
-                <?php foreach ([
-                    ['view' => 'saved', 'title' => 'Saved Scripture', 'copy' => 'Highlights, bookmarks, tags, and short verse notes from the reader.'],
-                    ['view' => 'notes', 'title' => 'Study Notes', 'copy' => 'Personal observations, reflections, and verse-linked writing.'],
-                    ['view' => 'sermons', 'title' => 'Sermon Docs', 'copy' => 'Teaching notes with citations, reference groups, summaries, and share links.'],
-                    ['view' => 'prayer', 'title' => 'Prayer', 'copy' => 'Active needs and answered prayers connected to your Scripture rhythm.'],
-                ] as $card): ?>
-                    <article class="feature-card feature-card-new">
-                        <h2><?= e($card['title']); ?></h2>
-                        <p><?= e($card['copy']); ?></p>
-                        <a class="button button-secondary" href="<?= e(app_url('library.php?view=' . $card['view'])); ?>">Open</a>
-                    </article>
-                <?php endforeach; ?>
-            </div>
-
             <div class="two-column top-gap">
                 <section class="panel">
                     <div class="panel-heading">
                         <div>
-                            <p class="eyebrow">Recent Scripture</p>
+                            <p class="eyebrow">Saved Scripture</p>
                             <h2>Saved passages</h2>
                         </div>
-                        <a class="button button-secondary" href="<?= e(app_url('library.php?view=saved')); ?>">View All</a>
+                        <div class="inline-actions">
+                            <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Save New</a>
+                            <a class="button button-secondary" href="<?= e(app_url('library.php?view=saved')); ?>">View All</a>
+                        </div>
                     </div>
 
                     <div class="stack-list top-gap-sm">
                         <?php if ($recentBookmarks === []): ?>
-                            <p class="empty-state">Save or highlight a verse in the Bible reader to start your library.</p>
+                            <article class="library-empty-card">
+                                <span class="pill">Saved Scripture</span>
+                                <strong>No saved verses yet</strong>
+                                <span>Open the Bible reader, tap a verse, and save a bookmark or highlight.</span>
+                                <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Open Bible</a>
+                            </article>
                         <?php else: ?>
                             <?php foreach ($recentBookmarks as $bookmark): ?>
-                                <article class="list-card list-card-block">
+                                <article class="library-record-card">
                                     <div>
+                                        <span class="pill">Saved Verse</span>
                                         <strong><?= e(format_verse_reference($bookmark)); ?></strong>
                                         <span><?= e(truncate_text((string) $bookmark['verse_text'], 130)); ?></span>
                                     </div>
-                                    <a class="button button-secondary" href="<?= e(library_reader_url($bookmark)); ?>">Open</a>
+                                    <div class="inline-actions">
+                                        <a class="button button-secondary" href="<?= e(library_reader_url($bookmark)); ?>">Open</a>
+                                        <a class="button button-secondary" href="<?= e(app_url('library.php?view=saved#bookmark-' . (int) $bookmark['id'])); ?>">Edit</a>
+                                    </div>
                                 </article>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -289,38 +313,120 @@ require_once __DIR__ . '/includes/header.php';
                 <section class="panel">
                     <div class="panel-heading">
                         <div>
-                            <p class="eyebrow">Recent Writing</p>
-                            <h2>Notes and sermons</h2>
+                            <p class="eyebrow">Study Notes</p>
+                            <h2>Your notes</h2>
                         </div>
-                        <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes')); ?>">Write</a>
+                        <div class="inline-actions">
+                            <a class="button button-primary" href="<?= e(app_url('library.php?view=notes')); ?>">Create New</a>
+                            <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes')); ?>">View All</a>
+                        </div>
                     </div>
 
                     <div class="stack-list top-gap-sm">
-                        <?php if ($recentNotes === [] && $recentSermonNotes === []): ?>
-                            <p class="empty-state">Notes linked to Scripture will appear here.</p>
+                        <?php if ($recentNotes === []): ?>
+                            <article class="library-empty-card">
+                                <span class="pill">Study Note</span>
+                                <strong>No notes yet</strong>
+                                <span>Create reflections, observations, and verse-linked notes.</span>
+                                <a class="button button-primary" href="<?= e(app_url('library.php?view=notes')); ?>">Create Note</a>
+                            </article>
                         <?php endif; ?>
 
                         <?php foreach ($recentNotes as $note): ?>
-                            <article class="list-card list-card-block">
+                            <article class="library-record-card">
                                 <div>
                                     <span class="pill">Study Note</span>
                                     <strong><?= e((string) $note['title']); ?></strong>
                                     <span><?= e(truncate_text((string) $note['content'], 130)); ?></span>
                                 </div>
-                                <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes&edit_note=' . (int) $note['id'])); ?>">Open</a>
+                                <div class="inline-actions">
+                                    <?php if (!empty($note['book_name'])): ?>
+                                        <a class="button button-secondary" href="<?= e(library_reader_url($note)); ?>">Open Verse</a>
+                                    <?php endif; ?>
+                                    <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes&edit_note=' . (int) $note['id'])); ?>">Edit</a>
+                                </div>
                             </article>
                         <?php endforeach; ?>
+                    </div>
+                </section>
+            </div>
+
+            <div class="two-column top-gap">
+                <section class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Sermon Notes</p>
+                            <h2>Teaching docs</h2>
+                        </div>
+                        <div class="inline-actions">
+                            <a class="button button-primary" href="<?= e(app_url('sermon-notes.php?new=1')); ?>">Create New</a>
+                            <a class="button button-secondary" href="<?= e(app_url('library.php?view=sermons')); ?>">View All</a>
+                        </div>
+                    </div>
+
+                    <div class="stack-list top-gap-sm">
+                        <?php if (!$sermonNotesEnabled): ?>
+                            <article class="library-empty-card">
+                                <span class="pill">Sermon Note</span>
+                                <strong>Sermon docs are not installed yet</strong>
+                                <span>Run the sermon notes migration to enable the editor.</span>
+                            </article>
+                        <?php elseif ($recentSermonNotes === []): ?>
+                            <article class="library-empty-card">
+                                <span class="pill">Sermon Note</span>
+                                <strong>No sermon notes yet</strong>
+                                <span>Create a teaching document with citations, summaries, and study sections.</span>
+                                <a class="button button-primary" href="<?= e(app_url('sermon-notes.php?new=1')); ?>">Create Sermon Note</a>
+                            </article>
+                        <?php endif; ?>
 
                         <?php foreach ($recentSermonNotes as $note): ?>
-                            <article class="list-card list-card-block">
+                            <article class="library-record-card">
                                 <div>
                                     <span class="pill">Sermon Doc</span>
                                     <strong><?= e((string) $note['title']); ?></strong>
                                     <span><?= e(truncate_text((string) ($note['content_excerpt'] ?? ''), 130)); ?></span>
                                 </div>
-                                <a class="button button-secondary" href="<?= e(app_url('sermon-notes.php?note=' . (int) $note['id'])); ?>">Open</a>
+                                <a class="button button-secondary" href="<?= e(app_url('sermon-notes.php?note=' . (int) $note['id'])); ?>">Edit</a>
                             </article>
                         <?php endforeach; ?>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Prayer</p>
+                            <h2>Prayer cards</h2>
+                        </div>
+                        <div class="inline-actions">
+                            <a class="button button-primary" href="<?= e(app_url('library.php?view=prayer')); ?>">Create New</a>
+                            <a class="button button-secondary" href="<?= e(app_url('library.php?view=prayer')); ?>">View All</a>
+                        </div>
+                    </div>
+
+                    <div class="stack-list top-gap-sm">
+                        <?php if ($recentPrayerEntries === []): ?>
+                            <article class="library-empty-card">
+                                <span class="pill">Prayer</span>
+                                <strong>No prayer cards yet</strong>
+                                <span>Add requests, answered prayers, and reflections from your Bible rhythm.</span>
+                                <a class="button button-primary" href="<?= e(app_url('library.php?view=prayer')); ?>">Create Prayer</a>
+                            </article>
+                        <?php else: ?>
+                            <?php foreach ($recentPrayerEntries as $entry): ?>
+                                <article class="library-record-card">
+                                    <div>
+                                        <span class="pill <?= (string) $entry['status'] === 'answered' ? 'pill-dark' : ''; ?>"><?= e(ucfirst((string) $entry['status'])); ?></span>
+                                        <strong><?= e((string) $entry['title']); ?></strong>
+                                        <?php if (!empty($entry['details'])): ?>
+                                            <span><?= e(truncate_text((string) $entry['details'], 130)); ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <a class="button button-secondary" href="<?= e(app_url('library.php?view=prayer&edit_prayer=' . (int) $entry['id'])); ?>">Edit</a>
+                                </article>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
                 </section>
             </div>
@@ -348,7 +454,7 @@ require_once __DIR__ . '/includes/header.php';
                         </article>
                     <?php else: ?>
                         <?php foreach ($bookmarks as $bookmark): ?>
-                            <article class="bookmark-card bookmark-card-full">
+                            <article class="bookmark-card bookmark-card-full" id="bookmark-<?= e((string) $bookmark['id']); ?>">
                                 <div class="bookmark-verse">
                                     <h3><?= e(format_verse_reference($bookmark)); ?></h3>
                                     <p><?= e((string) ($bookmark['selected_text'] ?: $bookmark['verse_text'])); ?></p>
@@ -454,7 +560,7 @@ require_once __DIR__ . '/includes/header.php';
                             </article>
                         <?php else: ?>
                             <?php foreach ($notes as $note): ?>
-                                <article class="note-card">
+                            <article class="note-card" id="note-<?= e((string) $note['id']); ?>">
                                     <h3><?= e((string) $note['title']); ?></h3>
                                     <?php if (!empty($note['book_name'])): ?>
                                         <p class="muted-copy"><?= e(format_verse_reference($note)); ?></p>
@@ -506,7 +612,7 @@ require_once __DIR__ . '/includes/header.php';
                         </article>
                     <?php else: ?>
                         <?php foreach ($sermonNotes as $note): ?>
-                            <article class="list-card list-card-block">
+                            <article class="list-card list-card-block" id="sermon-note-<?= e((string) $note['id']); ?>">
                                 <span class="pill"><?= e(ucfirst((string) ($note['status'] ?? 'draft'))); ?></span>
                                 <strong><?= e((string) $note['title']); ?></strong>
                                 <span><?= e(truncate_text((string) ($note['content_excerpt'] ?? ''), 160)); ?></span>
@@ -522,12 +628,18 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="panel-heading">
                         <div>
                             <p class="eyebrow">Prayer</p>
-                            <h2>New prayer request</h2>
+                            <h2><?= $editingPrayer ? 'Edit prayer request' : 'New prayer request'; ?></h2>
                         </div>
+                        <?php if ($editingPrayer): ?>
+                            <a class="button button-secondary" href="<?= e(app_url('library.php?view=prayer')); ?>">New Prayer</a>
+                        <?php endif; ?>
                     </div>
                     <form class="form-stack compact-form" method="post">
                         <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
-                        <input type="hidden" name="action" value="create-prayer">
+                        <input type="hidden" name="action" value="<?= $editingPrayer ? 'update-prayer' : 'create-prayer'; ?>">
+                        <?php if ($editingPrayer): ?>
+                            <input type="hidden" name="entry_id" value="<?= e((string) $editingPrayer['id']); ?>">
+                        <?php endif; ?>
                         <label>
                             <span>Title</span>
                             <input type="text" name="title" value="<?= e($prayerForm['title']); ?>" required>
@@ -543,7 +655,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <option value="answered" <?= $prayerForm['status'] === 'answered' ? 'selected' : ''; ?>>Answered</option>
                             </select>
                         </label>
-                        <button class="button button-primary" type="submit">Save Prayer</button>
+                        <button class="button button-primary" type="submit"><?= $editingPrayer ? 'Update Prayer' : 'Save Prayer'; ?></button>
                     </form>
                 </section>
 
@@ -567,7 +679,7 @@ require_once __DIR__ . '/includes/header.php';
                             </article>
                         <?php else: ?>
                             <?php foreach ($prayerEntries as $entry): ?>
-                                <article class="list-card list-card-block">
+                                <article class="list-card list-card-block" id="prayer-<?= e((string) $entry['id']); ?>">
                                     <div>
                                         <span class="pill <?= (string) $entry['status'] === 'answered' ? 'pill-dark' : ''; ?>"><?= e(ucfirst((string) $entry['status'])); ?></span>
                                         <strong><?= e((string) $entry['title']); ?></strong>
@@ -582,6 +694,7 @@ require_once __DIR__ . '/includes/header.php';
                                             <input type="hidden" name="entry_id" value="<?= e((string) $entry['id']); ?>">
                                             <button class="button button-secondary" type="submit"><?= (string) $entry['status'] === 'active' ? 'Mark Answered' : 'Reopen'; ?></button>
                                         </form>
+                                        <a class="button button-secondary" href="<?= e(app_url('library.php?view=prayer&edit_prayer=' . (int) $entry['id'])); ?>">Edit</a>
                                         <form method="post">
                                             <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                                             <input type="hidden" name="action" value="delete-prayer">
