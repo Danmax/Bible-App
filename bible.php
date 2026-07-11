@@ -1355,6 +1355,17 @@ require_once __DIR__ . '/includes/header.php';
 
                             <div class="mobile-study-tab-panel" data-study-tab-panel="more">
                                 <div class="mobile-study-more-stack">
+                                    <?php if ($readerMode === 'paragraph'): ?>
+                                        <div class="reader-font-size-control" data-reader-font-size-control>
+                                            <p class="reader-tool-label">Text size</p>
+                                            <div class="reader-font-size-options" role="group" aria-label="Paragraph text size">
+                                                <button type="button" data-reader-font-size="1" aria-pressed="true">1</button>
+                                                <button type="button" data-reader-font-size="2" aria-pressed="false">2</button>
+                                                <button type="button" data-reader-font-size="3" aria-pressed="false">3</button>
+                                                <button type="button" data-reader-font-size="4" aria-pressed="false">4</button>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
                                     <div>
                                         <p class="reader-tool-label">Study words</p>
                                 <?php if ($passageFocusTerms !== []): ?>

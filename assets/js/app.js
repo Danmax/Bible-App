@@ -2274,6 +2274,62 @@ const bookmarkPopupForm = document.querySelector('[data-bookmark-popup-form]');
 const mobileStudySheet = document.querySelector('[data-mobile-study-sheet]');
 
 if (chapterReader) {
+    const paragraphFontStorageKey = 'bible-paragraph-font-size';
+    const paragraphFontSizes = {
+        1: { desktop: '1.28rem', mobile: '1.18rem' },
+        2: { desktop: '1.42rem', mobile: '1.3rem' },
+        3: { desktop: '1.56rem', mobile: '1.42rem' },
+        4: { desktop: '1.72rem', mobile: '1.56rem' },
+    };
+    const paragraphFontButtons = document.querySelectorAll('[data-reader-font-size]');
+    const paragraphMobileQuery = window.matchMedia('(max-width: 760px)');
+
+    let currentParagraphFontSize = '1';
+
+    const savedParagraphFontSize = (() => {
+        try {
+            return window.localStorage.getItem(paragraphFontStorageKey) || '1';
+        } catch (error) {
+            return '1';
+        }
+    })();
+
+    const setParagraphFontSize = (size, shouldStore = true) => {
+        const normalizedSize = Object.prototype.hasOwnProperty.call(paragraphFontSizes, size) ? size : '1';
+        const fontSize = paragraphMobileQuery.matches
+            ? paragraphFontSizes[normalizedSize].mobile
+            : paragraphFontSizes[normalizedSize].desktop;
+
+        currentParagraphFontSize = normalizedSize;
+        chapterReader.style.setProperty('--reader-paragraph-font-size', fontSize);
+
+        paragraphFontButtons.forEach((button) => {
+            const isActive = button.getAttribute('data-reader-font-size') === normalizedSize;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        if (shouldStore) {
+            try {
+                window.localStorage.setItem(paragraphFontStorageKey, normalizedSize);
+            } catch (error) {}
+        }
+    };
+
+    if (chapterReader.classList.contains('is-paragraph')) {
+        setParagraphFontSize(savedParagraphFontSize, false);
+
+        paragraphFontButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                setParagraphFontSize(button.getAttribute('data-reader-font-size') || '1');
+            });
+        });
+
+        paragraphMobileQuery.addEventListener('change', () => {
+            setParagraphFontSize(currentParagraphFontSize, false);
+        });
+    }
+
     const scrollToTargetVerse = () => {
         const pendingHash = window.sessionStorage.getItem('reader-smooth-scroll-target') || '';
         const hash = pendingHash.trim();
