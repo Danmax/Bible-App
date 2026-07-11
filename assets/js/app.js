@@ -2462,11 +2462,14 @@ if (chapterReader && bookmarkPopup) {
 
     const hidePopup = () => {
         bookmarkPopup.hidden = true;
+        bookmarkPopup.classList.remove('is-open');
+        document.body.classList.remove('has-bookmark-popup');
     };
 
     const closeMobileStudySheet = () => {
         if (mobileStudySheet instanceof HTMLElement) {
             mobileStudySheet.hidden = true;
+            mobileStudySheet.setAttribute('aria-hidden', 'true');
             document.body.classList.remove('has-mobile-study-sheet');
         }
     };
@@ -2603,6 +2606,7 @@ if (chapterReader && bookmarkPopup) {
 
         setStudySheetTab(tabName);
         mobileStudySheet.hidden = false;
+        mobileStudySheet.setAttribute('aria-hidden', 'false');
         document.body.classList.add('has-mobile-study-sheet');
         window.setTimeout(() => {
             const activeTab = mobileStudySheet.querySelector('[data-study-tab].is-active');
@@ -2691,6 +2695,8 @@ if (chapterReader && bookmarkPopup) {
 
         closeMobileStudySheet();
         bookmarkPopup.hidden = false;
+        bookmarkPopup.classList.add('is-open');
+        document.body.classList.add('has-bookmark-popup');
         setActiveColor(selectedText || highlightVerse ? 'neon-yellow' : '');
         positionPopup(startVerseCard);
 
@@ -2790,6 +2796,28 @@ if (chapterReader && bookmarkPopup) {
 
     chapterReader.addEventListener('keyup', () => {
         window.setTimeout(updateSelection, 0);
+    });
+
+    chapterReader.addEventListener('touchend', () => {
+        window.setTimeout(updateSelection, 120);
+    }, { passive: true });
+
+    document.addEventListener('selectionchange', () => {
+        const selection = window.getSelection();
+
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const startVerseCard = closestMatch(range.startContainer, '[data-verse-card]');
+
+        if (!startVerseCard || !chapterReader.contains(startVerseCard)) {
+            return;
+        }
+
+        window.clearTimeout(chapterReader.selectionUpdateTimer);
+        chapterReader.selectionUpdateTimer = window.setTimeout(updateSelection, 220);
     });
 
     colorPicker?.querySelectorAll('[data-color]').forEach((button) => {

@@ -4544,9 +4544,13 @@ textarea:focus {
     position: fixed;
     top: 6rem;
     right: 1.5rem;
-    z-index: 30;
+    z-index: 90;
     width: min(26rem, calc(100vw - 2rem));
     max-height: calc(100dvh - 7rem);
+}
+
+.bookmark-popup[hidden] {
+    display: none;
 }
 
 .bookmark-popup-card {
@@ -4942,7 +4946,7 @@ textarea:focus {
         top: 6rem;
         right: 1rem;
         left: 1rem;
-        z-index: 65;
+        z-index: 90;
         width: auto;
         max-height: calc(100dvh - 7rem);
     }
