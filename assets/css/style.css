@@ -5156,6 +5156,11 @@ textarea:focus {
         grid-column: 1 / -1;
     }
 
+    .search-row-scripture .voice-search-button {
+        min-width: 0;
+        padding-inline: 0;
+    }
+
     .dictionary-reference-grid {
         grid-template-columns: 1fr;
     }
@@ -6081,6 +6086,55 @@ textarea:focus {
 }
 
 @media (max-width: 500px) {
+    .bible-canvas-shell {
+        padding-inline: 0.7rem;
+    }
+
+    .search-row-scripture {
+        grid-template-columns: 3rem minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .search-row-scripture input,
+    .search-row-scripture select {
+        grid-column: 1 / -1;
+    }
+
+    .search-row-scripture .voice-search-button {
+        grid-column: 1;
+    }
+
+    .search-row-scripture .bible-select-toggle {
+        grid-column: 2;
+    }
+
+    .search-row-scripture .button[type="submit"] {
+        grid-column: 3;
+    }
+
+    .bible-mobile-canvas-nav {
+        width: min(20rem, calc(100vw - 2.8rem));
+    }
+
+    .bible-mobile-nav-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .bible-mobile-book-field,
+    .bible-mobile-chapter-field,
+    .bible-mobile-verse-field,
+    .bible-mobile-verse-end-field,
+    .bible-mobile-nav-form .button {
+        grid-column: span 1;
+    }
+
+    .bible-mobile-chapter-rail {
+        grid-template-columns: 3.8rem minmax(0, 1fr) 3.8rem;
+    }
+
+    .bible-canvas-action-bar {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .home-quick-access {
         grid-template-columns: repeat(4, 1fr);
     }
