@@ -7,7 +7,7 @@ Good News Bible is a PHP + MySQL Bible study app focused on reading, prayer, ser
 - Bible reader with quick reference search like `John 3:16` and `Daniel 6:20-24`
 - Verse view and paragraph view reader modes
 - Compact chapter and verse navigation with previous/next stepping
-- Bookmarks, multi-verse highlights, verse notes, and voice note support with collapsible edit panels
+- Bookmarks, multi-verse highlights, verse notes, and a simplified mobile text-marking flow
 - Public post share composer for verses and passages with portrait and square templates
 - Seasonal site themes with `Spring`, `Summer`, `Fall`, `Winter`, and `Good News`
 - Good News hub for devotionals, events, plans, feed, celebrations, and prayer
@@ -20,7 +20,7 @@ Good News Bible is a PHP + MySQL Bible study app focused on reading, prayer, ser
 - Local authentication with profile management, password reset, and active sessions
 - Friends, saved verses, dashboard, and notes surfaces
 - Sermon notes system with rich editor, storm board, verse citations, and AI assistance
-- Redesigned home page with daily verse, quick-access tiles, and new feature highlights
+- Mobile-first Bible reader controls with icon actions for passage navigation, bookmarking, highlighting, notes, sharing, and font size
 
 ## Tech Stack
 
@@ -61,54 +61,6 @@ Default translation: `MSB`
 - `admin/studies.php`: admin curated Bible study management
 - `admin/radio.php`: admin Christian radio station management
 
-## Local Setup
-
-1. Create a MySQL database.
-2. Import `sql/schema.sql`.
-3. Run any applicable migration files from `sql/`.
-4. Copy `.env.example` to `.env.local`.
-5. Fill in database and app settings.
-6. Start the PHP server from the repo root.
-
-Example `.env.local`:
-
-```env
-APP_BASE_URL=http://127.0.0.1:8003
-APP_ENV=local
-APP_DEFAULT_TRANSLATION=MSB
-DB_HOST=localhost
-DB_NAME=good_news_bible
-DB_USER=root
-DB_PASS=
-```
-
-Run locally:
-
-```bash
-php -S 127.0.0.1:8003
-```
-
-Open:
-
-```text
-http://127.0.0.1:8003
-```
-
-## Environment Notes
-
-Important app settings include:
-
-- `APP_BASE_URL`
-- `APP_ENV`
-- `APP_DEBUG_LINKS`
-- `APP_DEFAULT_TRANSLATION`
-- `OPENAI_API_KEY`
-- `OPENAI_EVENT_MODEL`
-- `DB_HOST`
-- `DB_NAME`
-- `DB_USER`
-- `DB_PASS`
-
 ## AI And Voice Features
 
 Optional OpenAI-assisted drafting and browser speech input are used for:
@@ -124,7 +76,7 @@ Optional OpenAI-assisted drafting and browser speech input are used for:
 - sermon reference tag and verse suggestions
 - verse paraphrases for sermon study
 
-Set `OPENAI_API_KEY` in `.env.local` to enable model-based drafting. Set `OPENAI_EVENT_MODEL` to choose which OpenAI model to use (default: `gpt-4o-mini`). Voice input depends on browser speech-recognition support.
+AI-assisted features are optional and depend on configured model access. Voice input depends on browser speech-recognition support.
 
 ## Sermon Notes
 
@@ -170,35 +122,6 @@ Primary files:
 - `admin/studies.php`: create, edit, publish, archive, and delete curated studies
 - `includes/study_repository.php`: database access for studies, steps, enrollments, progress, invites, discussion, and badges
 
-Install or update the database with:
-
-```bash
-mysql -u your_user -p your_database < sql/add_curated_bible_studies.sql
-```
-
-## Email Delivery
-
-The app includes SMTP delivery support for:
-
-- password reset emails
-- email change confirmation emails
-- friend invite emails
-
-Recommended Google Workspace relay configuration:
-
-```env
-APP_MAIL_FROM_EMAIL=goodnews@frowear.com
-APP_MAIL_FROM_NAME=Good News Bible
-SMTP_HOST=smtp-relay.gmail.com
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASS=
-SMTP_ENCRYPTION=tls
-SMTP_TIMEOUT=15
-```
-
-If relay setup is not ready yet, local debug links can still be used during development with `APP_DEBUG_LINKS=true`.
-
 ## Security
 
 - Passwords are stored with PHP password hashing
@@ -212,7 +135,7 @@ If relay setup is not ready yet, local debug links can still be used during deve
 - `[hidden]` attribute is enforced via `[hidden] { display: none !important }` in the stylesheet
 - Rich HTML content (sermon notes) is sanitized with a DOMDocument whitelist before storage
 - Security headers include HSTS, X-Frame-Options, Referrer-Policy, and Permissions-Policy
-- Production should use a fixed `APP_BASE_URL`
+- Production should use a fixed canonical app URL
 
 ## Migrations
 
@@ -234,20 +157,11 @@ Recent migrations:
 
 ## Bible Import Scripts
 
-The app includes import tools for adding Bible text into the `verses` table.
-
-Available scripts:
+The app includes import tools for adding Bible text into the `verses` table:
 
 - `scripts/import_translation_vpl.php`
 - `scripts/import_translation_reference_text.php`
 - `scripts/import_translation_helpers.php`
-
-Examples:
-
-```bash
-php scripts/import_translation_vpl.php WEB /path/to/translation.vpl
-php scripts/import_translation_reference_text.php MSB /path/to/msb.txt
-```
 
 ## Assets
 
@@ -303,13 +217,7 @@ This keeps editing flows consistent and avoids browser-native alert or prompt in
 
 ## Deployment
 
-This project is designed to deploy directly to standard PHP hosting.
-
-Recommended production target: `PHP 8.4`
-
-See:
-
-- `DEPLOY_HOSTINGER.md`
+This project is designed to deploy directly to standard PHP hosting. Recommended production target: `PHP 8.4`.
 
 ## Christian Radio
 
@@ -328,6 +236,7 @@ Recent work has focused on:
 - AI-powered sermon summaries, reference suggestions, and verse paraphrases
 - Home page modernization with daily verse, quick-access tiles, and feature highlights
 - Bookmarks UI with collapsible edit panels
+- Simplified Bible reader toolbar and compact mobile selected-text marking
 - Security hardening: CSP compliance, `[hidden]` attribute enforcement, AI response error handling
 - Good News Bible branding, icons, and social preview metadata
 - Bible reader UX, mobile controls, and share-post tooling

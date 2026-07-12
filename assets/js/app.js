@@ -2385,6 +2385,10 @@ if (chapterReader && bookmarkPopup) {
     const noteInput = bookmarkPopupForm?.querySelector('textarea[name="note"]') || null;
     let activeStudyVerseCard = null;
 
+    const isMobileReaderViewport = () => {
+        return window.matchMedia('(max-width: 760px)').matches;
+    };
+
     const closestMatch = (node, selector) => {
         if (node instanceof Element) {
             return node.closest(selector);
@@ -2463,6 +2467,7 @@ if (chapterReader && bookmarkPopup) {
     const hidePopup = () => {
         bookmarkPopup.hidden = true;
         bookmarkPopup.classList.remove('is-open');
+        bookmarkPopup.classList.remove('is-mobile-selection-mark');
         document.body.classList.remove('has-bookmark-popup');
     };
 
@@ -2697,6 +2702,7 @@ if (chapterReader && bookmarkPopup) {
         closeMobileStudySheet();
         bookmarkPopup.hidden = false;
         bookmarkPopup.classList.add('is-open');
+        bookmarkPopup.classList.toggle('is-mobile-selection-mark', Boolean(selectedText && isMobileReaderViewport()));
         document.body.classList.add('has-bookmark-popup');
         setActiveColor(selectedText || highlightVerse ? 'neon-yellow' : '');
         positionPopup(startVerseCard);
@@ -2797,6 +2803,24 @@ if (chapterReader && bookmarkPopup) {
     chapterReader.addEventListener('touchend', () => {
         window.setTimeout(updateSelection, 120);
     }, { passive: true });
+
+    chapterReader.addEventListener('contextmenu', (event) => {
+        const selection = window.getSelection();
+
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const startVerseCard = closestMatch(range.startContainer, '[data-verse-card]');
+
+        if (!startVerseCard || !chapterReader.contains(startVerseCard)) {
+            return;
+        }
+
+        event.preventDefault();
+        updateSelection();
+    });
 
     document.addEventListener('selectionchange', () => {
         const selection = window.getSelection();
