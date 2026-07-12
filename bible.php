@@ -1260,13 +1260,33 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endif; ?>
 
                 <nav class="bible-canvas-action-bar" aria-label="Bible Canvas actions">
-                    <button type="button" data-mobile-reader-focus>Book</button>
-                    <button type="button" data-mobile-study-open>Study</button>
-                    <a href="<?= e($canvasNoteUrl); ?>">Note</a>
+                    <button type="button" data-mobile-reader-focus title="Choose book and chapter">
+                        <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z"/><path d="M4 5.5v16M8 7h8M8 11h8"/></svg>
+                        <span>Passage</span>
+                    </button>
+                    <button type="button" data-reader-action="bookmark" title="Bookmark selected verse">
+                        <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-3.5L6 21V4.5Z"/></svg>
+                        <span>Bookmark</span>
+                    </button>
+                    <button type="button" data-reader-action="highlight" title="Highlight selected verse">
+                        <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 4.5 5 5M4 20l3.5-.8L19 7.7a2.12 2.12 0 0 0-3-3L4.5 16.2 4 20Z"/><path d="M3 21h18"/></svg>
+                        <span>Highlight</span>
+                    </button>
+                    <button type="button" data-reader-action="font" title="Change text size">
+                        <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 10 5h2l5 14M7 14h8M16 19l2-5h1l2 5M17 17h3"/></svg>
+                        <span>Text size</span>
+                    </button>
+                    <button type="button" data-reader-action="note" title="Add a note to the selected verse">
+                        <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>
+                        <span>Notes</span>
+                    </button>
                     <?php if ($sharePayloadJson !== null): ?>
-                        <button type="button" data-mobile-share-open>Share</button>
+                        <button type="button" data-mobile-share-open title="Share this passage">
+                            <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/></svg>
+                            <span>Share</span>
+                        </button>
                     <?php else: ?>
-                        <span>Share</span>
+                        <span title="Sign in to share"><span class="reader-action-icon-placeholder">↗</span><span>Share</span></span>
                     <?php endif; ?>
                 </nav>
 
@@ -1300,12 +1320,23 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="mobile-study-tab-panel is-active" data-study-tab-panel="actions">
                                 <div class="mobile-study-action-grid">
                                     <?php if (is_logged_in()): ?>
-                                        <button class="button button-primary" type="button" data-study-save-selected>Save Verse</button>
-                                        <button class="button button-secondary" type="button" data-study-highlight-selected>Highlight Verse</button>
-                                        <button class="button button-secondary" type="button" data-study-quick-note>Quick Note</button>
+                                        <button class="button button-primary" type="button" data-study-save-selected>Bookmark</button>
+                                        <button class="button button-secondary" type="button" data-study-highlight-selected>Highlight</button>
+                                        <button class="button button-secondary" type="button" data-study-quick-note>Note</button>
                                     <?php else: ?>
                                         <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In To Save</a>
                                         <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create Account</a>
+                                    <?php endif; ?>
+                                    <?php if ($readerMode === 'paragraph'): ?>
+                                        <div class="reader-font-size-control reader-font-size-control-inline" data-reader-font-size-control>
+                                            <p class="reader-tool-label">Text size</p>
+                                            <div class="reader-font-size-options" role="group" aria-label="Paragraph text size">
+                                                <button type="button" data-reader-font-size="1" aria-pressed="true">A</button>
+                                                <button type="button" data-reader-font-size="2" aria-pressed="false">A</button>
+                                                <button type="button" data-reader-font-size="3" aria-pressed="false">A</button>
+                                                <button type="button" data-reader-font-size="4" aria-pressed="false">A</button>
+                                            </div>
+                                        </div>
                                     <?php endif; ?>
                                     <a class="button button-secondary" href="<?= e($wholeChapterUrl ?: bible_reader_url([
                                         'translation' => $selectedTranslation,

@@ -2908,6 +2908,35 @@ if (chapterReader && bookmarkPopup) {
                 shareComposerToggle.click();
             }
         });
+
+        // Keep the reader toolbar fast: selecting a verse once, then choosing
+        // an action should never require navigating through the study tabs.
+        document.querySelectorAll('[data-reader-action]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const action = button.getAttribute('data-reader-action');
+                const verseCard = activeStudyVerseCard instanceof HTMLElement
+                    ? activeStudyVerseCard
+                    : chapterReader.querySelector('[data-verse-card]');
+
+                if (action === 'font') {
+                    openMobileStudySheet(verseCard, 'more');
+                    return;
+                }
+
+                if (!(verseCard instanceof HTMLElement)) {
+                    openMobileStudySheet(null, 'actions');
+                    return;
+                }
+
+                if (action === 'highlight') {
+                    openPopupForSelection({ startVerseCard: verseCard, highlightVerse: true });
+                } else if (action === 'note') {
+                    openPopupForSelection({ startVerseCard: verseCard, focusNote: true });
+                } else {
+                    openPopupForSelection({ startVerseCard: verseCard });
+                }
+            });
+        });
     }
 
     resetPopupFields();
