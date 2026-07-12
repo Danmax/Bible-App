@@ -1474,12 +1474,12 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
 
                                 <label class="bookmark-mobile-field bookmark-mobile-field-tag">
-                                    <span>Bookmark tag</span>
+                                    <span>Tag</span>
                                     <input type="text" name="tag" placeholder="Prayer, promise, memory verse">
                                 </label>
 
                                 <label class="bookmark-mobile-field bookmark-mobile-field-note">
-                                    <span>Note</span>
+                                    <span>Name / Note</span>
                                     <div class="inline-actions top-gap-sm" data-voice-compose>
                                         <button class="button button-secondary voice-search-button" type="button" data-voice-compose-start aria-label="Speak your bookmark note">
                                             <svg class="voice-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1492,7 +1492,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <button class="button button-secondary" type="button" data-voice-compose-stop hidden>Stop</button>
                                         <span class="muted-copy" data-voice-compose-status>Share what this verse is speaking to your heart.</span>
                                     </div>
-                                    <textarea name="note" rows="3" placeholder="Why are you saving this?"></textarea>
+                                    <textarea name="note" rows="3" placeholder="Name this mark or add a short note"></textarea>
                                 </label>
 
                                 <div class="inline-actions bookmark-mobile-actions">
