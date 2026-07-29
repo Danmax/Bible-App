@@ -7001,6 +7001,8 @@ h2 {
         right: 0 !important;
         width: 100vw !important;
         max-width: 100vw;
+        box-sizing: border-box;
+        overflow: clip;
         transform: none !important;
     }
 
