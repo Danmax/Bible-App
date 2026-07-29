@@ -1268,10 +1268,6 @@ require_once __DIR__ . '/includes/header.php';
                         <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-3.5L6 21V4.5Z"/></svg>
                         <span>Bookmark</span>
                     </button>
-                    <button type="button" data-reader-action="highlight" title="Highlight selected verse">
-                        <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 4.5 5 5M4 20l3.5-.8L19 7.7a2.12 2.12 0 0 0-3-3L4.5 16.2 4 20Z"/><path d="M3 21h18"/></svg>
-                        <span>Highlight</span>
-                    </button>
                     <button type="button" data-reader-action="font" title="Change text size">
                         <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 10 5h2l5 14M7 14h8M16 19l2-5h1l2 5M17 17h3"/></svg>
                         <span>Text size</span>
@@ -1321,7 +1317,6 @@ require_once __DIR__ . '/includes/header.php';
                                 <div class="mobile-study-action-grid">
                                     <?php if (is_logged_in()): ?>
                                         <button class="button button-primary" type="button" data-study-save-selected>Bookmark</button>
-                                        <button class="button button-secondary" type="button" data-study-highlight-selected>Highlight</button>
                                         <button class="button button-secondary" type="button" data-study-quick-note>Note</button>
                                     <?php else: ?>
                                         <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In To Save</a>
