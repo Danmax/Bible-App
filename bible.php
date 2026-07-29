@@ -825,7 +825,7 @@ require_once __DIR__ . '/includes/header.php';
                     aria-label="Open Bible navigation"
                     aria-expanded="false"
                 >
-                    <span>Book</span>
+                    <span>Passage</span>
                 </button>
 
                 <form
