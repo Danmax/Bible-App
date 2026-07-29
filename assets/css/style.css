@@ -5028,32 +5028,11 @@ body.has-bookmark-popup .mobile-study-sheet {
     }
 
     .bible-mobile-canvas-nav {
-        position: fixed;
-        top: calc(4.75rem + env(safe-area-inset-top, 0px));
-        right: 0.75rem;
-        left: 0.75rem;
-        z-index: 45;
-        display: grid;
-        gap: 0.55rem;
-        width: auto;
-        max-height: calc(100dvh - 6.75rem - env(safe-area-inset-bottom, 0px));
-        margin: 0;
-        padding: 0.75rem;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        border-radius: 0 0 16px 16px;
-        background: rgba(255, 251, 246, 0.94);
-        border: 1px solid rgba(34, 51, 59, 0.12);
-        border-top: 0;
-        box-shadow: 0 16px 34px rgba(10, 9, 8, 0.12);
-        backdrop-filter: blur(16px);
-        transform: translateY(calc(-100% - 0.5rem));
-        transition: transform 180ms ease, box-shadow 180ms ease;
+        display: none;
     }
 
     .bible-mobile-canvas-nav.is-open {
-        box-shadow: 0 24px 52px rgba(10, 9, 8, 0.2);
-        transform: translateY(0);
+        display: none;
     }
 
     .bible-mobile-nav-handle {
@@ -5225,8 +5204,8 @@ body.has-bookmark-popup .mobile-study-sheet {
     }
 
     .chapter-reader [data-verse-card] {
-        cursor: pointer;
-        touch-action: manipulation;
+        cursor: auto;
+        touch-action: auto;
     }
 
     .chapter-reader [data-verse-card] .reader-verse-text {
@@ -6176,6 +6155,11 @@ body.has-bookmark-popup .mobile-study-sheet {
 
     .bible-canvas-action-bar {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .bible-canvas-action-bar [data-mobile-reader-focus],
+    .bible-canvas-action-bar [data-reader-action] {
+        display: none;
     }
 
     .home-quick-access {

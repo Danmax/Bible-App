@@ -2643,7 +2643,7 @@ if (chapterReader && bookmarkPopup) {
         highlightVerse = false,
         focusNote = false,
     }) => {
-        if (isMobileReaderViewport() && (selectedText || highlightVerse)) {
+        if (isMobileReaderViewport()) {
             return;
         }
 
@@ -2800,7 +2800,6 @@ if (chapterReader && bookmarkPopup) {
 
             if (isMobileReaderViewport()) {
                 window.getSelection()?.removeAllRanges();
-                openMobileStudySheet(verseCard, 'actions');
                 return;
             }
 
@@ -2954,6 +2953,10 @@ if (chapterReader && bookmarkPopup) {
                 const verseCard = activeStudyVerseCard instanceof HTMLElement
                     ? activeStudyVerseCard
                     : chapterReader.querySelector('[data-verse-card]');
+
+                if (isMobileReaderViewport()) {
+                    return;
+                }
 
                 if (action === 'font') {
                     openMobileStudySheet(verseCard, 'more');
