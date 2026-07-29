@@ -2798,6 +2798,12 @@ if (chapterReader && bookmarkPopup) {
                 return;
             }
 
+            if (isMobileReaderViewport()) {
+                window.getSelection()?.removeAllRanges();
+                openMobileStudySheet(verseCard, 'actions');
+                return;
+            }
+
             const selection = window.getSelection();
 
             if (selection && !selection.isCollapsed) {
