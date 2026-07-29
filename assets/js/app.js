@@ -2156,7 +2156,13 @@ if (mobileBibleNav instanceof HTMLElement && mobileBibleNavToggle instanceof HTM
             return;
         }
 
-        if (event.target instanceof Node && mobileBibleNav.contains(event.target)) {
+        if (
+            event.target instanceof Element
+            && (
+                mobileBibleNav.contains(event.target)
+                || event.target.closest('[data-mobile-reader-focus]')
+            )
+        ) {
             return;
         }
 
@@ -2467,8 +2473,6 @@ if (chapterReader && bookmarkPopup) {
     const hidePopup = () => {
         bookmarkPopup.hidden = true;
         bookmarkPopup.classList.remove('is-open');
-        bookmarkPopup.classList.remove('is-mobile-highlight');
-        bookmarkPopup.classList.remove('is-mobile-selection-mark');
         document.body.classList.remove('has-bookmark-popup');
     };
 
@@ -2639,6 +2643,10 @@ if (chapterReader && bookmarkPopup) {
         highlightVerse = false,
         focusNote = false,
     }) => {
+        if (isMobileReaderViewport() && (selectedText || highlightVerse)) {
+            return;
+        }
+
         resetPopupFields();
         activeStudyVerseCard = startVerseCard;
 
@@ -2707,8 +2715,6 @@ if (chapterReader && bookmarkPopup) {
         closeMobileStudySheet();
         bookmarkPopup.hidden = false;
         bookmarkPopup.classList.add('is-open');
-        bookmarkPopup.classList.toggle('is-mobile-highlight', Boolean((selectedText || highlightVerse) && isMobileReaderViewport()));
-        bookmarkPopup.classList.toggle('is-mobile-selection-mark', Boolean(selectedText && isMobileReaderViewport()));
         document.body.classList.add('has-bookmark-popup');
         setActiveColor(selectedText || highlightVerse ? 'neon-yellow' : '');
         positionPopup(startVerseCard);
@@ -2719,6 +2725,10 @@ if (chapterReader && bookmarkPopup) {
     };
 
     const updateSelection = () => {
+        if (isMobileReaderViewport()) {
+            return;
+        }
+
         const selection = window.getSelection();
 
         if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
@@ -2913,15 +2923,6 @@ if (chapterReader && bookmarkPopup) {
             }
         });
 
-        mobileStudySheet.querySelector('[data-study-highlight-selected]')?.addEventListener('click', () => {
-            if (activeStudyVerseCard instanceof HTMLElement) {
-                openPopupForSelection({
-                    startVerseCard: activeStudyVerseCard,
-                    highlightVerse: true,
-                });
-            }
-        });
-
         mobileStudySheet.querySelector('[data-study-quick-note]')?.addEventListener('click', () => {
             if (activeStudyVerseCard instanceof HTMLElement) {
                 openPopupForSelection({
@@ -2958,7 +2959,7 @@ if (chapterReader && bookmarkPopup) {
                     return;
                 }
 
-                if (action === 'highlight') {
+                if (action === 'highlight' && !isMobileReaderViewport()) {
                     openPopupForSelection({ startVerseCard: verseCard, highlightVerse: true });
                 } else if (action === 'note') {
                     openPopupForSelection({ startVerseCard: verseCard, focusNote: true });
