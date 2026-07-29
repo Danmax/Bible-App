@@ -2485,10 +2485,20 @@ if (chapterReader && bookmarkPopup) {
             return;
         }
 
+        // Mobile uses a viewport-bound bottom sheet, never a verse-anchored popup.
+        if (isMobileReaderViewport()) {
+            bookmarkPopup.style.removeProperty('width');
+            bookmarkPopup.style.removeProperty('left');
+            bookmarkPopup.style.removeProperty('right');
+            bookmarkPopup.style.removeProperty('top');
+            bookmarkPopup.style.removeProperty('bottom');
+            return;
+        }
+
         const anchorRect = anchorVerseCard.getBoundingClientRect();
         const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
         const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-        const horizontalInset = viewportWidth <= 760 ? 16 : 24;
+        const horizontalInset = 24;
         const topInset = 96;
         const preferredWidth = Math.min(416, viewportWidth - (horizontalInset * 2));
 
@@ -2510,18 +2520,12 @@ if (chapterReader && bookmarkPopup) {
 
         top = Math.max(topInset, Math.min(top, viewportHeight - popupHeight - horizontalInset));
 
-        if (viewportWidth <= 760) {
-            bookmarkPopup.style.left = `${horizontalInset}px`;
-            bookmarkPopup.style.right = `${horizontalInset}px`;
-            bookmarkPopup.style.width = 'auto';
-        } else {
-            const preferredLeft = anchorRect.right - preferredWidth;
-            const left = Math.max(
-                horizontalInset,
-                Math.min(preferredLeft, viewportWidth - preferredWidth - horizontalInset)
-            );
-            bookmarkPopup.style.left = `${left}px`;
-        }
+        const preferredLeft = anchorRect.right - preferredWidth;
+        const left = Math.max(
+            horizontalInset,
+            Math.min(preferredLeft, viewportWidth - preferredWidth - horizontalInset)
+        );
+        bookmarkPopup.style.left = `${left}px`;
 
         bookmarkPopup.style.top = `${top}px`;
     };
