@@ -2467,6 +2467,7 @@ if (chapterReader && bookmarkPopup) {
     const hidePopup = () => {
         bookmarkPopup.hidden = true;
         bookmarkPopup.classList.remove('is-open');
+        bookmarkPopup.classList.remove('is-mobile-highlight');
         bookmarkPopup.classList.remove('is-mobile-selection-mark');
         document.body.classList.remove('has-bookmark-popup');
     };
@@ -2702,6 +2703,7 @@ if (chapterReader && bookmarkPopup) {
         closeMobileStudySheet();
         bookmarkPopup.hidden = false;
         bookmarkPopup.classList.add('is-open');
+        bookmarkPopup.classList.toggle('is-mobile-highlight', Boolean((selectedText || highlightVerse) && isMobileReaderViewport()));
         bookmarkPopup.classList.toggle('is-mobile-selection-mark', Boolean(selectedText && isMobileReaderViewport()));
         document.body.classList.add('has-bookmark-popup');
         setActiveColor(selectedText || highlightVerse ? 'neon-yellow' : '');

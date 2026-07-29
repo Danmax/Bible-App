@@ -7118,4 +7118,103 @@ h2 {
     .bookmark-popup.is-mobile-selection-mark [data-popup-note-link] {
         display: none;
     }
+
+    .bookmark-popup.is-mobile-highlight {
+        top: auto !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: 100dvw !important;
+        max-width: 100dvw;
+        max-height: min(24rem, 58dvh);
+    }
+
+    .bookmark-popup.is-mobile-highlight .bookmark-popup-card {
+        display: grid;
+        gap: 0.75rem;
+        max-height: min(24rem, 58dvh);
+        padding: 0.85rem;
+        padding-bottom: calc(0.85rem + env(safe-area-inset-bottom, 0px));
+        overflow-y: auto;
+        border-radius: 14px 14px 0 0;
+    }
+
+    .bookmark-popup.is-mobile-highlight .panel-heading {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.65rem;
+        padding-bottom: 0.6rem;
+    }
+
+    .bookmark-popup.is-mobile-highlight [data-popup-reference] {
+        font-size: 1rem;
+        line-height: 1.2;
+    }
+
+    .bookmark-popup.is-mobile-highlight [data-popup-preview] {
+        display: block;
+        max-height: 3.15rem;
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.35;
+    }
+
+    .bookmark-popup.is-mobile-highlight .popup-close {
+        width: 2.55rem;
+        min-width: 2.55rem;
+        min-height: 2.55rem;
+        padding: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-indent: 200%;
+        position: relative;
+    }
+
+    .bookmark-popup.is-mobile-highlight .popup-close::before {
+        content: "×";
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        text-indent: 0;
+        font-size: 1.25rem;
+        font-weight: 900;
+    }
+
+    .bookmark-popup.is-mobile-highlight .bookmark-mobile-field,
+    .bookmark-popup.is-mobile-highlight [data-voice-compose],
+    .bookmark-popup.is-mobile-highlight [data-popup-clear],
+    .bookmark-popup.is-mobile-highlight [data-popup-note-link],
+    .bookmark-popup.is-mobile-highlight .color-swatch-none {
+        display: none;
+    }
+
+    .bookmark-popup.is-mobile-highlight .bookmark-color-section .reader-tool-label {
+        font-size: 0.72rem;
+    }
+
+    .bookmark-popup.is-mobile-highlight .bookmark-popup-card .color-picker-row {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .bookmark-popup.is-mobile-highlight .bookmark-popup-card .color-swatch {
+        height: 2.35rem;
+    }
+
+    .bookmark-popup.is-mobile-highlight .bookmark-mobile-actions {
+        position: static;
+        display: grid;
+        grid-template-columns: 1fr;
+        margin: 0;
+        padding: 0.1rem 0 0;
+        border-top: 0;
+        background: transparent;
+        backdrop-filter: none;
+    }
+
+    .bookmark-popup.is-mobile-highlight .bookmark-mobile-actions .button {
+        min-height: 2.9rem;
+        font-size: 0.9rem;
+    }
 }
