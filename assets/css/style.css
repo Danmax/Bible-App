@@ -2316,6 +2316,110 @@ textarea:focus {
     border-color: var(--primary-dark);
 }
 
+.passage-study-section {
+    display: grid;
+    gap: 0.9rem;
+    margin-top: 0.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(34, 51, 59, 0.1);
+}
+
+.passage-study-heading,
+.cross-reference-card-heading,
+.mobile-cross-reference-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.passage-study-heading h3,
+.passage-study-heading p,
+.cross-reference-card p,
+.cross-reference-attribution {
+    margin: 0;
+}
+
+.cross-reference-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.cross-reference-card {
+    display: grid;
+    gap: 0.7rem;
+    min-width: 0;
+    padding: 0.9rem;
+    border: 1px solid rgba(34, 51, 59, 0.1);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.66);
+}
+
+.cross-reference-card-heading > div {
+    display: grid;
+    gap: 0.15rem;
+}
+
+.cross-reference-card-heading a,
+.cross-reference-open {
+    color: var(--primary-dark);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.cross-reference-card-heading a:hover,
+.cross-reference-card-heading a:focus-visible,
+.cross-reference-open:hover,
+.cross-reference-open:focus-visible {
+    text-decoration: underline;
+}
+
+.cross-reference-card-heading span,
+.mobile-cross-reference-heading span {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.cross-reference-rank {
+    display: inline-grid;
+    place-items: center;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0.25rem;
+    border-radius: 999px;
+    background: rgba(34, 51, 59, 0.08);
+    color: var(--primary-dark) !important;
+}
+
+.cross-reference-card > p {
+    color: var(--text);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.6;
+}
+
+.cross-reference-open {
+    justify-self: start;
+    font-size: 0.82rem;
+}
+
+.cross-reference-attribution,
+.passage-study-empty {
+    color: var(--muted);
+    font-size: 0.76rem;
+    line-height: 1.5;
+}
+
+.cross-reference-attribution a {
+    color: inherit;
+    font-weight: 800;
+}
+
+.mobile-cross-reference-heading {
+    margin-bottom: 0.75rem;
+}
+
 .bible-search-shell {
     margin-bottom: 1.25rem;
     padding-bottom: 1rem;
@@ -6608,7 +6712,7 @@ h2 {
 }
 
 .mobile-study-tabs {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .passage-resource-drawer {
@@ -6980,6 +7084,14 @@ h2 {
 }
 
 @media (max-width: 760px) {
+    .cross-reference-list {
+        grid-template-columns: 1fr;
+    }
+
+    .passage-study-heading {
+        align-items: center;
+    }
+
     /* Keep the save/highlight sheet inside the viewport on narrow phones. */
     body.has-bookmark-popup {
         overflow-x: hidden;
