@@ -730,6 +730,8 @@ $canvasVerse = $browseVerses[0] ?? null;
 $canvasNoteUrl = app_url('library.php?view=notes');
 $passageCrossReferences = [];
 $crossReferenceLibraryReady = true;
+$passageCommentaries = [];
+$commentaryLibraryReady = true;
 
 if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) {
     if ($selectedVerseNumber > 0) {
@@ -800,6 +802,18 @@ if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 
             );
         } catch (Throwable $exception) {
             $crossReferenceLibraryReady = false;
+        }
+
+        try {
+            $passageCommentaries = fetch_passage_commentaries(
+                (int) ($firstPassageVerse['book_id'] ?? 0),
+                (int) ($firstPassageVerse['chapter_number'] ?? 0),
+                (int) ($firstPassageVerse['verse_number'] ?? 0),
+                (int) ($lastPassageVerse['verse_number'] ?? 0),
+                6
+            );
+        } catch (Throwable $exception) {
+            $commentaryLibraryReady = false;
         }
     }
 }
@@ -1200,6 +1214,57 @@ require_once __DIR__ . '/includes/header.php';
                             </p>
                         <?php endif; ?>
                     </section>
+
+                    <section class="passage-study-section commentary-study-section" aria-labelledby="passage-commentaries-title">
+                        <div class="passage-study-heading">
+                            <div>
+                                <p class="eyebrow">Library</p>
+                                <h3 id="passage-commentaries-title">Commentaries</h3>
+                            </div>
+                            <?php if ($passageCommentaries !== []): ?>
+                                <span class="mini-card"><?= e((string) count($passageCommentaries)); ?> results</span>
+                            <?php endif; ?>
+                        </div>
+
+                        <?php if (!$commentaryLibraryReady): ?>
+                            <p class="passage-study-empty">The commentary library has not been installed yet.</p>
+                        <?php elseif ($passageCommentaries === []): ?>
+                            <p class="passage-study-empty">No licensed commentary entries are available for this passage yet.</p>
+                        <?php else: ?>
+                            <div class="commentary-entry-list">
+                                <?php foreach ($passageCommentaries as $commentary): ?>
+                                    <details class="commentary-entry-card">
+                                        <summary>
+                                            <span>
+                                                <strong><?= e((string) $commentary['resource_title']); ?></strong>
+                                                <small>
+                                                    <?= e((string) ($commentary['author'] ?: 'Unknown author')); ?>
+                                                    · <?= e(commentary_study_level_label((string) $commentary['study_level'])); ?>
+                                                </small>
+                                            </span>
+                                            <span><?= e((string) $commentary['reference_label']); ?></span>
+                                        </summary>
+                                        <div class="commentary-entry-body">
+                                            <?php if (trim((string) ($commentary['section_title'] ?? '')) !== ''): ?>
+                                                <h4><?= e((string) $commentary['section_title']); ?></h4>
+                                            <?php endif; ?>
+                                            <p><?= nl2br(e((string) $commentary['body_text'])); ?></p>
+                                            <div class="commentary-entry-meta">
+                                                <?php if (trim((string) ($commentary['tradition_label'] ?? '')) !== ''): ?>
+                                                    <span class="pill"><?= e((string) $commentary['tradition_label']); ?></span>
+                                                <?php endif; ?>
+                                                <span class="pill"><?= e((string) $commentary['license_name']); ?></span>
+                                                <a href="<?= e((string) $commentary['source_url']); ?>" rel="external">View source</a>
+                                                <?php if (trim((string) ($commentary['license_url'] ?? '')) !== ''): ?>
+                                                    <a href="<?= e((string) $commentary['license_url']); ?>" rel="external">License</a>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </details>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
                 </details>
             <?php endif; ?>
 
@@ -1502,6 +1567,42 @@ require_once __DIR__ . '/includes/header.php';
                                         cross-reference data ·
                                         <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>
                                     </p>
+                                <?php endif; ?>
+
+                                <div class="mobile-commentary-heading">
+                                    <strong>Commentaries</strong>
+                                    <?php if ($passageCommentaries !== []): ?>
+                                        <span><?= e((string) count($passageCommentaries)); ?> results</span>
+                                    <?php endif; ?>
+                                </div>
+                                <?php if (!$commentaryLibraryReady): ?>
+                                    <p class="passage-study-empty">The commentary library has not been installed yet.</p>
+                                <?php elseif ($passageCommentaries === []): ?>
+                                    <p class="passage-study-empty">No licensed commentary entries are available for this passage yet.</p>
+                                <?php else: ?>
+                                    <div class="mobile-commentary-list">
+                                        <?php foreach ($passageCommentaries as $commentary): ?>
+                                            <details class="commentary-entry-card">
+                                                <summary>
+                                                    <span>
+                                                        <strong><?= e((string) $commentary['resource_title']); ?></strong>
+                                                        <small><?= e((string) ($commentary['author'] ?: commentary_study_level_label((string) $commentary['study_level']))); ?></small>
+                                                    </span>
+                                                    <span><?= e((string) $commentary['reference_label']); ?></span>
+                                                </summary>
+                                                <div class="commentary-entry-body">
+                                                    <?php if (trim((string) ($commentary['section_title'] ?? '')) !== ''): ?>
+                                                        <h4><?= e((string) $commentary['section_title']); ?></h4>
+                                                    <?php endif; ?>
+                                                    <p><?= nl2br(e((string) $commentary['body_text'])); ?></p>
+                                                    <div class="commentary-entry-meta">
+                                                        <span class="pill"><?= e((string) $commentary['license_name']); ?></span>
+                                                        <a href="<?= e((string) $commentary['source_url']); ?>" rel="external">Source</a>
+                                                    </div>
+                                                </div>
+                                            </details>
+                                        <?php endforeach; ?>
+                                    </div>
                                 <?php endif; ?>
                             </div>
 

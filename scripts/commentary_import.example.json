@@ -1,0 +1,24 @@
+{
+  "resource": {
+    "slug": "licensed-commentary-name",
+    "title": "Licensed Commentary Name",
+    "author": "Commentary Author",
+    "description": "A short description of this commentary edition.",
+    "tradition_label": "General",
+    "study_level": "devotional",
+    "license_name": "Public Domain",
+    "license_url": "https://example.com/license",
+    "source_url": "https://example.com/commentary",
+    "priority": 10
+  },
+  "entries": [
+    {
+      "reference": "John.3.16",
+      "source_key": "john-3-16",
+      "title": "John 3:16",
+      "body": "Place the verified, licensed commentary text here.",
+      "source_url": "https://example.com/commentary/john-3-16",
+      "sort_order": 1
+    }
+  ]
+}

@@ -99,6 +99,7 @@ function canonical_book_code_aliases(): array
     return [
         'GEN' => 1,
         'EXO' => 2,
+        'EXOD' => 2,
         'LEV' => 3,
         'NUM' => 4,
         'DEU' => 5,
@@ -114,6 +115,7 @@ function canonical_book_code_aliases(): array
         'EZR' => 15,
         'NEH' => 16,
         'EST' => 17,
+        'ESTH' => 17,
         'JOB' => 18,
         'PSA' => 19,
         'PRO' => 20,
