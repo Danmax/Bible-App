@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/book_context.php';
+require_once __DIR__ . '/includes/passage_resource_repository.php';
 
 function bible_reader_url(array $params = []): string
 {
@@ -727,6 +728,8 @@ $passageFocusTerms = $scriptureAnalysis !== null
 $sharePayloadJson = null;
 $canvasVerse = $browseVerses[0] ?? null;
 $canvasNoteUrl = app_url('library.php?view=notes');
+$passageCrossReferences = [];
+$crossReferenceLibraryReady = true;
 
 if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) {
     if ($selectedVerseNumber > 0) {
@@ -781,6 +784,24 @@ if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 
         | JSON_HEX_QUOT
     );
     $sharePayloadJson = is_string($encodedSharePayload) ? $encodedSharePayload : null;
+
+    $firstPassageVerse = $browseVerses[0] ?? null;
+    $lastPassageVerse = $browseVerses[count($browseVerses) - 1] ?? $firstPassageVerse;
+
+    if (is_array($firstPassageVerse) && is_array($lastPassageVerse)) {
+        try {
+            $passageCrossReferences = fetch_passage_cross_references(
+                (int) ($firstPassageVerse['book_id'] ?? 0),
+                (int) ($firstPassageVerse['chapter_number'] ?? 0),
+                (int) ($firstPassageVerse['verse_number'] ?? 0),
+                (int) ($lastPassageVerse['verse_number'] ?? 0),
+                $selectedTranslation,
+                8
+            );
+        } catch (Throwable $exception) {
+            $crossReferenceLibraryReady = false;
+        }
+    }
 }
 
 require_once __DIR__ . '/includes/header.php';
@@ -1119,6 +1140,66 @@ require_once __DIR__ . '/includes/header.php';
                         <a href="<?= e(app_url('dictionary.php?q=' . urlencode($term))); ?>"><?= e(mb_convert_case($term, MB_CASE_TITLE, 'UTF-8')); ?></a>
                     <?php endforeach; ?>
                     </nav>
+
+                    <section class="passage-study-section" aria-labelledby="passage-cross-references-title">
+                        <div class="passage-study-heading">
+                            <div>
+                                <p class="eyebrow">Passage Study</p>
+                                <h3 id="passage-cross-references-title">Cross References</h3>
+                            </div>
+                            <?php if ($passageCrossReferences !== []): ?>
+                                <span class="mini-card"><?= e((string) count($passageCrossReferences)); ?> strongest</span>
+                            <?php endif; ?>
+                        </div>
+
+                        <?php if (!$crossReferenceLibraryReady): ?>
+                            <p class="passage-study-empty">The cross-reference library has not been installed yet.</p>
+                        <?php elseif ($passageCrossReferences === []): ?>
+                            <p class="passage-study-empty">No cross references are available for this passage yet.</p>
+                        <?php else: ?>
+                            <div class="cross-reference-list">
+                                <?php foreach ($passageCrossReferences as $crossReference): ?>
+                                    <?php
+                                    $crossReferenceUrl = bible_reader_url([
+                                        'translation' => $selectedTranslation,
+                                        'book_id' => (int) $crossReference['book_id'],
+                                        'chapter' => (int) $crossReference['chapter_number'],
+                                        'verse' => (int) $crossReference['start_verse'],
+                                        'verse_end' => (int) $crossReference['end_book_id'] === (int) $crossReference['book_id']
+                                            && (int) $crossReference['end_chapter'] === (int) $crossReference['chapter_number']
+                                            && (int) $crossReference['end_verse'] > (int) $crossReference['start_verse']
+                                            ? (int) $crossReference['end_verse']
+                                            : null,
+                                        'reader_mode' => $readerMode,
+                                    ]) . '#verse-' . (int) $crossReference['start_verse'];
+                                    ?>
+                                    <article class="cross-reference-card">
+                                        <div class="cross-reference-card-heading">
+                                            <div>
+                                                <a href="<?= e($crossReferenceUrl); ?>"><?= e((string) $crossReference['reference_label']); ?></a>
+                                                <span><?= e(passage_resource_relationship_label((string) $crossReference['relationship_type'])); ?></span>
+                                            </div>
+                                            <?php if ((int) $crossReference['rank_score'] > 0): ?>
+                                                <span class="cross-reference-rank" title="Dataset relevance score"><?= e((string) $crossReference['rank_score']); ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <?php if (trim((string) $crossReference['verse_text']) !== ''): ?>
+                                            <p><?= e(truncate_text((string) $crossReference['verse_text'], 260)); ?></p>
+                                        <?php else: ?>
+                                            <p class="muted-copy">Preview unavailable in <?= e($selectedTranslation); ?>.</p>
+                                        <?php endif; ?>
+                                        <a class="cross-reference-open" href="<?= e($crossReferenceUrl); ?>">Open in reader <span aria-hidden="true">&#8594;</span></a>
+                                    </article>
+                                <?php endforeach; ?>
+                            </div>
+                            <p class="cross-reference-attribution">
+                                Cross-reference data from
+                                <a href="https://www.openbible.info/labs/cross-references/" rel="external">OpenBible.info</a>,
+                                based primarily on the Treasury of Scripture Knowledge and licensed under
+                                <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>.
+                            </p>
+                        <?php endif; ?>
+                    </section>
                 </details>
             <?php endif; ?>
 
@@ -1276,6 +1357,10 @@ require_once __DIR__ . '/includes/header.php';
                         <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>
                         <span>Notes</span>
                     </button>
+                    <button type="button" data-mobile-study-open title="Open passage study tools">
+                        <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6a3 3 0 0 1 3 3v12a3 3 0 0 0-3-3H4V5Z"/><path d="M20 5h-6a3 3 0 0 0-3 3M20 5v12h-6a3 3 0 0 0-3 3"/></svg>
+                        <span>Study</span>
+                    </button>
                     <?php if ($sharePayloadJson !== null): ?>
                         <button type="button" data-mobile-share-open title="Share this passage">
                             <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/></svg>
@@ -1309,6 +1394,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="mobile-study-tabs" role="tablist" aria-label="Mobile study tools">
                             <button class="is-active" type="button" role="tab" aria-selected="true" data-study-tab="actions">Actions</button>
                             <button type="button" role="tab" aria-selected="false" data-study-tab="passage">Context</button>
+                            <button type="button" role="tab" aria-selected="false" data-study-tab="references">References</button>
                             <button type="button" role="tab" aria-selected="false" data-study-tab="more">More</button>
                         </div>
 
@@ -1377,6 +1463,46 @@ require_once __DIR__ . '/includes/header.php';
                                         <span>Bookmarks, highlights, and notes</span>
                                     </a>
                                 </div>
+                            </div>
+
+                            <div class="mobile-study-tab-panel" data-study-tab-panel="references">
+                                <div class="mobile-cross-reference-heading">
+                                    <strong>Cross References</strong>
+                                    <span><?= e(bible_share_reference($browseVerses, $selectedTranslation)); ?></span>
+                                </div>
+                                <?php if (!$crossReferenceLibraryReady): ?>
+                                    <p class="passage-study-empty">The cross-reference library has not been installed yet.</p>
+                                <?php elseif ($passageCrossReferences === []): ?>
+                                    <p class="passage-study-empty">No cross references are available for this passage yet.</p>
+                                <?php else: ?>
+                                    <div class="mobile-study-list">
+                                        <?php foreach ($passageCrossReferences as $crossReference): ?>
+                                            <?php
+                                            $mobileCrossReferenceUrl = bible_reader_url([
+                                                'translation' => $selectedTranslation,
+                                                'book_id' => (int) $crossReference['book_id'],
+                                                'chapter' => (int) $crossReference['chapter_number'],
+                                                'verse' => (int) $crossReference['start_verse'],
+                                                'verse_end' => (int) $crossReference['end_book_id'] === (int) $crossReference['book_id']
+                                                    && (int) $crossReference['end_chapter'] === (int) $crossReference['chapter_number']
+                                                    && (int) $crossReference['end_verse'] > (int) $crossReference['start_verse']
+                                                    ? (int) $crossReference['end_verse']
+                                                    : null,
+                                                'reader_mode' => $readerMode,
+                                            ]) . '#verse-' . (int) $crossReference['start_verse'];
+                                            ?>
+                                            <a href="<?= e($mobileCrossReferenceUrl); ?>">
+                                                <strong><?= e((string) $crossReference['reference_label']); ?></strong>
+                                                <span><?= e(truncate_text((string) $crossReference['verse_text'], 115)); ?></span>
+                                            </a>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <p class="cross-reference-attribution">
+                                        <a href="https://www.openbible.info/labs/cross-references/" rel="external">OpenBible.info</a>
+                                        cross-reference data ·
+                                        <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>
+                                    </p>
+                                <?php endif; ?>
                             </div>
 
                             <div class="mobile-study-tab-panel" data-study-tab-panel="more">

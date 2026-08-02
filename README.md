@@ -143,6 +143,7 @@ If you are updating an existing database, run the applicable SQL files in `sql/`
 
 Recent migrations:
 
+- `sql/add_cross_references.sql`
 - `sql/add_phase2_authorization_audit.sql`
 - `sql/add_phase3_user_sessions.sql`
 - `sql/add_public_sessions.sql`
@@ -162,6 +163,15 @@ The app includes import tools for adding Bible text into the `verses` table:
 - `scripts/import_translation_vpl.php`
 - `scripts/import_translation_reference_text.php`
 - `scripts/import_translation_helpers.php`
+- `scripts/import_cross_references.php`
+
+After running `sql/add_cross_references.sql`, import the OpenBible.info tab-separated cross-reference dataset with:
+
+```bash
+php scripts/import_cross_references.php /path/to/cross_references.txt
+```
+
+The importer is repeatable and records the dataset as `OpenBible.info Cross References (CC BY 4.0)`.
 
 ## Assets
 
