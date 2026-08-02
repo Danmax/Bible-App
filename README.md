@@ -144,6 +144,7 @@ If you are updating an existing database, run the applicable SQL files in `sql/`
 Recent migrations:
 
 - `sql/add_cross_references.sql`
+- `sql/add_passage_commentaries.sql`
 - `sql/add_phase2_authorization_audit.sql`
 - `sql/add_phase3_user_sessions.sql`
 - `sql/add_public_sessions.sql`
@@ -164,6 +165,7 @@ The app includes import tools for adding Bible text into the `verses` table:
 - `scripts/import_translation_reference_text.php`
 - `scripts/import_translation_helpers.php`
 - `scripts/import_cross_references.php`
+- `scripts/import_commentary.php`
 
 After running `sql/add_cross_references.sql`, import the OpenBible.info tab-separated cross-reference dataset with:
 
@@ -172,6 +174,20 @@ php scripts/import_cross_references.php /path/to/cross_references.txt
 ```
 
 The importer is repeatable and records the dataset as `OpenBible.info Cross References (CC BY 4.0)`.
+
+Licensed commentary editions can be imported from normalized JSON after running `sql/add_passage_commentaries.sql`:
+
+```bash
+php scripts/import_commentary.php scripts/commentary_import.example.json
+```
+
+Use `scripts/commentary_import.example.json` as the format template. Each resource must include its title, license, and source URL. Entry references use OSIS-style locations such as `John.3.16` or `John.3.14-John.3.21`. Commentary HTML is stripped during import and rendered as escaped plain text.
+
+Validate a normalized file without changing the database:
+
+```bash
+php scripts/import_commentary.php /path/to/commentary.json --validate-only
+```
 
 ## Assets
 

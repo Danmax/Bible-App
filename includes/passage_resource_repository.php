@@ -48,8 +48,8 @@ function fetch_passage_cross_references(
         WHERE source_ref.start_book_id = :book_id
             AND source_ref.start_chapter = :chapter_number
             AND source_ref.start_verse <= :end_verse
-            AND source_ref.end_book_id = :book_id
-            AND source_ref.end_chapter = :chapter_number
+            AND source_ref.end_book_id = :end_book_id
+            AND source_ref.end_chapter = :end_chapter_number
             AND source_ref.end_verse >= :start_verse
         GROUP BY
             target_ref.id,
@@ -69,6 +69,8 @@ function fetch_passage_cross_references(
     $statement->execute([
         'book_id' => $bookId,
         'chapter_number' => $chapterNumber,
+        'end_book_id' => $bookId,
+        'end_chapter_number' => $chapterNumber,
         'start_verse' => $startVerse,
         'end_verse' => $endVerse,
     ]);
@@ -191,5 +193,93 @@ function passage_resource_relationship_label(string $relationshipType): string
         'prophecy' => 'Prophecy and fulfillment',
         'theme' => 'Shared theme',
         default => 'Related passage',
+    };
+}
+
+function fetch_passage_commentaries(
+    int $bookId,
+    int $chapterNumber,
+    int $startVerse,
+    int $endVerse,
+    int $limit = 6
+): array {
+    if ($bookId < 1 || $chapterNumber < 1 || $startVerse < 1) {
+        return [];
+    }
+
+    $endVerse = max($startVerse, $endVerse);
+    $limit = max(1, min(20, $limit));
+    $statement = db()->prepare(
+        'SELECT
+            commentary_entries.id,
+            commentary_entries.section_title,
+            commentary_entries.body_text,
+            commentary_entries.source_url AS entry_source_url,
+            commentary_entries.sort_order,
+            commentary_resources.slug AS resource_slug,
+            commentary_resources.title AS resource_title,
+            commentary_resources.author,
+            commentary_resources.tradition_label,
+            commentary_resources.study_level,
+            commentary_resources.license_name,
+            commentary_resources.license_url,
+            commentary_resources.source_url AS resource_source_url,
+            scripture_references.start_book_id AS book_id,
+            scripture_references.start_chapter AS chapter_number,
+            scripture_references.start_verse,
+            scripture_references.end_book_id,
+            scripture_references.end_chapter,
+            scripture_references.end_verse,
+            start_book.name AS book_name,
+            end_book.name AS end_book_name
+        FROM commentary_entries
+        INNER JOIN commentary_resources
+            ON commentary_resources.id = commentary_entries.resource_id
+        INNER JOIN scripture_references
+            ON scripture_references.id = commentary_entries.scripture_reference_id
+        INNER JOIN books AS start_book ON start_book.id = scripture_references.start_book_id
+        INNER JOIN books AS end_book ON end_book.id = scripture_references.end_book_id
+        WHERE commentary_resources.is_active = 1
+            AND (
+                scripture_references.start_book_id * 1000000
+                + scripture_references.start_chapter * 1000
+                + scripture_references.start_verse
+            ) <= :passage_end
+            AND (
+                scripture_references.end_book_id * 1000000
+                + scripture_references.end_chapter * 1000
+                + scripture_references.end_verse
+            ) >= :passage_start
+        ORDER BY
+            commentary_resources.priority DESC,
+            commentary_entries.sort_order ASC,
+            commentary_resources.title ASC,
+            commentary_entries.id ASC
+        LIMIT ' . $limit
+    );
+    $passageBase = ($bookId * 1000000) + ($chapterNumber * 1000);
+    $statement->execute([
+        'passage_start' => $passageBase + $startVerse,
+        'passage_end' => $passageBase + $endVerse,
+    ]);
+    $entries = $statement->fetchAll();
+
+    foreach ($entries as &$entry) {
+        $entry['reference_label'] = passage_resource_reference_label($entry);
+        $entry['source_url'] = trim((string) ($entry['entry_source_url'] ?? '')) !== ''
+            ? (string) $entry['entry_source_url']
+            : (string) ($entry['resource_source_url'] ?? '');
+    }
+    unset($entry);
+
+    return $entries;
+}
+
+function commentary_study_level_label(string $studyLevel): string
+{
+    return match (strtolower(trim($studyLevel))) {
+        'technical' => 'Technical',
+        'pastoral' => 'Pastoral',
+        default => 'Devotional',
     };
 }

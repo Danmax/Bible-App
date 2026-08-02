@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/includes/db.php';
 require_once __DIR__ . '/import_translation_helpers.php';
+require_once __DIR__ . '/scripture_reference_import_helpers.php';
 
 const CROSS_REFERENCE_DATASET = 'OpenBible.info Cross References (CC BY 4.0)';
 
@@ -83,8 +84,8 @@ try {
             continue;
         }
 
-        $source = parse_cross_reference_location((string) ($row[0] ?? ''), $bookAliases);
-        $target = parse_cross_reference_location((string) ($row[1] ?? ''), $bookAliases);
+        $source = parse_osis_scripture_reference((string) ($row[0] ?? ''), $bookAliases);
+        $target = parse_osis_scripture_reference((string) ($row[1] ?? ''), $bookAliases);
 
         if ($source === null || $target === null) {
             if ($lineNumber === 1) {
@@ -95,8 +96,8 @@ try {
             continue;
         }
 
-        $sourceId = find_or_create_scripture_reference($pdo, $referenceInsert, $referenceIds, $source);
-        $targetId = find_or_create_scripture_reference($pdo, $referenceInsert, $referenceIds, $target);
+        $sourceId = find_or_create_canonical_scripture_reference($pdo, $referenceInsert, $referenceIds, $source);
+        $targetId = find_or_create_canonical_scripture_reference($pdo, $referenceInsert, $referenceIds, $target);
         $rankScore = max(0, (int) ($row[2] ?? 0));
 
         $crossReferenceInsert->execute([
@@ -129,77 +130,3 @@ try {
 fclose($handle);
 fwrite(STDOUT, "Imported {$imported} cross-references from " . CROSS_REFERENCE_DATASET . ".\n");
 fwrite(STDOUT, "Skipped {$skipped} unrecognized rows.\n");
-
-function parse_cross_reference_location(string $value, array $bookAliases): ?array
-{
-    $normalized = trim($value);
-
-    if (!preg_match(
-        '/^([1-3]?[A-Za-z]+)\.(\d+)\.(\d+)(?:-([1-3]?[A-Za-z]+)\.(\d+)\.(\d+))?$/',
-        $normalized,
-        $matches
-    )) {
-        return null;
-    }
-
-    $startBookKey = normalize_book_alias((string) $matches[1]);
-    $endBookKey = isset($matches[4]) ? normalize_book_alias((string) $matches[4]) : $startBookKey;
-
-    if (!isset($bookAliases[$startBookKey], $bookAliases[$endBookKey])) {
-        return null;
-    }
-
-    $startVerse = (int) $matches[3];
-    $endVerse = isset($matches[6]) ? (int) $matches[6] : $startVerse;
-    $startBookId = (int) $bookAliases[$startBookKey];
-    $endBookId = (int) $bookAliases[$endBookKey];
-    $startChapter = (int) $matches[2];
-    $endChapter = isset($matches[5]) ? (int) $matches[5] : $startChapter;
-
-    $startOrdinal = ($startBookId * 1000000) + ($startChapter * 1000) + $startVerse;
-    $endOrdinal = ($endBookId * 1000000) + ($endChapter * 1000) + $endVerse;
-
-    if ($startVerse < 1 || $endVerse < 1 || $endOrdinal < $startOrdinal) {
-        return null;
-    }
-
-    return [
-        'start_book_id' => $startBookId,
-        'start_chapter' => $startChapter,
-        'start_verse' => $startVerse,
-        'end_book_id' => $endBookId,
-        'end_chapter' => $endChapter,
-        'end_verse' => $endVerse,
-    ];
-}
-
-function find_or_create_scripture_reference(
-    PDO $pdo,
-    PDOStatement $statement,
-    array &$referenceIds,
-    array $reference
-): int {
-    $cacheKey = implode(':', [
-        $reference['start_book_id'],
-        $reference['start_chapter'],
-        $reference['start_verse'],
-        $reference['end_book_id'],
-        $reference['end_chapter'],
-        $reference['end_verse'],
-    ]);
-
-    if (isset($referenceIds[$cacheKey])) {
-        return $referenceIds[$cacheKey];
-    }
-
-    $statement->execute($reference);
-    $referenceId = (int) $pdo->lastInsertId();
-
-    if ($referenceId < 1) {
-        throw new RuntimeException('Could not resolve canonical reference ' . $cacheKey . '.');
-    }
-
-    $referenceIds[$cacheKey] = $referenceId;
-
-    return $referenceId;
-}
