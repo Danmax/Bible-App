@@ -10,6 +10,7 @@ require_once __DIR__ . '/bible_repository.php';
 require_once __DIR__ . '/community_repository.php';
 require_once __DIR__ . '/sermon_repository.php';
 require_once __DIR__ . '/study_repository.php';
+require_once __DIR__ . '/dashboard_repository.php';
 
 function fetch_dashboard_stats(int $userId): array
 {
