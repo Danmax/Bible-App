@@ -179,6 +179,11 @@ if ($selectedNote !== null) {
                 'reference_kind' => (string) ($verseRef['reference_kind'] ?? 'citation'),
                 'reference_label' => (string) ($verseRef['reference_label'] ?? ''),
                 'quote_text' => (string) ($verseRef['quote_text'] ?? ''),
+                'book_id' => (int) ($verseRef['book_id'] ?? 0),
+                'chapter_number' => (int) ($verseRef['chapter_number'] ?? 0),
+                'verse_number' => (int) ($verseRef['verse_number'] ?? 0),
+                'verse_text' => (string) ($verseRef['verse_text'] ?? $verseRef['quote_text'] ?? ''),
+                'translation' => (string) ($verseRef['translation'] ?? ''),
             ];
         },
         (array) ($selectedNote['verse_refs'] ?? [])
@@ -481,11 +486,11 @@ require_once __DIR__ . '/includes/header.php';
 </section>
 
 <div class="panel-modal sermon-verse-modal" data-sermon-verse-modal hidden aria-hidden="true">
-    <div class="panel panel-modal-card" data-sermon-verse-modal-content>
+    <div class="panel panel-modal-card" data-sermon-verse-modal-content role="dialog" aria-modal="true" aria-labelledby="sermon-verse-preview-title">
         <div class="panel-heading">
             <div>
                 <p class="eyebrow">Verse Preview</p>
-                <h3 data-sermon-verse-modal-reference>Select a verse</h3>
+                <h3 id="sermon-verse-preview-title" data-sermon-verse-modal-reference>Select a verse</h3>
                 <p class="muted-copy" data-sermon-verse-modal-translation></p>
             </div>
             <button class="button button-secondary" type="button" data-sermon-verse-modal-close>Close</button>
@@ -494,6 +499,7 @@ require_once __DIR__ . '/includes/header.php';
         <blockquote class="sermon-verse-modal-text" data-sermon-verse-modal-text></blockquote>
 
         <div class="inline-actions top-gap-sm">
+            <a class="button button-secondary" href="<?= e(app_url('bible.php')); ?>" data-sermon-open-verse-reader>Open in Bible</a>
             <button class="button button-primary" type="button" data-sermon-insert-citation>Insert Citation</button>
             <button class="button button-secondary" type="button" data-sermon-link-selected-scripture>Link Selected Text</button>
             <button class="button button-secondary" type="button" data-sermon-insert-quoted-verse>Quoted Link</button>

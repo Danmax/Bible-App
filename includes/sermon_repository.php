@@ -858,6 +858,11 @@ function normalize_sermon_note_verse_refs(mixed $verseRefs): array
                 160
             ),
             'quote_text' => normalize_optional_text((string) ($verseRef['quote_text'] ?? $verseRef['quote'] ?? '')),
+            'book_id' => (int) ($verse['book_id'] ?? 0),
+            'chapter_number' => (int) ($verse['chapter_number'] ?? 0),
+            'verse_number' => (int) ($verse['verse_number'] ?? 0),
+            'verse_text' => (string) ($verse['verse_text'] ?? ''),
+            'translation' => (string) ($verse['translation'] ?? ''),
         ];
     }
 

@@ -40,6 +40,7 @@ if (sermonWorkspace) {
     const verseModalText = verseModal?.querySelector('[data-sermon-verse-modal-text]');
     const verseModalStatus = verseModal?.querySelector('[data-sermon-verse-modal-status]');
     const verseModalClose = verseModal?.querySelector('[data-sermon-verse-modal-close]');
+    const verseReaderLink = verseModal?.querySelector('[data-sermon-open-verse-reader]');
     const insertCitationButton = verseModal?.querySelector('[data-sermon-insert-citation]');
     const linkSelectedScriptureButton = verseModal?.querySelector('[data-sermon-link-selected-scripture]');
     const insertQuotedVerseButton = verseModal?.querySelector('[data-sermon-insert-quoted-verse]');
@@ -228,7 +229,10 @@ if (sermonWorkspace) {
                     <strong>${escapeHtml(verseRef.reference_label || 'Verse')}</strong>
                     <span>${escapeHtml(titleCase(verseRef.reference_kind || 'citation'))}</span>
                 </div>
-                <button class="button button-secondary" type="button" data-remove-verse-ref="${index}">Remove</button>
+                <div class="inline-actions">
+                    <button class="button button-secondary" type="button" data-preview-verse-ref="${index}">Quick view</button>
+                    <button class="button button-secondary" type="button" data-remove-verse-ref="${index}">Remove</button>
+                </div>
             </div>
         `).join('');
     };
@@ -667,6 +671,10 @@ if (sermonWorkspace) {
             verseModalStatus.textContent = 'Choose how you want this verse to appear in the document.';
         }
 
+        if (verseReaderLink instanceof HTMLAnchorElement) {
+            verseReaderLink.href = verseReaderUrl(verse);
+        }
+
         verseModal.hidden = false;
         verseModal.setAttribute('aria-hidden', 'false');
     };
@@ -701,6 +709,7 @@ if (sermonWorkspace) {
 
         insertHtmlAtSelection(scriptureLinkHtml(verse, reference, linkText));
         addVerseRef({
+            ...verse,
             verse_id: Number(verse.verse_id),
             reference_kind: 'scripture_link',
             reference_label: reference,
@@ -891,6 +900,7 @@ if (sermonWorkspace) {
         after.nodeValue = after.nodeValue?.slice(reference.length) || '';
         textNode.parentNode?.insertBefore(link, after);
         addVerseRef({
+            ...verse,
             verse_id: Number(verse.verse_id),
             reference_kind: 'auto_scripture_link',
             reference_label: String(verse.reference_label || actualText),
@@ -1080,7 +1090,18 @@ if (sermonWorkspace) {
 
     verseRefList?.addEventListener('click', (event) => {
         const target = event.target;
+        const previewButton = target instanceof Element ? target.closest('[data-preview-verse-ref]') : null;
         const button = target instanceof Element ? target.closest('[data-remove-verse-ref]') : null;
+
+        if (previewButton instanceof HTMLElement) {
+            const previewIndex = Number(previewButton.getAttribute('data-preview-verse-ref') || '-1');
+
+            if (!Number.isNaN(previewIndex) && verseRefs[previewIndex]) {
+                openVerseModal(verseRefs[previewIndex]);
+            }
+
+            return;
+        }
 
         if (!(button instanceof HTMLElement)) {
             return;
@@ -1107,6 +1128,7 @@ if (sermonWorkspace) {
             `${scriptureLinkHtml(activeVerse, reference)}&nbsp;`
         );
         addVerseRef({
+            ...activeVerse,
             verse_id: Number(activeVerse.verse_id),
             reference_kind: 'citation',
             reference_label: reference,
@@ -1136,6 +1158,7 @@ if (sermonWorkspace) {
             `<blockquote class="note-quoted-verse"><p>"${escapeHtml(verseText)}"</p><p>${verseReferenceLinkHtml(activeVerse, reference)}</p></blockquote>`
         );
         addVerseRef({
+            ...activeVerse,
             verse_id: Number(activeVerse.verse_id),
             reference_kind: 'quoted_verse',
             reference_label: reference,
@@ -1156,6 +1179,7 @@ if (sermonWorkspace) {
             `<blockquote class="note-full-verse"><p>${escapeHtml(verseText)}</p><p>${verseReferenceLinkHtml(activeVerse, reference)}</p></blockquote>`
         );
         addVerseRef({
+            ...activeVerse,
             verse_id: Number(activeVerse.verse_id),
             reference_kind: 'full_verse',
             reference_label: reference,
@@ -1191,6 +1215,7 @@ if (sermonWorkspace) {
                 `<blockquote class="note-highlighted-paraphrase"><p><span class="note-highlight-theme">${escapeHtml(paraphrase)}</span></p><p>${scriptureLinkHtml(activeVerse, reference)}</p></blockquote>`
             );
             addVerseRef({
+                ...activeVerse,
                 verse_id: Number(activeVerse.verse_id),
                 reference_kind: 'highlighted_paraphrase',
                 reference_label: reference,
