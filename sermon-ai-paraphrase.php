@@ -30,8 +30,11 @@ if ($user === null) {
     exit;
 }
 
+enforce_ai_rate_limit('sermon-paraphrase', (int) $user['id']);
+
 $verseId = (int) ($_POST['verse_id'] ?? 0);
 $context = trim((string) ($_POST['context'] ?? ''));
+enforce_ai_text_limit($context, 6000, 'Sermon context');
 $verse = $verseId > 0 ? fetch_verse_by_id($verseId) : null;
 
 if ($verse === null) {
@@ -58,8 +61,7 @@ try {
         'model' => openai_event_model(),
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $exception) {
-    http_response_code(422);
-    echo json_encode(['error' => $exception->getMessage()]);
+    report_ai_endpoint_error($exception);
 }
 
 restore_error_handler();

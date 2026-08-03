@@ -30,7 +30,10 @@ if ($user === null) {
     exit;
 }
 
+enforce_ai_rate_limit('sermon-references', (int) $user['id']);
+
 $noteText = trim((string) ($_POST['note_text'] ?? ''));
+enforce_ai_text_limit($noteText, 30000, 'Sermon notes');
 $translation = strtoupper(trim((string) ($_POST['translation'] ?? APP_DEFAULT_TRANSLATION)));
 
 if (!in_array($translation, fetch_available_translations(), true)) {
@@ -50,8 +53,7 @@ try {
         'model' => openai_event_model(),
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $exception) {
-    http_response_code(422);
-    echo json_encode(['error' => $exception->getMessage()]);
+    report_ai_endpoint_error($exception);
 }
 
 restore_error_handler();

@@ -30,7 +30,10 @@ if ($user === null) {
     exit;
 }
 
+enforce_ai_rate_limit('planner-goal', (int) $user['id']);
+
 $prompt = trim((string) ($_POST['prompt'] ?? ''));
+enforce_ai_text_limit($prompt, 4000, 'Goal prompt');
 $yearHint = filter_var($_POST['year'] ?? null, FILTER_VALIDATE_INT);
 $yearHint = $yearHint !== false ? $yearHint : null;
 
@@ -67,8 +70,7 @@ try {
         'model' => openai_event_model(),
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $exception) {
-    http_response_code(422);
-    echo json_encode(['error' => $exception->getMessage()]);
+    report_ai_endpoint_error($exception);
 }
 
 restore_error_handler();

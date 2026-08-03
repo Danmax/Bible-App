@@ -21,7 +21,7 @@ function fetch_event_categories(): array
 function fetch_community_events(?int $categoryId, ?int $userId, bool $canManageAllEvents): array
 {
     if ($userId === null && !$canManageAllEvents) {
-        $cacheKey = 'community.public_events.v1.' . DB_NAME . '.' . ($categoryId === null ? 'all' : (string) $categoryId);
+        $cacheKey = 'community.public_events.v2.' . DB_NAME . '.' . ($categoryId === null ? 'all' : (string) $categoryId);
 
         return app_cache_remember($cacheKey, 120, static function () use ($categoryId): array {
             return fetch_community_events_uncached($categoryId, null, false);
@@ -38,12 +38,18 @@ function fetch_community_events_uncached(?int $categoryId, ?int $userId, bool $c
 
     if (!$canManageAllEvents) {
         if ($userId !== null) {
-            $conditions[] = "(ce.status = 'published' OR ce.created_by_user_id = :user_id_filter)";
+            $conditions[] = "(
+                ce.created_by_user_id = :user_id_filter
+                OR (
+                    ce.status = 'published'
+                    AND ce.visibility IN ('public', 'members')
+                )
+            )";
             $params['user_id_filter'] = $userId;
         } else {
             $conditions[] = "ce.status = 'published'";
+            $conditions[] = "ce.visibility = 'public'";
         }
-        $conditions[] = "ce.visibility != 'private'";
     }
 
     if ($categoryId !== null) {
@@ -120,7 +126,7 @@ function fetch_community_event_by_id(int $eventId, ?int $userId, bool $canManage
         return null;
     }
 
-    if (!$canManageAllEvents && (string) ($event['status'] ?? '') === 'draft' && (int) ($event['created_by_user_id'] ?? 0) !== $userId) {
+    if (!can_view_community_event_record($event, $userId, $canManageAllEvents)) {
         return null;
     }
 
@@ -128,7 +134,9 @@ function fetch_community_event_by_id(int $eventId, ?int $userId, bool $canManage
         json_decode((string) ($event['settings_json'] ?? ''), true) ?? []
     );
 
-    $event['attendees'] = fetch_community_event_attendees($eventId);
+    $canManageEvent = $canManageAllEvents
+        || ($userId !== null && (int) ($event['created_by_user_id'] ?? 0) === $userId);
+    $event['attendees'] = fetch_community_event_attendees($eventId, $canManageEvent);
     $event['items'] = fetch_community_event_items($eventId);
     tally_community_event_rsvp_counts($event);
 
@@ -175,10 +183,34 @@ function fetch_manageable_community_events(int $userId, bool $canManageAllEvents
     return $events;
 }
 
-function fetch_community_event_attendees(int $eventId): array
+function can_view_community_event_record(array $event, ?int $userId, bool $canManageAllEvents): bool
 {
+    if ($canManageAllEvents) {
+        return true;
+    }
+
+    if ($userId !== null && (int) ($event['created_by_user_id'] ?? 0) === $userId) {
+        return true;
+    }
+
+    if ((string) ($event['status'] ?? '') !== 'published') {
+        return false;
+    }
+
+    return match ((string) ($event['visibility'] ?? 'public')) {
+        'public' => true,
+        'members' => $userId !== null,
+        default => false,
+    };
+}
+
+function fetch_community_event_attendees(int $eventId, bool $includeEmail = true): array
+{
+    $attendeeSelect = $includeEmail
+        ? 'r.*, u.name AS attendee_name, u.email AS attendee_email'
+        : 'r.user_id, r.response, u.name AS attendee_name';
     $statement = db()->prepare(
-        'SELECT r.*, u.name AS attendee_name, u.email AS attendee_email
+        'SELECT ' . $attendeeSelect . '
         FROM community_event_rsvps r
         LEFT JOIN users u ON u.id = r.user_id
         WHERE r.community_event_id = :event_id
@@ -482,6 +514,29 @@ function claim_community_event_item(
     db()->beginTransaction();
 
     try {
+        $itemStatement = db()->prepare(
+            'SELECT claimed_by_user_id
+            FROM community_event_items
+            WHERE id = :id
+                AND community_event_id = :event_id
+            FOR UPDATE'
+        );
+        $itemStatement->execute([
+            'id' => $itemId,
+            'event_id' => $eventId,
+        ]);
+        $item = $itemStatement->fetch();
+
+        if ($item === false) {
+            throw new RuntimeException('That event item is no longer available.');
+        }
+
+        $claimedByUserId = (int) ($item['claimed_by_user_id'] ?? 0);
+
+        if ($claimedByUserId > 0 && $claimedByUserId !== $userId) {
+            throw new RuntimeException('That item was just claimed by another attendee.');
+        }
+
         $statement = db()->prepare(
             'UPDATE community_event_items
             SET claimed_by_user_id = :user_id,
@@ -497,6 +552,10 @@ function claim_community_event_item(
             'event_id' => $eventId,
             'user_id_check' => $userId,
         ]);
+
+        if ($statement->rowCount() < 1 && $claimedByUserId !== $userId) {
+            throw new RuntimeException('That item could not be claimed. Try again.');
+        }
 
         $rsvpStatement = db()->prepare(
             'INSERT INTO community_event_rsvps
@@ -586,6 +645,39 @@ function assign_community_event_item(int $eventId, int $itemId, int $attendeeUse
     db()->beginTransaction();
 
     try {
+        $rsvpLookup = db()->prepare(
+            'SELECT response
+            FROM community_event_rsvps
+            WHERE community_event_id = :event_id
+                AND user_id = :user_id
+            FOR UPDATE'
+        );
+        $rsvpLookup->execute([
+            'event_id' => $eventId,
+            'user_id' => $attendeeUserId,
+        ]);
+        $rsvp = $rsvpLookup->fetch();
+
+        if ($rsvp === false || !in_array((string) ($rsvp['response'] ?? ''), ['going', 'interested', 'maybe'], true)) {
+            throw new RuntimeException('Choose an attendee who has RSVP’d to this event.');
+        }
+
+        $itemLookup = db()->prepare(
+            'SELECT id
+            FROM community_event_items
+            WHERE id = :id
+                AND community_event_id = :event_id
+            FOR UPDATE'
+        );
+        $itemLookup->execute([
+            'id' => $itemId,
+            'event_id' => $eventId,
+        ]);
+
+        if ($itemLookup->fetch() === false) {
+            throw new RuntimeException('That event item is no longer available.');
+        }
+
         $statement = db()->prepare(
             'UPDATE community_event_items
             SET claimed_by_user_id = :user_id,
@@ -599,6 +691,19 @@ function assign_community_event_item(int $eventId, int $itemId, int $attendeeUse
             'status' => 'claimed',
             'id' => $itemId,
             'event_id' => $eventId,
+        ]);
+
+        $clearPreviousStatement = db()->prepare(
+            'UPDATE community_event_rsvps
+            SET bring_item_id = NULL
+            WHERE community_event_id = :event_id
+                AND bring_item_id = :item_id
+                AND user_id <> :user_id'
+        );
+        $clearPreviousStatement->execute([
+            'event_id' => $eventId,
+            'item_id' => $itemId,
+            'user_id' => $attendeeUserId,
         ]);
 
         $rsvpStatement = db()->prepare(
