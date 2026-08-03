@@ -65,14 +65,14 @@ $verseResourceTerms = function_exists('bible_resource_terms_for_text')
                         <option value="<?= e($color); ?>"><?= e($color); ?></option>
                     <?php endforeach; ?>
                 </select>
-                <input type="text" name="note" placeholder="Note or reason">
-                <button class="button button-primary" type="submit">Mark Verse</button>
+                <input type="text" name="note" placeholder="Verse notes">
+                <button class="button button-primary" type="submit">Highlight Verse</button>
             </form>
-            <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes&verse_id=' . $verse['id'])); ?>">Add Note</a>
+            <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes&verse_id=' . $verse['id'])); ?>">Create Bookmark</a>
         <?php elseif (is_logged_in()): ?>
             <span class="muted-copy">Marking for this result is unavailable until the verse is mapped locally.</span>
         <?php else: ?>
-            <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign in to mark</a>
+            <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign in to bookmark</a>
         <?php endif; ?>
     </div>
 </article>

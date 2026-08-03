@@ -96,9 +96,7 @@ $pageTitle = 'Good News';
 $activePage = 'good-news';
 $user = is_logged_in() ? refresh_current_user() : null;
 $pageError = null;
-$recentNotes = [];
-$recentBookmarks = [];
-$prayerEntries = [];
+$dashboardFeed = [];
 $foundationCards = good_news_foundation_cards();
 $scripturePath = good_news_scripture_path();
 $prayerPageUrl = app_url($user !== null ? 'library.php?view=prayer' : 'login.php');
@@ -107,12 +105,10 @@ $guestEncouragement = good_news_guest_encouragement();
 
 try {
     if ($user !== null) {
-        $recentNotes = fetch_recent_notes((int) $user['id'], 2);
-        $recentBookmarks = fetch_recent_bookmarks((int) $user['id'], 2);
-        $prayerEntries = array_slice(fetch_prayer_entries_for_user((int) $user['id'], 4), 0, 2);
+        $dashboardFeed = fetch_dashboard_feed((int) $user['id']);
     }
 } catch (Throwable $exception) {
-    $pageError = 'The Good News page is available, but some live content could not be loaded right now.';
+    $pageError = 'Your dashboard could not be loaded right now. Please try again in a moment.';
 }
 
 require_once __DIR__ . '/includes/header.php';
@@ -123,6 +119,137 @@ require_once __DIR__ . '/includes/header.php';
             <div class="flash flash-warning"><?= e($pageError); ?></div>
         <?php endif; ?>
 
+        <?php if ($user !== null): ?>
+            <?php $firstName = trim(explode(' ', trim((string) ($user['name'] ?? 'Friend')))[0] ?? 'Friend'); ?>
+            <header class="good-news-dashboard-header">
+                <div>
+                    <p class="eyebrow">Your Good News</p>
+                    <h1>Welcome back, <?= e($firstName !== '' ? $firstName : 'Friend'); ?>.</h1>
+                    <p>Here is what is happening in your study life and community.</p>
+                </div>
+                <nav class="good-news-dashboard-actions" aria-label="Dashboard shortcuts">
+                    <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Open Bible</a>
+                    <a class="button button-secondary" href="<?= e(app_url('planner.php')); ?>">View Planner</a>
+                </nav>
+            </header>
+
+            <?php if ($dashboardFeed === []): ?>
+                <section class="good-news-feed-empty" aria-labelledby="quiet-feed-heading">
+                    <span class="good-news-feed-empty-icon" aria-hidden="true">☀️</span>
+                    <div>
+                        <p class="eyebrow">A fresh start</p>
+                        <h2 id="quiet-feed-heading">Your feed is quiet for now.</h2>
+                        <p>Try bookmarking a verse, adding something to your planner, or joining a community event.</p>
+                    </div>
+                    <div class="inline-actions">
+                        <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Find a Verse</a>
+                        <a class="button button-secondary" href="<?= e(app_url('community.php')); ?>">Explore Events</a>
+                    </div>
+                </section>
+            <?php else: ?>
+                <section class="good-news-dashboard-feed" aria-labelledby="dashboard-feed-heading">
+                    <div class="good-news-feed-heading">
+                        <div>
+                            <p class="eyebrow">For You</p>
+                            <h2 id="dashboard-feed-heading">Your latest updates</h2>
+                        </div>
+                        <span class="pill"><?= e((string) count($dashboardFeed)); ?> update<?= count($dashboardFeed) === 1 ? '' : 's'; ?></span>
+                    </div>
+
+                    <div class="good-news-feed-list">
+                        <?php foreach ($dashboardFeed as $item): ?>
+                            <?php
+                            $data = is_array($item['data'] ?? null) ? $item['data'] : [];
+                            $type = (string) ($item['type'] ?? '');
+                            switch ($type):
+                                case 'planner_event':
+                            ?>
+                                <article class="good-news-feed-card good-news-feed-card--planner">
+                                    <div class="good-news-feed-icon" aria-hidden="true">📅</div>
+                                    <div class="good-news-feed-content">
+                                        <div class="good-news-feed-meta">
+                                            <span class="pill">Today</span>
+                                            <time datetime="<?= e((string) $data['event_date']); ?>"><?= e(date('g:i A', strtotime((string) $data['event_date']))); ?></time>
+                                        </div>
+                                        <h3><?= e((string) $data['title']); ?></h3>
+                                        <p>You have this event on today’s personal planner.</p>
+                                    </div>
+                                    <a class="button button-secondary" href="<?= e(app_url('planner.php')); ?>">Open Planner</a>
+                                </article>
+                            <?php
+                                    break;
+                                case 'community_event':
+                            ?>
+                                <article class="good-news-feed-card good-news-feed-card--community">
+                                    <div class="good-news-feed-icon" aria-hidden="true">🤝</div>
+                                    <div class="good-news-feed-content">
+                                        <div class="good-news-feed-meta">
+                                            <span class="pill"><?= e(ucfirst((string) $data['response'])); ?></span>
+                                            <time datetime="<?= e((string) $data['start_at']); ?>"><?= e(date('D, M j · g:i A', strtotime((string) $data['start_at']))); ?></time>
+                                        </div>
+                                        <h3><?= e((string) $data['title']); ?></h3>
+                                        <p>
+                                            This community event is coming up in the next seven days.
+                                            <?php if ((string) ($data['location_name'] ?? '') !== ''): ?>
+                                                <span class="good-news-feed-detail">At <?= e((string) $data['location_name']); ?></span>
+                                            <?php endif; ?>
+                                        </p>
+                                    </div>
+                                    <a class="button button-secondary" href="<?= e(app_url('community.php')); ?>">View Event</a>
+                                </article>
+                            <?php
+                                    break;
+                                case 'friend_request':
+                            ?>
+                                <article class="good-news-feed-card good-news-feed-card--friend">
+                                    <div class="good-news-feed-icon" aria-hidden="true">👋</div>
+                                    <div class="good-news-feed-content">
+                                        <div class="good-news-feed-meta">
+                                            <span class="pill">Friend request</span>
+                                            <time datetime="<?= e((string) $data['created_at']); ?>"><?= e(date('M j, g:i A', (int) $item['timestamp'])); ?></time>
+                                        </div>
+                                        <h3><?= e((string) $data['sender_name']); ?> wants to connect.</h3>
+                                        <p>Review the request and grow your study community.</p>
+                                    </div>
+                                    <a class="button button-primary" href="<?= e(app_url('friends.php')); ?>">Review Request</a>
+                                </article>
+                            <?php
+                                    break;
+                                case 'friend_bookmark':
+                                    $verseReference = sprintf(
+                                        '%s %d:%d',
+                                        (string) $data['book_name'],
+                                        (int) $data['chapter_number'],
+                                        (int) $data['verse_number']
+                                    );
+                                    $verseUrl = app_url(
+                                        'bible.php?translation=' . urlencode((string) $data['translation'])
+                                        . '&book_id=' . (int) $data['book_id']
+                                        . '&chapter=' . (int) $data['chapter_number']
+                                        . '&verse=' . (int) $data['verse_number']
+                                    );
+                            ?>
+                                <article class="good-news-feed-card good-news-feed-card--bookmark">
+                                    <div class="good-news-feed-icon" aria-hidden="true">🔖</div>
+                                    <div class="good-news-feed-content">
+                                        <div class="good-news-feed-meta">
+                                            <span class="pill">Friend activity</span>
+                                            <time datetime="<?= e((string) $data['created_at']); ?>"><?= e(date('M j, g:i A', (int) $item['timestamp'])); ?></time>
+                                        </div>
+                                        <h3><?= e((string) $data['friend_name']); ?> bookmarked <?= e($verseReference); ?>.</h3>
+                                        <p>“<?= e(truncate_text((string) $data['verse_text'], 145)); ?>”</p>
+                                    </div>
+                                    <a class="button button-secondary" href="<?= e($verseUrl); ?>">Read Verse</a>
+                                </article>
+                            <?php
+                                    break;
+                            endswitch;
+                            ?>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
+            <?php endif; ?>
+        <?php else: ?>
         <section class="good-news-hero">
             <div class="good-news-hero-copy">
                 <p class="eyebrow">The Good News</p>
@@ -289,6 +416,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </section>
         </div>
+        <?php endif; ?>
     </div>
 </section>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
