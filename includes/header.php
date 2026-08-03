@@ -121,7 +121,7 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                             'label' => 'Study tools',
                             'links' => [
                                 [
-                                    'label' => 'Gospel Path',
+                                    'label' => 'Gospel Track',
                                     'href' => app_url('good-news.php'),
                                     'active' => $activePage === 'good-news',
                                     'class' => '',
@@ -196,7 +196,7 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                                     'class' => '',
                                 ],
                                 [
-                                    'label' => 'Gospel Path',
+                                    'label' => 'Gospel Track',
                                     'href' => app_url('good-news.php'),
                                     'active' => $activePage === 'good-news',
                                     'class' => '',

@@ -4,419 +4,260 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 
-function good_news_foundation_cards(): array
+function gospel_story_steps(): array
 {
     return [
         [
-            'eyebrow' => 'Trust',
-            'title' => 'Put your full trust in the Lord',
-            'summary' => 'Lay down self-reliance and turn your heart toward the Lord with confidence, surrender, and expectation.',
+            'number' => '01',
+            'short_title' => 'God loves you',
+            'eyebrow' => 'The beginning',
+            'title' => 'You were made to know and be loved by God.',
+            'summary' => 'The Bible begins with a good God creating people in His image. Your life has dignity, purpose, and a place in His story.',
+            'reference' => 'Genesis 1:27',
+            'quote' => 'God created mankind in his own image.',
+            'reflection' => 'What might change if you believed your life was made with purpose?',
         ],
         [
-            'eyebrow' => 'Salvation',
-            'title' => 'Receive the free gift of salvation',
-            'summary' => 'Salvation is not something you earn. It is the mercy of God offered through Jesus Christ to everyone who believes.',
+            'number' => '02',
+            'short_title' => 'We wandered',
+            'eyebrow' => 'The problem',
+            'title' => 'Sin separates us from the life God intended.',
+            'summary' => 'All of us have chosen our own way. The Bible calls this sin. It damages our relationship with God, with others, and even with ourselves.',
+            'reference' => 'Romans 3:23',
+            'quote' => 'For all have sinned, and come short of the glory of God.',
+            'reflection' => 'Where do you most long for forgiveness, healing, or a new beginning?',
         ],
         [
-            'eyebrow' => 'Jesus Christ',
-            'title' => 'The way, the truth, and the life',
-            'summary' => 'The love of God is revealed in His Son. Jesus is the door to life, forgiveness, peace, and a new beginning.',
-        ],
-    ];
-}
-
-function good_news_scripture_path(): array
-{
-    return [
-        [
-            'reference' => 'Proverbs 3:5-6',
-            'title' => 'Trust the Lord with all your heart',
-            'summary' => 'When your understanding is limited, the Lord is still faithful to direct your path.',
-        ],
-        [
+            'number' => '03',
+            'short_title' => 'Jesus came',
+            'eyebrow' => 'The rescue',
+            'title' => 'Jesus came to bring us home to God.',
+            'summary' => 'God did not leave us on our own. Jesus lived with perfect love, gave His life for our sin, and rose again—opening the way to forgiveness and new life.',
             'reference' => 'John 3:16',
-            'title' => 'God loved the world and gave His Son',
-            'summary' => 'The gospel begins with the love of God and the gift of His Son for eternal life.',
+            'quote' => 'For God so loved the world, that he gave his only begotten Son.',
+            'reflection' => 'What does it tell you about God that He moved toward us first?',
         ],
         [
+            'number' => '04',
+            'short_title' => 'You can respond',
+            'eyebrow' => 'The invitation',
+            'title' => 'Grace is a gift you can receive today.',
+            'summary' => 'You do not earn your way to God. Turn toward Jesus, trust what He has done, and receive the new life He freely offers.',
             'reference' => 'Ephesians 2:8-9',
-            'title' => 'Saved by grace through faith',
-            'summary' => 'Salvation is the gift of God, not a reward for human effort or religious performance.',
-        ],
-        [
-            'reference' => 'John 14:6',
-            'title' => 'Jesus Christ is the only way',
-            'summary' => 'He is the way, the truth, and the life, and He brings us to the Father.',
+            'quote' => 'For by grace are ye saved through faith; and that not of yourselves.',
+            'reflection' => 'Are you ready to trust Jesus, or would you like more time to explore?',
         ],
     ];
 }
 
-function good_news_resource_terms(string $text, int $limit = 3): array
-{
-    return scripture_focus_terms($text, $limit, 4);
-}
-
-function good_news_response_steps(bool $isLoggedIn, string $prayerPageUrl): array
+function gospel_questions(): array
 {
     return [
         [
-            'label' => 'Believe',
-            'title' => 'Believe the gospel personally',
-            'summary' => 'Do not leave the message at a distance. Receive Christ by faith and call on the Lord today.',
-            'action_label' => 'Read Romans 10',
-            'action_url' => app_url('bible.php?q=' . urlencode('Romans 10') . '&translation=' . urlencode(APP_DEFAULT_TRANSLATION)),
+            'question' => 'What is the Bible?',
+            'answer' => 'The Bible is a collection of writings that tells one connected story: God creating, pursuing, rescuing, and restoring people. It includes history, poetry, wisdom, letters, and eyewitness accounts of Jesus.',
         ],
         [
-            'label' => 'Pray',
-            'title' => 'Respond to God with a sincere prayer',
-            'summary' => 'Thank God for His love, confess your need, and ask Jesus Christ to lead your life in truth.',
-            'action_label' => $isLoggedIn ? 'Open Prayer' : 'Pray and Sign In',
-            'action_url' => $prayerPageUrl,
+            'question' => 'Who is Jesus?',
+            'answer' => 'Jesus is the Son of God at the center of the Christian faith. Christians believe He reveals what God is like, died for our sins, rose from the dead, and invites every person into life with God.',
         ],
         [
-            'label' => 'Walk',
-            'title' => 'Keep walking with the Lord daily',
-            'summary' => 'Open Scripture, save what God is showing you, and stay connected to prayer, fellowship, and obedience.',
-            'action_label' => 'Open Bible',
-            'action_url' => app_url('bible.php'),
+            'question' => 'Do I need to fix myself first?',
+            'answer' => 'No. The Gospel is not a reward for people who have everything together. Jesus welcomes us as we are, and His grace begins the work of changing us from the inside out.',
+        ],
+        [
+            'question' => 'What if I still have doubts?',
+            'answer' => 'Questions are welcome here. Faith can begin with an honest desire to know what is true. Read one of the Gospels, talk with God honestly, and keep exploring at a thoughtful pace.',
         ],
     ];
 }
 
-function good_news_guest_encouragement(): array
-{
-    return [
-        'Turn to the Lord in prayer and speak honestly from your heart.',
-        'Read the gospel of John and let the words of Jesus stay with you.',
-        'Keep coming back to Scripture until trust becomes your daily pattern.',
-    ];
-}
-
-$pageTitle = 'Good News';
+$pageTitle = 'Explore the Gospel';
+$pageDescription = 'A welcoming, interactive introduction to the Gospel, the story of Jesus, and how to begin reading the Bible.';
 $activePage = 'good-news';
 $user = is_logged_in() ? refresh_current_user() : null;
-$pageError = null;
-$dashboardFeed = [];
-$foundationCards = good_news_foundation_cards();
-$scripturePath = good_news_scripture_path();
-$prayerPageUrl = app_url($user !== null ? 'library.php?view=prayer' : 'login.php');
-$responseSteps = good_news_response_steps($user !== null, $prayerPageUrl);
-$guestEncouragement = good_news_guest_encouragement();
-
-try {
-    if ($user !== null) {
-        $dashboardFeed = fetch_dashboard_feed((int) $user['id']);
-    }
-} catch (Throwable $exception) {
-    $pageError = 'Your dashboard could not be loaded right now. Please try again in a moment.';
-}
+$storySteps = gospel_story_steps();
+$questions = gospel_questions();
+$prayerUrl = app_url($user !== null ? 'library.php?view=prayer' : 'login.php');
+$pageScripts = ['assets/js/gospel-track.js'];
 
 require_once __DIR__ . '/includes/header.php';
 ?>
-<section class="section good-news-page">
-    <div class="container good-news-shell">
-        <?php if ($pageError): ?>
-            <div class="flash flash-warning"><?= e($pageError); ?></div>
-        <?php endif; ?>
+<section class="gospel-landing" data-gospel-track>
+    <div class="container gospel-landing-shell">
+        <nav class="gospel-subnav" aria-label="Gospel page sections">
+            <a class="gospel-subnav-brand" href="#top" aria-label="The Gospel, back to top">
+                <span aria-hidden="true">✦</span>
+                <strong>The Gospel</strong>
+            </a>
+            <div>
+                <a href="#gospel-story">The story</a>
+                <a href="#explore-bible">Explore</a>
+                <a class="button button-primary" href="#respond">Take a next step</a>
+            </div>
+        </nav>
 
-        <?php if ($user !== null): ?>
-            <?php $firstName = trim(explode(' ', trim((string) ($user['name'] ?? 'Friend')))[0] ?? 'Friend'); ?>
-            <header class="good-news-dashboard-header">
-                <div>
-                    <p class="eyebrow">Your Good News</p>
-                    <h1>Welcome back, <?= e($firstName !== '' ? $firstName : 'Friend'); ?>.</h1>
-                    <p>Here is what is happening in your study life and community.</p>
-                </div>
-                <nav class="good-news-dashboard-actions" aria-label="Dashboard shortcuts">
-                    <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Open Bible</a>
-                    <a class="button button-secondary" href="<?= e(app_url('planner.php')); ?>">View Planner</a>
-                </nav>
-            </header>
-
-            <?php if ($dashboardFeed === []): ?>
-                <section class="good-news-feed-empty" aria-labelledby="quiet-feed-heading">
-                    <span class="good-news-feed-empty-icon" aria-hidden="true">☀️</span>
-                    <div>
-                        <p class="eyebrow">A fresh start</p>
-                        <h2 id="quiet-feed-heading">Your feed is quiet for now.</h2>
-                        <p>Try bookmarking a verse, adding something to your planner, or joining a community event.</p>
-                    </div>
-                    <div class="inline-actions">
-                        <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Find a Verse</a>
-                        <a class="button button-secondary" href="<?= e(app_url('community.php')); ?>">Explore Events</a>
-                    </div>
-                </section>
-            <?php else: ?>
-                <section class="good-news-dashboard-feed" aria-labelledby="dashboard-feed-heading">
-                    <div class="good-news-feed-heading">
-                        <div>
-                            <p class="eyebrow">For You</p>
-                            <h2 id="dashboard-feed-heading">Your latest updates</h2>
-                        </div>
-                        <span class="pill"><?= e((string) count($dashboardFeed)); ?> update<?= count($dashboardFeed) === 1 ? '' : 's'; ?></span>
-                    </div>
-
-                    <div class="good-news-feed-list">
-                        <?php foreach ($dashboardFeed as $item): ?>
-                            <?php
-                            $data = is_array($item['data'] ?? null) ? $item['data'] : [];
-                            $type = (string) ($item['type'] ?? '');
-                            switch ($type):
-                                case 'planner_event':
-                            ?>
-                                <article class="good-news-feed-card good-news-feed-card--planner">
-                                    <div class="good-news-feed-icon" aria-hidden="true">📅</div>
-                                    <div class="good-news-feed-content">
-                                        <div class="good-news-feed-meta">
-                                            <span class="pill">Today</span>
-                                            <time datetime="<?= e((string) $data['event_date']); ?>"><?= e(date('g:i A', strtotime((string) $data['event_date']))); ?></time>
-                                        </div>
-                                        <h3><?= e((string) $data['title']); ?></h3>
-                                        <p>You have this event on today’s personal planner.</p>
-                                    </div>
-                                    <a class="button button-secondary" href="<?= e(app_url('planner.php')); ?>">Open Planner</a>
-                                </article>
-                            <?php
-                                    break;
-                                case 'community_event':
-                            ?>
-                                <article class="good-news-feed-card good-news-feed-card--community">
-                                    <div class="good-news-feed-icon" aria-hidden="true">🤝</div>
-                                    <div class="good-news-feed-content">
-                                        <div class="good-news-feed-meta">
-                                            <span class="pill"><?= e(ucfirst((string) $data['response'])); ?></span>
-                                            <time datetime="<?= e((string) $data['start_at']); ?>"><?= e(date('D, M j · g:i A', strtotime((string) $data['start_at']))); ?></time>
-                                        </div>
-                                        <h3><?= e((string) $data['title']); ?></h3>
-                                        <p>
-                                            This community event is coming up in the next seven days.
-                                            <?php if ((string) ($data['location_name'] ?? '') !== ''): ?>
-                                                <span class="good-news-feed-detail">At <?= e((string) $data['location_name']); ?></span>
-                                            <?php endif; ?>
-                                        </p>
-                                    </div>
-                                    <a class="button button-secondary" href="<?= e(app_url('community.php')); ?>">View Event</a>
-                                </article>
-                            <?php
-                                    break;
-                                case 'friend_request':
-                            ?>
-                                <article class="good-news-feed-card good-news-feed-card--friend">
-                                    <div class="good-news-feed-icon" aria-hidden="true">👋</div>
-                                    <div class="good-news-feed-content">
-                                        <div class="good-news-feed-meta">
-                                            <span class="pill">Friend request</span>
-                                            <time datetime="<?= e((string) $data['created_at']); ?>"><?= e(date('M j, g:i A', (int) $item['timestamp'])); ?></time>
-                                        </div>
-                                        <h3><?= e((string) $data['sender_name']); ?> wants to connect.</h3>
-                                        <p>Review the request and grow your study community.</p>
-                                    </div>
-                                    <a class="button button-primary" href="<?= e(app_url('friends.php')); ?>">Review Request</a>
-                                </article>
-                            <?php
-                                    break;
-                                case 'friend_bookmark':
-                                    $verseReference = sprintf(
-                                        '%s %d:%d',
-                                        (string) $data['book_name'],
-                                        (int) $data['chapter_number'],
-                                        (int) $data['verse_number']
-                                    );
-                                    $verseUrl = app_url(
-                                        'bible.php?translation=' . urlencode((string) $data['translation'])
-                                        . '&book_id=' . (int) $data['book_id']
-                                        . '&chapter=' . (int) $data['chapter_number']
-                                        . '&verse=' . (int) $data['verse_number']
-                                    );
-                            ?>
-                                <article class="good-news-feed-card good-news-feed-card--bookmark">
-                                    <div class="good-news-feed-icon" aria-hidden="true">🔖</div>
-                                    <div class="good-news-feed-content">
-                                        <div class="good-news-feed-meta">
-                                            <span class="pill">Friend activity</span>
-                                            <time datetime="<?= e((string) $data['created_at']); ?>"><?= e(date('M j, g:i A', (int) $item['timestamp'])); ?></time>
-                                        </div>
-                                        <h3><?= e((string) $data['friend_name']); ?> bookmarked <?= e($verseReference); ?>.</h3>
-                                        <p>“<?= e(truncate_text((string) $data['verse_text'], 145)); ?>”</p>
-                                    </div>
-                                    <a class="button button-secondary" href="<?= e($verseUrl); ?>">Read Verse</a>
-                                </article>
-                            <?php
-                                    break;
-                            endswitch;
-                            ?>
-                        <?php endforeach; ?>
-                    </div>
-                </section>
-            <?php endif; ?>
-        <?php else: ?>
-        <section class="good-news-hero">
-            <div class="good-news-hero-copy">
-                <p class="eyebrow">The Good News</p>
-                <h1>Put your trust in the Lord and receive the free gift of salvation through Jesus Christ.</h1>
-                <p class="good-news-lead">
-                    The heart of this page is simple: believe in the true love of God revealed in His Son.
-                    Jesus Christ is the way, the truth, and the life. Turn to Him, trust Him, and walk in the
-                    hope only He can give.
+        <section class="gospel-hero" id="top" aria-labelledby="gospel-hero-title">
+            <div class="gospel-hero-copy">
+                <p class="gospel-kicker"><span aria-hidden="true"></span> You are welcome here</p>
+                <h1 id="gospel-hero-title">There is good news<br><em>for your story.</em></h1>
+                <p class="gospel-hero-lead">
+                    The Gospel is the story of a God who loves you, came near in Jesus,
+                    and offers a life made new. You do not need all the answers to begin.
                 </p>
 
-                <div class="hero-actions">
-                    <a class="button button-primary" href="<?= e(scripture_reference_reader_url('John 3:16')); ?>">Read John 3:16</a>
-                    <a class="button button-secondary" href="<?= e(scripture_reference_reader_url('John 14:6')); ?>">Read John 14:6</a>
-                    <a class="button button-secondary" href="<?= e($prayerPageUrl); ?>"><?= $user !== null ? 'Pray Now' : 'Open Prayer' ?></a>
+                <div class="gospel-hero-actions">
+                    <a class="button gospel-button-light" href="#gospel-story">Explore the story <span aria-hidden="true">↓</span></a>
+                    <a class="gospel-text-link" href="<?= e(scripture_reference_reader_url('John 1')); ?>">Meet Jesus in John 1 <span aria-hidden="true">→</span></a>
                 </div>
 
-                <div class="good-news-anchor-row">
-                    <span class="pill">Trust in the Lord</span>
-                    <span class="pill">Believe in Jesus Christ</span>
-                    <span class="pill">Receive salvation by grace</span>
+                <div class="gospel-welcome-picker" aria-labelledby="welcome-picker-label">
+                    <p id="welcome-picker-label">What brings you here today?</p>
+                    <div class="gospel-choice-row" role="group" aria-label="Choose what brings you here">
+                        <button type="button" data-gospel-choice="curious">I’m curious</button>
+                        <button type="button" data-gospel-choice="restart">I need a fresh start</button>
+                        <button type="button" data-gospel-choice="questions">I have questions</button>
+                    </div>
+                    <p class="gospel-choice-response" data-gospel-choice-response aria-live="polite">Choose what feels closest. There is no wrong place to begin.</p>
                 </div>
             </div>
 
-            <aside class="good-news-hero-panel">
-                <span class="pill pill-dark">Hope for today</span>
-                <h2>Jesus Christ is the way, the truth, and the life.</h2>
-                <p>
-                    God is not asking you to save yourself. He is calling you to trust His Son.
-                    The invitation is open right now: believe, receive mercy, and begin a new life with the Lord.
-                </p>
-
-                <div class="good-news-hero-scripture">
-                    <strong>Start here</strong>
-                    <a href="<?= e(scripture_reference_reader_url('Proverbs 3:5-6')); ?>">Proverbs 3:5-6</a>
-                    <a href="<?= e(scripture_reference_reader_url('Ephesians 2:8-9')); ?>">Ephesians 2:8-9</a>
-                    <a href="<?= e(scripture_reference_reader_url('Romans 10:9-10')); ?>">Romans 10:9-10</a>
+            <div class="gospel-hero-art" aria-label="An open door filled with light, representing hope and a new beginning">
+                <div class="gospel-light-rays" aria-hidden="true"></div>
+                <div class="gospel-door" aria-hidden="true">
+                    <span></span>
                 </div>
-            </aside>
-        </section>
-
-        <section class="good-news-foundation-grid" aria-label="Good News foundations">
-            <?php foreach ($foundationCards as $card): ?>
-                <article class="good-news-foundation-card">
-                    <span class="pill"><?= e($card['eyebrow']); ?></span>
-                    <h2><?= e($card['title']); ?></h2>
-                    <p><?= e($card['summary']); ?></p>
-                </article>
-            <?php endforeach; ?>
-        </section>
-
-        <section class="good-news-scripture-band">
-            <div class="panel-heading">
-                <div>
-                    <p class="eyebrow">Scripture Path</p>
-                    <h2>Read the message in Scripture</h2>
-                    <p class="muted-copy">These passages move from trust, to grace, to the person of Jesus Christ.</p>
-                </div>
+                <blockquote>
+                    <p>“I am come that they might have life, and that they might have it more abundantly.”</p>
+                    <cite>Jesus · John 10:10</cite>
+                </blockquote>
             </div>
+        </section>
 
-            <div class="good-news-scripture-grid top-gap-sm">
-                <?php foreach ($scripturePath as $passage): ?>
-                    <?php
-                    $passageReference = (string) $passage['reference'];
-                    $passageTerms = good_news_resource_terms((string) $passage['title'] . ' ' . (string) $passage['summary']);
-                    ?>
-                    <article class="good-news-scripture-card">
-                        <span class="pill"><?= e($passageReference); ?></span>
-                        <h3><?= e($passage['title']); ?></h3>
-                        <p><?= e($passage['summary']); ?></p>
-                        <nav class="good-news-resource-row" aria-label="<?= e($passageReference); ?> resources">
-                            <a href="<?= e(scripture_reference_reader_url($passageReference)); ?>">Read Passage</a>
-                            <a href="<?= e(app_url('dictionary.php?q=' . urlencode($passageReference))); ?>">Reference</a>
-                            <?php foreach ($passageTerms as $term): ?>
-                                <a href="<?= e(app_url('dictionary.php?q=' . urlencode($term))); ?>"><?= e(mb_convert_case($term, MB_CASE_TITLE, 'UTF-8')); ?></a>
-                            <?php endforeach; ?>
-                        </nav>
-                    </article>
+        <section class="gospel-intro" id="gospel-story" aria-labelledby="gospel-story-title">
+            <div>
+                <p class="eyebrow">The big story</p>
+                <h2 id="gospel-story-title">The Gospel in four movements</h2>
+            </div>
+            <p>You can move through these at your own pace. Each part connects the story of the Bible to the questions we all carry.</p>
+        </section>
+
+        <section class="gospel-journey" aria-label="Interactive Gospel story">
+            <div class="gospel-journey-tabs" role="tablist" aria-label="Gospel story steps">
+                <?php foreach ($storySteps as $index => $step): ?>
+                    <button
+                        type="button"
+                        id="gospel-tab-<?= e((string) $index); ?>"
+                        role="tab"
+                        aria-selected="<?= $index === 0 ? 'true' : 'false'; ?>"
+                        aria-controls="gospel-panel-<?= e((string) $index); ?>"
+                        tabindex="<?= $index === 0 ? '0' : '-1'; ?>"
+                        data-gospel-step="<?= e((string) $index); ?>"
+                    >
+                        <span><?= e($step['number']); ?></span>
+                        <strong><?= e($step['short_title']); ?></strong>
+                    </button>
                 <?php endforeach; ?>
             </div>
+
+            <div class="gospel-progress" aria-hidden="true"><span data-gospel-progress></span></div>
+
+            <?php foreach ($storySteps as $index => $step): ?>
+                <article
+                    class="gospel-story-panel"
+                    id="gospel-panel-<?= e((string) $index); ?>"
+                    role="tabpanel"
+                    aria-labelledby="gospel-tab-<?= e((string) $index); ?>"
+                    <?= $index === 0 ? '' : 'hidden'; ?>
+                    data-gospel-panel="<?= e((string) $index); ?>"
+                >
+                    <div class="gospel-story-copy">
+                        <p class="eyebrow"><?= e($step['eyebrow']); ?></p>
+                        <h3><?= e($step['title']); ?></h3>
+                        <p><?= e($step['summary']); ?></p>
+                        <a class="button button-primary" href="<?= e(scripture_reference_reader_url((string) $step['reference'])); ?>">Read <?= e($step['reference']); ?> <span aria-hidden="true">→</span></a>
+                    </div>
+                    <aside class="gospel-scripture-note">
+                        <span class="gospel-scripture-mark" aria-hidden="true">“</span>
+                        <blockquote><?= e($step['quote']); ?></blockquote>
+                        <a href="<?= e(scripture_reference_reader_url((string) $step['reference'])); ?>"><?= e($step['reference']); ?></a>
+                        <div>
+                            <span>Pause and reflect</span>
+                            <p><?= e($step['reflection']); ?></p>
+                        </div>
+                    </aside>
+                </article>
+            <?php endforeach; ?>
+
+            <div class="gospel-journey-controls">
+                <button class="gospel-round-button" type="button" data-gospel-previous disabled aria-label="Previous Gospel story step">←</button>
+                <p><span data-gospel-current>1</span> of <?= e((string) count($storySteps)); ?></p>
+                <button class="gospel-round-button" type="button" data-gospel-next aria-label="Next Gospel story step">→</button>
+            </div>
         </section>
 
-        <div class="two-column top-gap">
-            <section class="panel good-news-panel-emphasis">
-                <div class="panel-heading">
-                    <div>
-                        <p class="eyebrow">Respond</p>
-                        <h2>What to do with the Good News</h2>
-                        <p class="muted-copy">Receive it by faith, answer God in prayer, and keep walking in His Word.</p>
-                    </div>
+        <section class="gospel-explore" id="explore-bible" aria-labelledby="explore-bible-title">
+            <div class="gospel-section-heading">
+                <p class="eyebrow">A safe place to ask</p>
+                <h2 id="explore-bible-title">New to the Bible?</h2>
+                <p>You are not behind. Open a question to get a clear, simple starting point.</p>
+            </div>
+            <div class="gospel-question-grid">
+                <?php foreach ($questions as $index => $item): ?>
+                    <details class="gospel-question" <?= $index === 0 ? 'open' : ''; ?>>
+                        <summary>
+                            <span><?= e($item['question']); ?></span>
+                            <i aria-hidden="true"></i>
+                        </summary>
+                        <p><?= e($item['answer']); ?></p>
+                    </details>
+                <?php endforeach; ?>
+            </div>
+            <div class="gospel-reading-invite">
+                <div class="gospel-reading-icon" aria-hidden="true">☼</div>
+                <div>
+                    <span>Try a 5-minute read</span>
+                    <h3>Meet Jesus through a real conversation.</h3>
+                    <p>John 4 follows Jesus as He speaks with someone who felt unseen and out of place.</p>
                 </div>
+                <a class="button button-secondary" href="<?= e(scripture_reference_reader_url('John 4')); ?>">Read John 4 <span aria-hidden="true">→</span></a>
+            </div>
+        </section>
 
-                <div class="stack-list top-gap-sm">
-                    <?php foreach ($responseSteps as $step): ?>
-                        <article class="good-news-step-card">
-                            <span class="pill"><?= e($step['label']); ?></span>
-                            <strong><?= e($step['title']); ?></strong>
-                            <p><?= e($step['summary']); ?></p>
-                            <a class="button button-secondary" href="<?= e($step['action_url']); ?>"><?= e($step['action_label']); ?></a>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
-            </section>
+        <section class="gospel-response" id="respond" aria-labelledby="gospel-response-title">
+            <div class="gospel-response-copy">
+                <p class="eyebrow">Your next step</p>
+                <h2 id="gospel-response-title">You can talk to God right now.</h2>
+                <p>Prayer is simply honest conversation with God. You do not need special words. If you are ready, you can begin here:</p>
+                <blockquote>
+                    “God, I want to know You. Thank You for loving me and for sending Jesus. Forgive me, lead me, and help me trust You one day at a time. Amen.”
+                </blockquote>
+                <p class="gospel-prayer-note">This prayer is not a formula—what matters is an honest heart turning toward God.</p>
+            </div>
+            <div class="gospel-next-steps">
+                <a href="<?= e(scripture_reference_reader_url('John 1')); ?>">
+                    <span>01</span>
+                    <div><strong>Start with John</strong><small>Discover who Jesus is</small></div>
+                    <i aria-hidden="true">→</i>
+                </a>
+                <a href="<?= e($prayerUrl); ?>">
+                    <span>02</span>
+                    <div><strong><?= $user !== null ? 'Write a prayer' : 'Create a prayer space'; ?></strong><small><?= $user !== null ? 'Respond honestly to God' : 'Sign in to save private prayers'; ?></small></div>
+                    <i aria-hidden="true">→</i>
+                </a>
+                <a href="<?= e(app_url('studies.php')); ?>">
+                    <span>03</span>
+                    <div><strong>Explore a Bible plan</strong><small>Take one step each day</small></div>
+                    <i aria-hidden="true">→</i>
+                </a>
+            </div>
+        </section>
 
-            <section class="panel">
-                <div class="panel-heading">
-                    <div>
-                        <p class="eyebrow">Daily Walk</p>
-                        <h2>Keep growing in the Lord</h2>
-                        <p class="muted-copy">The gospel is the beginning of a life of prayer, Scripture, obedience, and fellowship.</p>
-                    </div>
-                </div>
-
-                <div class="stack-list top-gap-sm">
-                    <?php if ($user !== null && ($recentNotes !== [] || $recentBookmarks !== [] || $prayerEntries !== [])): ?>
-                        <?php foreach ($recentBookmarks as $bookmark): ?>
-                            <article class="list-card list-card-block">
-                                <div>
-                                    <span class="pill">Saved Verse</span>
-                                    <strong><?= e(format_verse_reference($bookmark)); ?></strong>
-                                    <span><?= e(truncate_text((string) $bookmark['verse_text'], 115)); ?></span>
-                                </div>
-                                <div class="inline-actions top-gap-sm">
-                                    <a class="button button-secondary" href="<?= e(app_url('bible.php?translation=' . urlencode((string) $bookmark['translation']) . '&book_id=' . (int) $bookmark['book_id'] . '&chapter=' . (int) $bookmark['chapter_number'] . '&verse=' . (int) $bookmark['verse_number'])); ?>">Open</a>
-                                    <a class="button button-secondary" href="<?= e(app_url('library.php?view=saved')); ?>">Library</a>
-                                </div>
-                            </article>
-                        <?php endforeach; ?>
-
-                        <?php foreach ($recentNotes as $note): ?>
-                            <article class="list-card list-card-block">
-                                <div>
-                                    <span class="pill">Study Note</span>
-                                    <strong><?= e((string) $note['title']); ?></strong>
-                                    <span><?= e(truncate_text((string) $note['content'], 115)); ?></span>
-                                </div>
-                                <div class="inline-actions top-gap-sm">
-                                    <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes&edit_note=' . (int) $note['id'])); ?>">Open</a>
-                                </div>
-                            </article>
-                        <?php endforeach; ?>
-
-                        <?php foreach ($prayerEntries as $entry): ?>
-                            <article class="list-card list-card-block">
-                                <div>
-                                    <span class="pill <?= (string) $entry['status'] === 'answered' ? 'pill-dark' : ''; ?>"><?= e(ucfirst((string) $entry['status'])); ?></span>
-                                    <strong><?= e((string) $entry['title']); ?></strong>
-                                    <?php if (!empty($entry['details'])): ?>
-                                        <span><?= e(truncate_text((string) $entry['details'], 115)); ?></span>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="inline-actions top-gap-sm">
-                                    <a class="button button-secondary" href="<?= e(app_url('library.php?view=prayer')); ?>">Open Prayer</a>
-                                </div>
-                            </article>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <?php foreach ($guestEncouragement as $encouragement): ?>
-                            <article class="good-news-mini-card">
-                                <strong>Stay near to the Word</strong>
-                                <p><?= e($encouragement); ?></p>
-                            </article>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-            </section>
-        </div>
-        <?php endif; ?>
+        <section class="gospel-final-invite" aria-label="Invitation to keep exploring">
+            <span aria-hidden="true">✦</span>
+            <p>Wherever you are in your story, you are invited to keep seeking.</p>
+            <a href="<?= e(app_url('bible.php')); ?>">Open the Bible <span aria-hidden="true">→</span></a>
+        </section>
     </div>
 </section>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
