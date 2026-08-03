@@ -30,7 +30,10 @@ if ($user === null) {
     exit;
 }
 
+enforce_ai_rate_limit('community-event', (int) $user['id']);
+
 $prompt = trim((string) ($_POST['prompt'] ?? ''));
+enforce_ai_text_limit($prompt, 4000, 'Event prompt');
 
 if ($prompt === '') {
     http_response_code(422);
@@ -96,8 +99,7 @@ try {
         'model' => openai_event_model(),
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $exception) {
-    http_response_code(422);
-    echo json_encode(['error' => $exception->getMessage()]);
+    report_ai_endpoint_error($exception);
 }
 restore_error_handler();
 

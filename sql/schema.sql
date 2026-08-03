@@ -463,6 +463,14 @@ CREATE TABLE IF NOT EXISTS public_radio_stations (
     CONSTRAINT fk_public_radio_stations_user FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS rate_limits (
+    action_key VARCHAR(255) NOT NULL,
+    attempts INT NOT NULL DEFAULT 1,
+    window_started_at INT NOT NULL,
+    PRIMARY KEY (action_key),
+    INDEX idx_window_started_at (window_started_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 ALTER TABLE users
     ADD COLUMN IF NOT EXISTS city VARCHAR(120) NULL AFTER role,
     ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(255) NULL AFTER city,

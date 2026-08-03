@@ -30,8 +30,12 @@ if ($user === null) {
     exit;
 }
 
+enforce_ai_rate_limit('sermon-summary', (int) $user['id']);
+
 $speakerNotes = trim((string) ($_POST['speaker_notes_text'] ?? ''));
 $noteText = trim((string) ($_POST['note_text'] ?? ''));
+enforce_ai_text_limit($speakerNotes, 30000, 'Speaker notes');
+enforce_ai_text_limit($noteText, 30000, 'Sermon notes');
 
 try {
     $draft = openai_generate_sermon_summary($speakerNotes, $noteText);
@@ -49,8 +53,7 @@ try {
         'model' => openai_event_model(),
     ], JSON_UNESCAPED_SLASHES);
 } catch (Throwable $exception) {
-    http_response_code(422);
-    echo json_encode(['error' => $exception->getMessage()]);
+    report_ai_endpoint_error($exception);
 }
 
 restore_error_handler();

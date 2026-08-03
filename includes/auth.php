@@ -172,6 +172,38 @@ function clear_rate_limit(string $key): void
     unset($_SESSION['rate_limits'][$key]);
 }
 
+function enforce_ai_rate_limit(string $action, int $userId, int $maxAttempts = 20, int $windowSeconds = 900): void
+{
+    try {
+        enforce_rate_limit(rate_limit_key('ai-' . $action, (string) $userId), $maxAttempts, $windowSeconds);
+    } catch (RuntimeException $exception) {
+        http_response_code(429);
+        header('Retry-After: ' . $windowSeconds);
+        echo json_encode(['error' => 'Too many AI requests. Wait a few minutes and try again.']);
+        exit;
+    }
+}
+
+function enforce_ai_text_limit(string $value, int $maxCharacters, string $label = 'Input'): void
+{
+    if (mb_strlen($value) <= $maxCharacters) {
+        return;
+    }
+
+    http_response_code(422);
+    echo json_encode([
+        'error' => $label . ' must be ' . number_format($maxCharacters) . ' characters or fewer.',
+    ]);
+    exit;
+}
+
+function report_ai_endpoint_error(Throwable $exception): void
+{
+    error_log('AI endpoint error: ' . $exception::class . ': ' . $exception->getMessage());
+    http_response_code(502);
+    echo json_encode(['error' => 'The AI service could not complete that request. Try again shortly.']);
+}
+
 function log_in_user(array $user): void
 {
     $_SESSION['user'] = [
