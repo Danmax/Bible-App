@@ -315,7 +315,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
             </div>
 
             <div class="hero-actions">
-                <a class="button button-secondary" href="<?= e(app_url('good-news.php')); ?>">Open Gospel Path</a>
+                <a class="button button-secondary" href="<?= e(app_url('good-news.php')); ?>">Open Gospel Track</a>
                 <a class="button button-secondary" href="<?= e(app_url('admin/index.php')); ?>">Back to Admin</a>
             </div>
         </div>
