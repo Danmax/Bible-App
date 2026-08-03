@@ -748,6 +748,41 @@ function fetch_active_user_session_record(
     return $session ?: null;
 }
 
+function fetch_remembered_user_session_record(
+    string $sessionId,
+    string $sessionToken,
+    string $minimumCreatedAt
+): ?array {
+    $statement = db()->prepare(
+        'SELECT
+            sessions.id AS session_record_id,
+            sessions.user_id,
+            sessions.last_seen_at,
+            sessions.expires_at,
+            users.name,
+            users.email,
+            users.role,
+            users.city,
+            users.avatar_url
+        FROM user_sessions AS sessions
+        INNER JOIN users ON users.id = sessions.user_id
+        WHERE sessions.session_id = :session_id
+            AND sessions.session_token_hash = :session_token_hash
+            AND sessions.revoked_at IS NULL
+            AND sessions.expires_at >= NOW()
+            AND sessions.created_at >= :minimum_created_at
+        LIMIT 1'
+    );
+    $statement->execute([
+        'minimum_created_at' => $minimumCreatedAt,
+        'session_id' => trim($sessionId),
+        'session_token_hash' => hash('sha256', $sessionToken),
+    ]);
+    $session = $statement->fetch();
+
+    return $session ?: null;
+}
+
 function touch_user_session_record(int $sessionRecordId, string $lastSeenAt, string $expiresAt): void
 {
     $statement = db()->prepare(

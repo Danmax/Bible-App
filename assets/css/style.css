@@ -7144,6 +7144,41 @@ h2 {
     line-height: 1;
 }
 
+/* Keep every actionable reader control legible across seasonal themes. */
+.bible-canvas-action-bar > a,
+.bible-canvas-action-bar > button {
+    border: 1px solid #17313b;
+    background: #17313b;
+    color: #fffdf8;
+}
+
+.bible-canvas-action-bar > a:hover,
+.bible-canvas-action-bar > a:focus-visible,
+.bible-canvas-action-bar > button:hover,
+.bible-canvas-action-bar > button:focus-visible {
+    border-color: #0d2027;
+    background: #0d2027;
+    color: #ffffff;
+    outline: 3px solid rgba(23, 49, 59, 0.25);
+    outline-offset: 2px;
+}
+
+.bible-canvas-action-bar > a > span,
+.bible-canvas-action-bar > button > span {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+}
+
+.sermon-verse-ref-card > .inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 .reader-font-size-control-inline {
     grid-column: 1 / -1;
     display: grid;

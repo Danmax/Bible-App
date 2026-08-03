@@ -9,9 +9,12 @@ require_once __DIR__ . '/repository.php';
 if (session_status() !== PHP_SESSION_ACTIVE) {
     $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
     $isSecure = ($https !== '' && $https !== 'off');
+    $sessionLifetime = max(300, (int) APP_SESSION_COOKIE_LIFETIME);
+
+    ini_set('session.gc_maxlifetime', (string) $sessionLifetime);
 
     session_set_cookie_params([
-        'lifetime' => max(0, (int) APP_SESSION_COOKIE_LIFETIME),
+        'lifetime' => $sessionLifetime,
         'path' => '/',
         'secure' => $isSecure,
         'httponly' => true,
@@ -221,6 +224,7 @@ function log_in_user(array $user): void
 function logout_user(): void
 {
     revoke_authenticated_session();
+    clear_auth_persistence_cookies();
     unset($_SESSION['user']);
     unset($_SESSION['auth_session_token']);
     session_regenerate_id(true);
@@ -327,6 +331,54 @@ function session_absolute_timeout_seconds(): int
     return max(session_idle_timeout_seconds(), (int) APP_SESSION_ABSOLUTE_TIMEOUT);
 }
 
+function auth_persistence_cookie_name(): string
+{
+    return 'good_news_remember';
+}
+
+function auth_cookie_is_secure(): bool
+{
+    $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+
+    return $https !== '' && $https !== 'off';
+}
+
+function set_auth_persistence_cookies(string $sessionToken): void
+{
+    if (headers_sent() || $sessionToken === '' || session_id() === '') {
+        return;
+    }
+
+    $expiresAt = time() + max(300, (int) APP_SESSION_COOKIE_LIFETIME);
+    $options = [
+        'expires' => $expiresAt,
+        'path' => '/',
+        'secure' => auth_cookie_is_secure(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ];
+
+    setcookie(auth_persistence_cookie_name(), $sessionToken, $options);
+    setcookie(session_name(), session_id(), $options);
+}
+
+function clear_auth_persistence_cookies(): void
+{
+    if (headers_sent()) {
+        return;
+    }
+
+    $options = [
+        'expires' => time() - 3600,
+        'path' => '/',
+        'secure' => auth_cookie_is_secure(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ];
+
+    setcookie(auth_persistence_cookie_name(), '', $options);
+}
+
 function register_authenticated_session(int $userId): void
 {
     if (!user_sessions_available()) {
@@ -339,6 +391,7 @@ function register_authenticated_session(int $userId): void
 
     upsert_user_session_record($userId, session_id(), $sessionToken, $lastSeenAt, $expiresAt);
     $_SESSION['auth_session_token'] = $sessionToken;
+    set_auth_persistence_cookies($sessionToken);
 
     record_audit_event($userId, 'session.started', $userId, [
         'session_id_hash' => hash('sha256', session_id()),
@@ -397,6 +450,7 @@ function ensure_authenticated_session_is_valid(): void
     if ($sessionRecord === null) {
         unset($_SESSION['user']);
         unset($_SESSION['auth_session_token']);
+        clear_auth_persistence_cookies();
         session_regenerate_id(true);
         set_flash('Your session expired. Sign in again to continue.', 'warning');
 
@@ -415,9 +469,48 @@ function ensure_authenticated_session_is_valid(): void
             date('Y-m-d H:i:s'),
             date('Y-m-d H:i:s', time() + session_idle_timeout_seconds())
         );
+        set_auth_persistence_cookies($sessionToken);
     } catch (Throwable $exception) {
         return;
     }
 }
 
+function restore_remembered_authenticated_session(): void
+{
+    if (isset($_SESSION['user']) || !user_sessions_available()) {
+        return;
+    }
+
+    $sessionToken = trim((string) ($_COOKIE[auth_persistence_cookie_name()] ?? ''));
+
+    if ($sessionToken === '' || session_id() === '') {
+        return;
+    }
+
+    $minimumCreatedAt = date('Y-m-d H:i:s', time() - session_absolute_timeout_seconds());
+
+    try {
+        $rememberedSession = fetch_remembered_user_session_record(session_id(), $sessionToken, $minimumCreatedAt);
+    } catch (Throwable $exception) {
+        return;
+    }
+
+    if ($rememberedSession === null) {
+        clear_auth_persistence_cookies();
+        return;
+    }
+
+    $_SESSION['user'] = [
+        'id' => (int) $rememberedSession['user_id'],
+        'name' => (string) $rememberedSession['name'],
+        'email' => (string) $rememberedSession['email'],
+        'role' => (string) ($rememberedSession['role'] ?? 'member'),
+        'city' => (string) ($rememberedSession['city'] ?? ''),
+        'avatar_url' => (string) ($rememberedSession['avatar_url'] ?? ''),
+    ];
+    $_SESSION['auth_session_token'] = $sessionToken;
+    set_auth_persistence_cookies($sessionToken);
+}
+
+restore_remembered_authenticated_session();
 ensure_authenticated_session_is_valid();
