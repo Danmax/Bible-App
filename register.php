@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 
+$destination = auth_destination($_POST['next'] ?? $_GET['next'] ?? null);
+
 if (is_logged_in()) {
-    redirect('dashboard.php');
+    redirect($destination);
 }
 
 $form = [
@@ -36,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
             log_in_user($user);
             set_flash('Your account is ready.', 'success');
-            redirect('dashboard.php');
+            redirect($destination);
         } catch (PDOException $exception) {
             $errorMessage = $exception->getCode() === '23000'
                 ? 'That email address is already registered.'
@@ -70,15 +72,17 @@ require_once __DIR__ . '/includes/header.php';
             </aside>
 
             <div class="auth-panel">
+                <p><a href="<?= e(app_url(str_starts_with($destination, 'bible.php') ? $destination : 'bible.php')); ?>">Read without an account →</a></p>
                 <p class="eyebrow">New Account</p>
                 <h1>Start your study journey</h1>
-                <p>Register for bookmarks, verse search, personal notes, and profile tools.</p>
+                <p>Create an account to save bookmarks, highlights, and personal notes. Reading and Scripture search are open to everyone.</p>
 
                 <?php if ($errorMessage): ?>
                     <div class="flash flash-warning"><?= e($errorMessage); ?></div>
                 <?php endif; ?>
 
                 <form class="form-stack" method="post">
+                    <input type="hidden" name="next" value="<?= e($destination); ?>">
                     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
 
                     <label>
@@ -88,17 +92,17 @@ require_once __DIR__ . '/includes/header.php';
 
                     <label>
                         <span>Email</span>
-                        <input type="email" name="email" value="<?= e($form['email']); ?>" placeholder="you@example.com" required>
+                        <input type="email" name="email" autocomplete="email" value="<?= e($form['email']); ?>" placeholder="you@example.com" required>
                     </label>
 
                     <label>
                         <span>Password</span>
-                        <input type="password" name="password" placeholder="Create a password" minlength="8" required>
+                        <input type="password" name="password" autocomplete="new-password" placeholder="Create a password" minlength="8" required>
                     </label>
 
                     <label>
                         <span>Confirm Password</span>
-                        <input type="password" name="password_confirm" placeholder="Repeat your password" minlength="8" required>
+                        <input type="password" name="password_confirm" autocomplete="new-password" placeholder="Repeat your password" minlength="8" required>
                     </label>
 
                     <button class="button button-primary" type="submit">Create Account</button>

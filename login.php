@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 
+$destination = auth_destination($_POST['next'] ?? $_GET['next'] ?? null);
+
 if (is_logged_in()) {
-    redirect('library.php');
+    redirect($destination);
 }
 
 $email = '';
@@ -32,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 session_regenerate_id(true);
                 log_in_user($user);
                 set_flash('You are signed in.', 'success');
-                redirect('library.php');
+                redirect($destination);
             }
         } catch (Throwable $exception) {
             $errorMessage = 'Database access is unavailable right now. Check the MySQL connection and try again.';
@@ -65,6 +67,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="auth-panel">
                 <p class="eyebrow">Sign In</p>
                 <h1>Welcome back</h1>
+                <p>Just here to read? <a href="<?= e(app_url(str_starts_with($destination, 'bible.php') ? $destination : 'bible.php')); ?>">Continue without signing in →</a></p>
                 <p>Use your saved account to open bookmarks, notes, planner items, and profile tools.</p>
 
                 <?php if ($errorMessage): ?>
@@ -72,16 +75,17 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endif; ?>
 
                 <form class="form-stack" method="post">
+                    <input type="hidden" name="next" value="<?= e($destination); ?>">
                     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
 
                     <label>
                         <span>Email</span>
-                        <input type="email" name="email" value="<?= e($email); ?>" placeholder="you@example.com" required>
+                        <input type="email" name="email" autocomplete="email" value="<?= e($email); ?>" placeholder="you@example.com" required>
                     </label>
 
                     <label>
                         <span>Password</span>
-                        <input type="password" name="password" placeholder="Enter your password" required>
+                        <input type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
                     </label>
 
                     <button class="button button-primary" type="submit">Sign In</button>
@@ -89,7 +93,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <div class="auth-helper-links top-gap-sm">
                     <a class="button button-secondary" href="<?= e(app_url('forgot-password.php')); ?>">Forgot password</a>
-                    <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create account</a>
+                    <a class="button button-secondary" href="<?= e(app_url('register.php?next=' . rawurlencode($destination))); ?>">Create account</a>
                 </div>
             </div>
         </div>

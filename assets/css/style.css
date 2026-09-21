@@ -8418,3 +8418,56 @@ h2 {
     }
 
 }
+
+/* Scripture-first entry points and accessible reading controls. */
+.skip-link { position: fixed; top: -6rem; left: 1rem; z-index: 200; padding: 1rem; background: var(--bg); color: var(--text); }
+.skip-link:focus { top: 1rem; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+.word-home-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: clamp(2rem, 5vw, 5rem); align-items: center; }
+.word-welcome h1 { font-size: clamp(2.5rem, 5vw, 4.8rem); line-height: 1.08; letter-spacing: -0.045em; }
+.word-welcome .hero-copy { max-width: 34rem; }
+.word-daily { border-top: 3px solid var(--accent); }
+.word-daily blockquote { margin: 1.5rem 0; font-family: Georgia, serif; font-size: clamp(1.3rem, 2.5vw, 1.85rem); line-height: 1.65; }
+.word-reference { font-weight: 800; }
+.word-search { margin-top: 2.5rem; }
+.word-search > label { display: block; font-weight: 800; margin-bottom: 0.85rem; }
+.word-search-row { display: flex; gap: 0.75rem; }
+.word-search-row input { flex: 1; min-width: 0; }
+.word-suggestions { display: flex; gap: 0.5rem 1rem; flex-wrap: wrap; align-items: center; margin-top: 0.75rem; }
+.word-suggestions a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: underline; text-underline-offset: 4px; }
+.word-section-heading { margin-top: 3rem; }
+.word-tool-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.word-tool-card { display: flex; flex-direction: column; padding: 1.5rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); text-decoration: none; }
+.word-tool-card:hover { border-color: var(--accent); background: var(--surface-strong); }
+.word-tool-card h2, .word-tool-card h3 { font-size: 1.35rem; margin-top: 0.6rem; }
+.word-tool-card p { color: var(--muted); }
+.word-tool-card > span:last-child { margin-top: auto; padding-top: 1rem; font-weight: 800; }
+.word-account-note { display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-top: 1px solid var(--border); margin-top: 2rem; padding-top: 1rem; }
+.word-account-note a { flex-shrink: 0; padding-block: 0.75rem; text-decoration: underline; }
+.chapter-reader.is-paragraph { max-width: 48rem; margin-inline: auto; }
+[hidden] { display: none !important; }
+@media (max-width: 760px) {
+    .word-home-grid, .word-tool-grid { grid-template-columns: 1fr; }
+    .word-home-grid { gap: 1.5rem; }
+    .word-search-row, .word-account-note { flex-direction: column; align-items: stretch; }
+    .word-search { margin-top: 1.5rem; }
+    .word-search-row input, .search-row-scripture input, .search-row-scripture select { font-size: 16px; }
+    .word-welcome .hero-actions { display: grid; grid-template-columns: 1fr 1fr; }
+    .word-welcome .hero-actions .button { padding-inline: 0.6rem; }
+    .word-daily blockquote { margin-block: 1rem; }
+    .bible-canvas-shell .search-row-scripture { grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); }
+    .bible-canvas-shell .search-row-scripture input[type="search"] { grid-column: 1 / -1; }
+    .bible-canvas-shell .search-row-scripture .bible-select-toggle { display: none; }
+    .bible-canvas-shell .search-row-scripture .button[type="submit"] { grid-column: auto; }
+    .bible-canvas-shell .search-row-scripture select { grid-column: auto; }
+    .bible-canvas-shell .search-row-scripture .voice-search-button { grid-column: auto; }
+}
+.reader-heading { font-size: 1.6rem; letter-spacing: -0.025em; }
+@media (max-width: 760px) {
+    .bible-canvas-action-bar [data-reader-action="font"] { display: block; }
+    .bible-canvas-action-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+    .auth-shell .auth-rail { display: none; }
+    .auth-shell { grid-template-columns: minmax(0, 1fr); }
+}

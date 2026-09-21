@@ -818,6 +818,10 @@ if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 
     }
 }
 
+$readerDestination = 'bible.php?' . http_build_query(['q' => $query, 'translation' => $selectedTranslation, 'book_id' => $selectedBookId, 'chapter' => $selectedChapter, 'verse' => $selectedVerseNumber, 'verse_end' => $selectedVerseEndNumber, 'reader_mode' => $readerMode]);
+$readerLoginUrl = app_url('login.php?next=' . rawurlencode($readerDestination));
+$readerRegisterUrl = app_url('register.php?next=' . rawurlencode($readerDestination));
+
 require_once __DIR__ . '/includes/header.php';
 ?>
 <section class="section">
@@ -826,8 +830,8 @@ require_once __DIR__ . '/includes/header.php';
             <div class="section-heading section-heading-rich">
                 <div>
                     <p class="eyebrow">Bible Reader</p>
-                    <h1>Sword of the Spirit</h1>
-                    <p>Search by reference like John 3:28 or jump through a chapter with quick next and previous controls.</p>
+                    <h1>Read the Bible</h1>
+                    <p>Choose a book or search a passage, phrase, or word. No sign-in needed.</p>
                 </div>
 
                 <div class="quick-stat-row">
@@ -875,7 +879,7 @@ require_once __DIR__ . '/includes/header.php';
 
                     <label class="bible-mobile-book-field">
                         <span>Book</span>
-                        <select name="book_id" data-reader-select="book" aria-label="Bible book">
+                        <select name="book_id" aria-label="Bible book" data-reader-select="book">
                             <option value="">Book</option>
                             <?php foreach ($bookCatalog as $book): ?>
                                 <option
@@ -891,7 +895,7 @@ require_once __DIR__ . '/includes/header.php';
 
                     <label class="bible-mobile-chapter-field">
                         <span>Chap</span>
-                        <select name="chapter" data-reader-select="chapter" aria-label="Bible chapter">
+                        <select name="chapter" aria-label="Bible chapter" data-reader-select="chapter">
                             <option value="">Chap</option>
                             <?php foreach ($bookChapters as $chapter): ?>
                                 <option value="<?= e((string) $chapter['chapter_number']); ?>" <?= $selectedChapter === (int) $chapter['chapter_number'] ? 'selected' : ''; ?>>
@@ -903,7 +907,7 @@ require_once __DIR__ . '/includes/header.php';
 
                     <label class="bible-mobile-verse-field">
                         <span>Verse</span>
-                        <select name="verse" data-reader-select="verse" aria-label="Bible verse">
+                        <select name="verse" aria-label="Starting verse" data-reader-select="verse">
                             <option value="">All</option>
                             <?php foreach ($verseOptions as $verseOption): ?>
                                 <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseNumber === $verseOption['number'] ? 'selected' : ''; ?>>
@@ -915,7 +919,7 @@ require_once __DIR__ . '/includes/header.php';
 
                     <label class="bible-mobile-verse-end-field">
                         <span>V-V</span>
-                        <select name="verse_end" data-reader-select="verse-end" aria-label="Bible verse range end">
+                        <select name="verse_end" aria-label="Ending verse" data-reader-select="verse-end">
                             <option value="">To</option>
                             <?php foreach ($verseOptions as $verseOption): ?>
                                 <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseEndNumber === $verseOption['number'] ? 'selected' : ''; ?>>
@@ -950,7 +954,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="bible-search-shell">
                 <form class="form-stack bible-search-form" method="get" data-translation-switch-form>
                     <div class="search-row search-row-compact search-row-scripture" data-voice-search>
-                        <input type="search" name="q" value="<?= e($query); ?>" placeholder="Search Scripture: John 3:16 or grace" data-voice-search-input>
+                        <input type="search" name="q" aria-label="Search Scripture" value="<?= e($query); ?>" placeholder="Search Scripture: John 3:16 or grace" data-voice-search-input>
                         <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
                         <input type="hidden" name="book_id" value="<?= e($selectedBookId > 0 ? (string) $selectedBookId : ''); ?>">
                         <input type="hidden" name="chapter" value="<?= e($selectedChapter > 0 ? (string) $selectedChapter : ''); ?>">
@@ -980,7 +984,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <details class="bible-advanced-search top-gap-sm" id="bible-passage-selector" data-bible-passage-selector>
                     <summary>
-                        <span>Advanced search</span>
+                        <span>Choose a book & chapter</span>
                         <span class="muted-copy">Browse books, chapters, and verses</span>
                     </summary>
 
@@ -997,7 +1001,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
 
                                 <label class="reader-compact-label">
-                                    <select name="book_id" data-reader-select="book">
+                                    <select name="book_id" aria-label="Bible book" data-reader-select="book">
                                         <option value="">Select book</option>
                                         <?php foreach ($bookCatalog as $book): ?>
                                             <option
@@ -1012,7 +1016,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </label>
 
                                 <label class="reader-compact-label">
-                                    <select name="chapter" data-reader-select="chapter">
+                                    <select name="chapter" aria-label="Bible chapter" data-reader-select="chapter">
                                         <option value="">Select chapter</option>
                                         <?php foreach ($bookChapters as $chapter): ?>
                                             <option value="<?= e((string) $chapter['chapter_number']); ?>" <?= $selectedChapter === (int) $chapter['chapter_number'] ? 'selected' : ''; ?>>
@@ -1023,7 +1027,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </label>
 
                                 <label class="reader-compact-label">
-                                    <select name="verse" data-reader-select="verse">
+                                    <select name="verse" aria-label="Starting verse" data-reader-select="verse">
                                         <option value="">Whole chapter</option>
                                         <?php foreach ($verseOptions as $verseOption): ?>
                                             <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseNumber === $verseOption['number'] ? 'selected' : ''; ?>>
@@ -1034,7 +1038,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </label>
 
                                 <label class="reader-compact-label">
-                                    <select name="verse_end" data-reader-select="verse-end">
+                                    <select name="verse_end" aria-label="Ending verse" data-reader-select="verse-end">
                                         <option value="">V-V</option>
                                         <?php foreach ($verseOptions as $verseOption): ?>
                                             <option value="<?= e((string) $verseOption['number']); ?>" <?= $selectedVerseEndNumber === $verseOption['number'] ? 'selected' : ''; ?>>
@@ -1054,7 +1058,11 @@ require_once __DIR__ . '/includes/header.php';
             <div class="scripture-heading">
                 <div>
                     <p class="eyebrow"><?= e(strtoupper($selectedTranslation)); ?></p>
-                    <h2><?= e($searchHeading); ?></h2>
+                    <?php if (in_array($displayMode, ['catalog', 'book'], true)): ?>
+                        <h2><?= e($searchHeading); ?></h2>
+                    <?php else: ?>
+                        <h1 class="reader-heading"><?= e($searchHeading); ?></h1>
+                    <?php endif; ?>
                 </div>
                 <div class="showcase-actions">
                     <?php if ($selectedChapter > 0): ?>
@@ -1127,8 +1135,8 @@ require_once __DIR__ . '/includes/header.php';
                             <button class="button button-primary" type="button" data-mobile-highlight-tip>Save to Library</button>
                             <a class="button button-secondary" href="<?= e($canvasNoteUrl); ?>">Start Note</a>
                         <?php else: ?>
-                            <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In To Save</a>
-                            <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create Account</a>
+                            <a class="button button-primary" href="<?= e($readerLoginUrl); ?>">Sign In To Save</a>
+                            <a class="button button-secondary" href="<?= e($readerRegisterUrl); ?>">Create Account</a>
                         <?php endif; ?>
                     </div>
                     <nav class="scripture-resource-trail" aria-label="Passage resources">
@@ -1321,7 +1329,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </section>
             <?php elseif (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) : ?>
-                <article class="chapter-reader <?= $readerMode === 'paragraph' ? 'is-paragraph' : ''; ?> top-gap-sm" data-chapter-reader>
+                <article class="chapter-reader <?= $readerMode === 'paragraph' ? 'is-paragraph' : ''; ?> top-gap-sm" data-chapter-reader data-reading-url="<?= e(app_url($readerDestination)); ?>" data-reading-label="<?= e(bible_share_reference($browseVerses, $selectedTranslation)); ?>">
                     <?php foreach ($browseVerses as $verse): ?>
                         <?php
                         $verseBookmarkSet = $chapterBookmarks[(int) $verse['id']] ?? [];
@@ -1432,7 +1440,7 @@ require_once __DIR__ . '/includes/header.php';
                             <span>Share</span>
                         </button>
                     <?php else: ?>
-                        <span title="Sign in to share"><span class="reader-action-icon-placeholder">↗</span><span>Share</span></span>
+                        <span title="Open a passage to share"><span class="reader-action-icon-placeholder">↗</span><span>Share</span></span>
                     <?php endif; ?>
                 </nav>
 
@@ -1470,8 +1478,8 @@ require_once __DIR__ . '/includes/header.php';
                                         <button class="button button-primary" type="button" data-study-save-selected>Bookmark</button>
                                         <button class="button button-secondary" type="button" data-study-quick-note>Note</button>
                                     <?php else: ?>
-                                        <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In To Save</a>
-                                        <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create Account</a>
+                                        <a class="button button-primary" href="<?= e($readerLoginUrl); ?>">Sign In To Save</a>
+                                        <a class="button button-secondary" href="<?= e($readerRegisterUrl); ?>">Create Account</a>
                                     <?php endif; ?>
                                     <?php if ($readerMode === 'paragraph'): ?>
                                         <div class="reader-font-size-control reader-font-size-control-inline" data-reader-font-size-control>
@@ -1727,8 +1735,8 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="form-stack top-gap-sm">
                                 <p class="muted-copy">Sign in to save bookmarks and highlights from the Bible reader.</p>
                                 <div class="inline-actions">
-                                    <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign In</a>
-                                    <a class="button button-secondary" href="<?= e(app_url('register.php')); ?>">Create Account</a>
+                                    <a class="button button-primary" href="<?= e($readerLoginUrl); ?>">Sign In</a>
+                                    <a class="button button-secondary" href="<?= e($readerRegisterUrl); ?>">Create Account</a>
                                 </div>
                             </div>
                         <?php endif; ?>
@@ -1774,7 +1782,8 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <?php if ($scriptureAnalysis !== null): ?>
-                <section class="scripture-analysis-panel top-gap">
+                <details class="scripture-analysis-panel top-gap">
+                    <summary>Word study &amp; concordance</summary>
                     <div class="panel-heading">
                         <div>
                             <p class="eyebrow">Study Tools</p>
@@ -1840,7 +1849,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </article>
                     </div>
-                </section>
+                </details>
             <?php endif; ?>
 
             <?php if ($sharePayloadJson !== null): ?>
