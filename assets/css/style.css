@@ -5390,6 +5390,10 @@ textarea:focus {
     min-width: 0;
 }
 
+.scripture-nav-chapter {
+    margin-top: 0.45rem;
+}
+
 .scripture-nav-label span {
     color: var(--muted);
     font-size: 0.82rem;
