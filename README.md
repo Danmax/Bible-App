@@ -156,6 +156,7 @@ Recent migrations:
 - `sql/add_user_profile_flags.sql`
 - `sql/add_sermon_notes.sql`
 - `sql/add_curated_bible_studies.sql`
+- `sql/add_guided_studies.sql`
 
 ## Bible Import Scripts
 
