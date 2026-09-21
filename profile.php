@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/avatar_upload.php';
 
 require_login();
 
 $pageTitle = 'Profile';
 $activePage = 'profile';
+$pageScripts = ['assets/js/avatar-upload.js'];
 $user = refresh_current_user();
 $pageError = null;
 $emailChangeLink = null;
@@ -27,6 +29,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'profile';
 
     try {
+        if ($action === 'upload-avatar') {
+            enforce_rate_limit(rate_limit_key('avatar-upload', (string) $user['id']), 10, 900);
+            $avatarPath = store_avatar_upload($_FILES['avatar'] ?? []);
+            try {
+                $statement = db()->prepare('UPDATE users SET avatar_url = :avatar WHERE id = :id');
+                $statement->execute(['avatar' => $avatarPath, 'id' => (int) $user['id']]);
+            } catch (Throwable $exception) {
+                unlink(__DIR__ . $avatarPath);
+                throw new RuntimeException('Your photo could not be saved. Please try again.');
+            }
+            refresh_current_user();
+            set_flash('Profile photo updated.', 'success');
+            redirect('profile.php');
+        }
         if ($action === 'profile') {
             $name = trim($_POST['name'] ?? '');
             $email = trim($_POST['email'] ?? '');
@@ -40,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pageError = 'Name and email are required.';
             } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $pageError = 'Enter a valid email address.';
-            } elseif ($avatarUrl !== '' && filter_var($avatarUrl, FILTER_VALIDATE_URL) === false) {
+            } elseif ($avatarUrl !== '' && !preg_match('~^/assets/avatars/[a-f0-9]{40}\.jpg$~D', $avatarUrl) && filter_var($avatarUrl, FILTER_VALIDATE_URL) === false) {
                 $pageError = 'Avatar must be a valid image URL.';
             } elseif (mb_strlen($primaryFlag) > 24) {
                 $pageError = 'Flag must stay under 24 characters.';
@@ -168,6 +184,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pageError = $exception->getCode() === '23000'
             ? 'That email address is already in use.'
             : 'Profile changes could not be saved because the database is unavailable.';
+    } catch (RuntimeException $exception) {
+        $pageError = $exception->getMessage();
     } catch (Throwable $exception) {
         $pageError = 'Profile changes could not be saved because the database is unavailable.';
     }
@@ -250,6 +268,21 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <form method="post" enctype="multipart/form-data" class="form-stack top-gap" data-avatar-upload>
+                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                <input type="hidden" name="action" value="upload-avatar">
+                <label for="profile-photo">Profile photo</label>
+                <input id="profile-photo" type="file" name="avatar" accept="image/jpeg,image/png,image/webp" required aria-describedby="profile-photo-help">
+                <img class="profile-avatar profile-avatar-large" data-avatar-preview alt="New profile photo preview" hidden>
+                <p class="muted-copy" data-avatar-status role="status"></p>
+                <p id="profile-photo-help" class="muted-copy">Choose a JPG, PNG, or WebP up to 8 MB and 16 megapixels. We crop the center to a square and compress it for fast loading.</p>
+                <button class="button button-primary" type="submit">Upload photo</button>
+            </form>
+            <div class="inline-actions top-gap">
+                <a class="button button-secondary" href="<?= e(app_url('friends.php')); ?>">Find friends</a>
+                <a class="button button-secondary" href="<?= e(app_url('friends.php#friend-requests')); ?>">Friend requests</a>
             </div>
 
             <?php if ($pendingEmailChange): ?>

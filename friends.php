@@ -99,8 +99,14 @@ try {
 
 // Build exclusion sets so search results show meaningful states
 $friendUserIds = array_map(static fn(array $f): int => (int) $f['friend_user_id'], $friends);
-$sentInviteEmails = array_map(static fn(array $i): string => mb_strtolower((string) $i['recipient_email']), $sentInvites);
-$incomingInviteEmails = array_map(static fn(array $i): string => mb_strtolower((string) $i['sender_email']), $incomingInvites);
+$sentInviteUserIds = array_map(static fn(array $i): int => (int) $i['recipient_user_id'], array_filter(
+    $sentInvites,
+    static fn(array $i): bool => $i['status'] === 'pending' && strtotime((string) $i['expires_at']) >= time()
+));
+$incomingInvitesByUser = [];
+foreach ($incomingInvites as $invite) {
+    $incomingInvitesByUser[(int) $invite['sender_user_id']] = $invite;
+}
 
 if ($searchQuery !== '') {
     try {
@@ -121,6 +127,16 @@ require_once __DIR__ . '/includes/header.php';
             <h1>Invite friends and grow your circle</h1>
             <p>Send invite links, accept requests, and keep your study community close.</p>
         </div>
+
+        <form class="word-search panel top-gap" method="get" action="<?= e(app_url('friends.php#find-people')); ?>" role="search">
+            <label for="friend-search">Find someone you know</label>
+            <div class="word-search-row">
+                <input id="friend-search" type="search" name="q" maxlength="100" value="<?= e($searchQuery); ?>" placeholder="Search members by name" required>
+                <button class="button button-primary" type="submit">Find people</button>
+            </div>
+            <p class="muted-copy">Send a request with one tap. Your connection begins when they accept.</p>
+            <a href="#friend-requests">View incoming requests (<?= e((string) count($incomingInvites)); ?>)</a>
+        </form>
 
         <?php if ($pageError): ?>
             <div class="flash flash-warning"><?= e($pageError); ?></div>
@@ -179,7 +195,7 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                 </section>
 
-                <section class="panel">
+                <section class="panel" id="friend-requests">
                     <div class="panel-heading">
                         <div>
                             <h2>Incoming requests</h2>
@@ -272,7 +288,7 @@ require_once __DIR__ . '/includes/header.php';
                     </button>
                 </div>
 
-                <section class="panel community-manager-panel" data-community-panel="find" <?= $showFindPanel ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>>
+                <section id="find-people" class="panel community-manager-panel" data-community-panel="find" <?= $showFindPanel ? '' : 'hidden aria-hidden="true" style="display: none;"'; ?>>
                     <div class="panel-heading">
                         <div>
                             <h2>Find people</h2>
@@ -287,8 +303,9 @@ require_once __DIR__ . '/includes/header.php';
                             name="q"
                             value="<?= e($searchQuery); ?>"
                             placeholder="Search by name…"
+                            aria-label="Search members by name"
+                            maxlength="100"
                             required
-                            autofocus
                             style="flex:1"
                         >
                         <button class="button button-primary" type="submit">Search</button>
@@ -310,10 +327,9 @@ require_once __DIR__ . '/includes/header.php';
                                 <?php foreach ($visibleResults as $found): ?>
                                     <?php
                                     $foundId = (int) $found['id'];
-                                    $foundEmail = mb_strtolower((string) ($found['email'] ?? ''));
                                     $isAlreadyFriend = in_array($foundId, $friendUserIds, true);
-                                    $hasSentInvite = in_array($foundEmail, $sentInviteEmails, true);
-                                    $hasIncomingInvite = in_array($foundEmail, $incomingInviteEmails, true);
+                                    $hasSentInvite = in_array($foundId, $sentInviteUserIds, true);
+                                    $incomingInvite = $incomingInvitesByUser[$foundId] ?? null;
                                     ?>
                                     <div class="list-card list-card-block">
                                         <div class="profile-hero">
@@ -339,8 +355,13 @@ require_once __DIR__ . '/includes/header.php';
                                                 <span class="pill">Friends</span>
                                             <?php elseif ($hasSentInvite): ?>
                                                 <span class="pill pill-dark">Request sent</span>
-                                            <?php elseif ($hasIncomingInvite): ?>
-                                                <span class="pill pill-dark">Wants to connect</span>
+                                            <?php elseif ($incomingInvite): ?>
+                                                <form method="post">
+                                                    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
+                                                    <input type="hidden" name="action" value="accept-invite">
+                                                    <input type="hidden" name="invite_id" value="<?= e((string) $incomingInvite['id']); ?>">
+                                                    <button class="button button-primary" type="submit">Accept request</button>
+                                                </form>
                                             <?php else: ?>
                                                 <form method="post">
                                                     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()); ?>">
