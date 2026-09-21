@@ -973,6 +973,32 @@ function fetch_notes(int $userId): array
     return $statement->fetchAll();
 }
 
+function fetch_notes_for_verses(int $userId, array $verseIds, int $limit = 6): array
+{
+    $verseIds = array_values(array_unique(array_filter(
+        array_map(static fn($verseId): int => (int) $verseId, $verseIds),
+        static fn(int $verseId): bool => $verseId > 0
+    )));
+
+    if ($verseIds === []) {
+        return [];
+    }
+
+    $placeholders = implode(', ', array_fill(0, count($verseIds), '?'));
+    $statement = db()->prepare(
+        'SELECT study_notes.*, verses.book_id, books.name AS book_name, verses.chapter_number, verses.verse_number, verses.translation
+        FROM study_notes
+        INNER JOIN verses ON verses.id = study_notes.verse_id
+        INNER JOIN books ON books.id = verses.book_id
+        WHERE study_notes.user_id = ? AND study_notes.verse_id IN (' . $placeholders . ')
+        ORDER BY study_notes.updated_at DESC
+        LIMIT ' . max(1, (int) $limit)
+    );
+    $statement->execute([$userId, ...$verseIds]);
+
+    return $statement->fetchAll();
+}
+
 function fetch_note(int $noteId, int $userId): ?array
 {
     $statement = db()->prepare(

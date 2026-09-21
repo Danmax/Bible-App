@@ -754,6 +754,7 @@ $passageCrossReferences = [];
 $crossReferenceLibraryReady = true;
 $passageCommentaries = [];
 $commentaryLibraryReady = true;
+$passageNotes = [];
 
 if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) {
     if ($selectedVerseNumber > 0) {
@@ -813,6 +814,17 @@ if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 
     $lastPassageVerse = $browseVerses[count($browseVerses) - 1] ?? $firstPassageVerse;
 
     if (is_array($firstPassageVerse) && is_array($lastPassageVerse)) {
+        if (is_logged_in()) {
+            try {
+                $passageNotes = fetch_notes_for_verses(
+                    (int) $user['id'],
+                    array_map(static fn(array $verse): int => (int) ($verse['id'] ?? 0), $browseVerses)
+                );
+            } catch (Throwable $exception) {
+                $passageNotes = [];
+            }
+        }
+
         try {
             $passageCrossReferences = fetch_passage_cross_references(
                 (int) ($firstPassageVerse['book_id'] ?? 0),
@@ -1216,6 +1228,28 @@ require_once __DIR__ . '/includes/header.php';
                         <a href="<?= e(app_url('dictionary.php?q=' . urlencode($term))); ?>"><?= e(mb_convert_case($term, MB_CASE_TITLE, 'UTF-8')); ?></a>
                     <?php endforeach; ?>
                     </nav>
+
+                    <?php if (is_logged_in()): ?>
+                        <section class="passage-study-section" aria-labelledby="passage-notes-title">
+                            <div class="passage-study-heading">
+                                <div><p class="eyebrow">Your study</p><h3 id="passage-notes-title">Notes on this passage</h3></div>
+                                <a class="button button-secondary" href="<?= e($canvasNoteUrl); ?>">Add note</a>
+                            </div>
+                            <?php if ($passageNotes === []): ?>
+                                <p class="passage-study-empty">No personal notes are linked to these verses yet.</p>
+                            <?php else: ?>
+                                <div class="passage-note-list">
+                                    <?php foreach ($passageNotes as $passageNote): ?>
+                                        <a class="passage-note-card" href="<?= e(app_url('library.php?view=notes&edit_note=' . (int) $passageNote['id'])); ?>">
+                                            <strong><?= e((string) $passageNote['title']); ?></strong>
+                                            <span><?= e((string) $passageNote['book_name'] . ' ' . (int) $passageNote['chapter_number'] . ':' . (int) $passageNote['verse_number']); ?></span>
+                                            <p><?= e(truncate_text((string) $passageNote['content'], 180)); ?></p>
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </section>
+                    <?php endif; ?>
 
                     <section class="passage-study-section" aria-labelledby="passage-cross-references-title">
                         <div class="passage-study-heading">

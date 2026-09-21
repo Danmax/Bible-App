@@ -29,6 +29,8 @@ require_once __DIR__ . '/includes/header.php';
                 ['Background', 'Book context', 'Choose a book to explore its background before reading a chapter.', 'bible.php', 'Browse Bible books'],
                 ['Word study', 'Concordance', 'Search a word to find matching verses and explore repeated words in a passage.', 'bible.php?q=grace', 'Explore “grace”'],
                 ['Daily reading', 'Bible plans', 'Browse plans and Scripture previews. Sign in to join and track your progress.', 'studies.php', 'Browse plans'],
+                ['Personal reflection', 'Guided study notebook', 'Use Observe, Interpret, Apply, and Pray prompts after opening a passage. Sign in to save your work.', 'guided-study.php', 'Open notebook'],
+                ['Practice', 'Scripture memory', 'Turn saved verses into a simple daily memory practice. Sign in to build your list.', 'memory.php', 'Practice verses'],
                 ['The good news', 'Explore the Gospel', 'Walk through the message of the Gospel with Scripture.', 'good-news.php', 'Explore the Gospel'],
             ] as [$category, $title, $description, $path, $action]): ?>
                 <a class="word-tool-card" href="<?= e(app_url($path)); ?>">

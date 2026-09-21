@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/auth_destination.php';
 $cases = [
     ['bible.php?q=John+1&translation=MSB', 'bible.php?q=John+1&translation=MSB'],
     ['guided-study.php?book_id=43&chapter=3', 'guided-study.php?book_id=43&chapter=3'],
+    ['memory.php', 'memory.php'],
     ['study-day.php?enrollment_id=4&day=2', 'study-day.php?enrollment_id=4&day=2'],
     ['library.php?view=notes', 'library.php?view=notes'],
     ['https://example.com', 'bible.php'],

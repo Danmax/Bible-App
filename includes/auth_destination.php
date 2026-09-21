@@ -10,7 +10,7 @@ function auth_destination(mixed $value): string
     }
 
     $parts = parse_url($value);
-    $allowedPages = ['index.php', 'bible.php', 'tools.php', 'dictionary.php', 'good-news.php', 'library.php', 'studies.php', 'study.php', 'study-day.php', 'guided-study.php', 'planner.php', 'profile.php', 'community.php', 'friends.php', 'sessions.php', 'sermon-notes.php', 'dashboard.php'];
+    $allowedPages = ['index.php', 'bible.php', 'tools.php', 'dictionary.php', 'good-news.php', 'library.php', 'studies.php', 'study.php', 'study-day.php', 'guided-study.php', 'memory.php', 'planner.php', 'profile.php', 'community.php', 'friends.php', 'sessions.php', 'sermon-notes.php', 'dashboard.php'];
     if ($parts === false || isset($parts['scheme']) || isset($parts['host']) || !in_array($parts['path'] ?? '', $allowedPages, true)) {
         return 'bible.php';
     }
