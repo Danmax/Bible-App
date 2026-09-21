@@ -1,0 +1,4 @@
+Options -Indexes -ExecCGI
+<FilesMatch "^(?![a-f0-9]{40}\.jpg$).+">
+    Require all denied
+</FilesMatch>
