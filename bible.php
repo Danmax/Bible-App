@@ -714,6 +714,7 @@ if ($selectedBook && $selectedChapter > 0 && $selectedVerseNumber > 0 && $chapte
         'book_id' => $selectedBookId,
         'chapter' => $selectedChapter,
         'reader_mode' => $readerMode,
+        'compare_translation' => $comparisonTranslation !== '' ? $comparisonTranslation : null,
     ]) . '#verse-' . $selectedVerseNumber;
 }
 
@@ -1491,6 +1492,9 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="scripture-nav-label">
                             <span><?= e((string) $selectedBook['name']); ?></span>
                             <strong>Chapter <?= e((string) $selectedChapter); ?><?= $useVerseNav ? ' : ' . e((string) $selectedVerseNumber) : ''; ?><?= $selectedVerseEndNumber > $selectedVerseNumber ? '-' . e((string) $selectedVerseEndNumber) : ''; ?></strong>
+                            <?php if ($useVerseNav && $wholeChapterUrl): ?>
+                                <a class="button button-secondary scripture-nav-chapter" href="<?= e($wholeChapterUrl); ?>">Entire chapter</a>
+                            <?php endif; ?>
                         </div>
 
                         <?php if ($nextNavUrl): ?>
