@@ -384,6 +384,7 @@ $selectedBookId = (int) ($_GET['book_id'] ?? 0);
 $selectedChapter = (int) ($_GET['chapter'] ?? 0);
 $selectedVerseNumber = (int) ($_GET['verse'] ?? 0);
 $selectedVerseEndNumber = (int) ($_GET['verse_end'] ?? 0);
+$comparisonTranslation = strtoupper(trim((string) ($_GET['compare_translation'] ?? '')));
 $readerMode = bible_normalize_reader_mode($_GET['reader_mode'] ?? 'paragraph');
 $translations = supported_translations();
 $searchResults = [];
@@ -406,6 +407,8 @@ $previousVerseUrl = null;
 $nextVerseUrl = null;
 $wholeChapterUrl = null;
 $bookOverviewUrl = null;
+$comparisonVerses = [];
+$comparisonTranslationHasData = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -610,6 +613,25 @@ try {
             : 'Choose a book, chapter, and optional verse from the dropdowns above.';
     }
 
+    if (
+        in_array($displayMode, ['chapter', 'verse', 'passage'], true)
+        && $browseVerses !== []
+        && $selectedBookId > 0
+        && $selectedChapter > 0
+        && $comparisonTranslation !== ''
+        && $comparisonTranslation !== $selectedTranslation
+        && in_array($comparisonTranslation, $translations, true)
+    ) {
+        $comparisonTranslationHasData = $translationAvailability[$comparisonTranslation] ?? false;
+        $comparisonChapterVerses = fetch_chapter_verses($selectedBookId, $selectedChapter, $comparisonTranslation);
+        $firstComparisonVerse = (int) ($browseVerses[0]['verse_number'] ?? 0);
+        $lastComparisonVerse = (int) ($browseVerses[count($browseVerses) - 1]['verse_number'] ?? 0);
+        $comparisonVerses = array_values(array_filter(
+            $comparisonChapterVerses,
+            static fn(array $verse): bool => (int) $verse['verse_number'] >= $firstComparisonVerse
+                && (int) $verse['verse_number'] <= $lastComparisonVerse
+        ));
+    }
 } catch (Throwable $exception) {
     $pageError = 'Scripture content could not be loaded because the database is unavailable.';
 }
@@ -732,6 +754,7 @@ $passageCrossReferences = [];
 $crossReferenceLibraryReady = true;
 $passageCommentaries = [];
 $commentaryLibraryReady = true;
+$passageNotes = [];
 
 if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) {
     if ($selectedVerseNumber > 0) {
@@ -791,6 +814,17 @@ if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 
     $lastPassageVerse = $browseVerses[count($browseVerses) - 1] ?? $firstPassageVerse;
 
     if (is_array($firstPassageVerse) && is_array($lastPassageVerse)) {
+        if (is_logged_in()) {
+            try {
+                $passageNotes = fetch_notes_for_verses(
+                    (int) $user['id'],
+                    array_map(static fn(array $verse): int => (int) ($verse['id'] ?? 0), $browseVerses)
+                );
+            } catch (Throwable $exception) {
+                $passageNotes = [];
+            }
+        }
+
         try {
             $passageCrossReferences = fetch_passage_cross_references(
                 (int) ($firstPassageVerse['book_id'] ?? 0),
@@ -1113,11 +1147,42 @@ require_once __DIR__ . '/includes/header.php';
                                     'verse' => $selectedVerseNumber ?: null,
                                     'verse_end' => $selectedVerseEndNumber > $selectedVerseNumber ? $selectedVerseEndNumber : null,
                                     'reader_mode' => $readerMode,
+                                    'compare_translation' => $comparisonTranslation !== $t ? $comparisonTranslation : null,
                                 ])); ?>"
                             ><?= e($t); ?></a>
                         <?php endif; ?>
                     <?php endforeach; ?>
                 </div>
+            <?php endif; ?>
+
+            <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && count($translations) > 1): ?>
+                <details class="translation-comparison top-gap-sm" <?= $comparisonTranslation !== '' ? 'open' : ''; ?>>
+                    <summary>Compare translations</summary>
+                    <div class="translation-comparison-body">
+                        <form method="get" class="translation-comparison-form">
+                            <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
+                            <input type="hidden" name="book_id" value="<?= e((string) $selectedBookId); ?>">
+                            <input type="hidden" name="chapter" value="<?= e((string) $selectedChapter); ?>">
+                            <input type="hidden" name="verse" value="<?= e((string) $selectedVerseNumber); ?>">
+                            <input type="hidden" name="verse_end" value="<?= e((string) $selectedVerseEndNumber); ?>">
+                            <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
+                            <label><span>Second translation</span><select name="compare_translation"><option value="">Choose a translation</option><?php foreach ($translations as $t): ?><?php if ($t !== $selectedTranslation && ($translationAvailability[$t] ?? false)): ?><option value="<?= e($t); ?>" <?= $comparisonTranslation === $t ? 'selected' : ''; ?>><?= e($t); ?></option><?php endif; ?><?php endforeach; ?></select></label>
+                            <button class="button button-secondary" type="submit">Compare</button>
+                            <?php if ($comparisonTranslation !== ''): ?><a class="button button-secondary" href="<?= e(bible_reader_url(['translation' => $selectedTranslation, 'book_id' => $selectedBookId, 'chapter' => $selectedChapter, 'verse' => $selectedVerseNumber ?: null, 'verse_end' => $selectedVerseEndNumber > $selectedVerseNumber ? $selectedVerseEndNumber : null, 'reader_mode' => $readerMode])); ?>">Close</a><?php endif; ?>
+                        </form>
+                        <?php if ($comparisonTranslation !== ''): ?>
+                            <?php if (!$comparisonTranslationHasData || $comparisonVerses === []): ?>
+                                <p class="passage-study-empty">This passage is not available in <?= e($comparisonTranslation); ?> yet.</p>
+                            <?php else: ?>
+                                <?php $comparisonByVerse = []; foreach ($comparisonVerses as $comparisonVerse) { $comparisonByVerse[(int) $comparisonVerse['verse_number']] = $comparisonVerse; } ?>
+                                <div class="translation-comparison-grid">
+                                    <section><h3><?= e($selectedTranslation); ?></h3><?php foreach ($browseVerses as $verse): ?><p><sup><?= e((string) $verse['verse_number']); ?></sup><?= e((string) $verse['verse_text']); ?></p><?php endforeach; ?></section>
+                                    <section><h3><?= e($comparisonTranslation); ?></h3><?php foreach ($browseVerses as $verse): ?><?php $comparedVerse = $comparisonByVerse[(int) $verse['verse_number']] ?? null; ?><p><sup><?= e((string) $verse['verse_number']); ?></sup><?php if ($comparedVerse): ?><?= e((string) $comparedVerse['verse_text']); ?><?php else: ?><em>Verse unavailable.</em><?php endif; ?></p><?php endforeach; ?></section>
+                                </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
+                </details>
             <?php endif; ?>
 
             <?php if ($searchMessage): ?>
@@ -1134,6 +1199,7 @@ require_once __DIR__ . '/includes/header.php';
                         <?php if (is_logged_in()): ?>
                             <button class="button button-primary" type="button" data-mobile-highlight-tip>Save to Library</button>
                             <a class="button button-secondary" href="<?= e($canvasNoteUrl); ?>">Start Note</a>
+                            <a class="button button-secondary" href="<?= e(app_url('guided-study.php?' . http_build_query(['book_id' => $selectedBookId, 'chapter' => $selectedChapter, 'verse' => $selectedVerseNumber ?: null, 'verse_end' => $selectedVerseEndNumber > $selectedVerseNumber ? $selectedVerseEndNumber : null, 'translation' => $selectedTranslation]))); ?>">Guided Study</a>
                         <?php else: ?>
                             <a class="button button-primary" href="<?= e($readerLoginUrl); ?>">Sign In To Save</a>
                             <a class="button button-secondary" href="<?= e($readerRegisterUrl); ?>">Create Account</a>
@@ -1162,6 +1228,28 @@ require_once __DIR__ . '/includes/header.php';
                         <a href="<?= e(app_url('dictionary.php?q=' . urlencode($term))); ?>"><?= e(mb_convert_case($term, MB_CASE_TITLE, 'UTF-8')); ?></a>
                     <?php endforeach; ?>
                     </nav>
+
+                    <?php if (is_logged_in()): ?>
+                        <section class="passage-study-section" aria-labelledby="passage-notes-title">
+                            <div class="passage-study-heading">
+                                <div><p class="eyebrow">Your study</p><h3 id="passage-notes-title">Notes on this passage</h3></div>
+                                <a class="button button-secondary" href="<?= e($canvasNoteUrl); ?>">Add note</a>
+                            </div>
+                            <?php if ($passageNotes === []): ?>
+                                <p class="passage-study-empty">No personal notes are linked to these verses yet.</p>
+                            <?php else: ?>
+                                <div class="passage-note-list">
+                                    <?php foreach ($passageNotes as $passageNote): ?>
+                                        <a class="passage-note-card" href="<?= e(app_url('library.php?view=notes&edit_note=' . (int) $passageNote['id'])); ?>">
+                                            <strong><?= e((string) $passageNote['title']); ?></strong>
+                                            <span><?= e((string) $passageNote['book_name'] . ' ' . (int) $passageNote['chapter_number'] . ':' . (int) $passageNote['verse_number']); ?></span>
+                                            <p><?= e(truncate_text((string) $passageNote['content'], 180)); ?></p>
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </section>
+                    <?php endif; ?>
 
                     <section class="passage-study-section" aria-labelledby="passage-cross-references-title">
                         <div class="passage-study-heading">

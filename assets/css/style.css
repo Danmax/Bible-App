@@ -3329,6 +3329,36 @@ textarea:focus {
     gap: 0.75rem;
 }
 
+.passage-note-list {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.passage-note-card {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.85rem;
+    border: 1px solid rgba(34, 51, 59, 0.1);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.66);
+    color: var(--text);
+    text-decoration: none;
+}
+
+.passage-note-card:hover,
+.passage-note-card:focus-visible {
+    border-color: var(--primary);
+    background: rgba(198, 172, 143, 0.18);
+}
+
+.passage-note-card span {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.passage-note-card p { margin: 0.2rem 0 0; line-height: 1.5; }
+
 .cross-reference-card {
     display: grid;
     gap: 0.7rem;
@@ -5441,6 +5471,88 @@ textarea:focus {
     color: var(--bone);
     border-color: transparent;
 }
+
+.translation-comparison {
+    border: 1px solid rgba(34, 51, 59, 0.12);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.52);
+}
+
+.translation-comparison > summary {
+    cursor: pointer;
+    padding: 0.85rem 1rem;
+    color: var(--primary-dark);
+    font-weight: 800;
+}
+
+.translation-comparison-body {
+    display: grid;
+    gap: 1rem;
+    padding: 0 1rem 1rem;
+}
+
+.translation-comparison-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.65rem;
+}
+
+.translation-comparison-form label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.translation-comparison-form select { min-height: 2.5rem; }
+
+.translation-comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.translation-comparison-grid section {
+    min-width: 0;
+    padding: 0.9rem;
+    border: 1px solid rgba(34, 51, 59, 0.1);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.68);
+}
+
+.translation-comparison-grid h3,
+.translation-comparison-grid p { margin: 0; }
+.translation-comparison-grid h3 { margin-bottom: 0.7rem; color: var(--primary-dark); }
+.translation-comparison-grid p { padding: 0.45rem 0; font-family: Georgia, "Times New Roman", serif; line-height: 1.65; border-top: 1px solid rgba(34, 51, 59, 0.08); }
+.translation-comparison-grid sup { margin-right: 0.25rem; color: var(--primary); font-family: inherit; font-weight: 800; }
+
+.guided-study-layout { display: grid; gap: 1.25rem; }
+.guided-study-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(15rem, 0.7fr); gap: 1rem; align-items: start; }
+.guided-study-form { display: grid; gap: 1rem; }
+.guided-study-form label { display: grid; gap: 0.45rem; }
+.guided-study-form label > span { color: var(--primary-dark); font-size: 1.03rem; font-weight: 800; }
+.guided-study-form label > small { color: var(--muted); line-height: 1.45; }
+.guided-study-form textarea { width: 100%; resize: vertical; }
+.guided-study-reference { display: grid; gap: 0.2rem; padding-bottom: 0.85rem; border-bottom: 1px solid rgba(34, 51, 59, 0.1); }
+.guided-study-reference span, .guided-study-reference small, .guided-study-list-item span { color: var(--muted); font-size: 0.82rem; }
+.guided-study-reference a { color: var(--primary-dark); font-weight: 800; }
+.guided-study-history { display: grid; gap: 0.8rem; }
+.guided-study-list { display: grid; gap: 0.5rem; }
+.guided-study-list-item { display: grid; gap: 0.16rem; padding: 0.75rem; border: 1px solid rgba(34, 51, 59, 0.1); border-radius: 12px; color: var(--text); text-decoration: none; }
+.guided-study-list-item:hover, .guided-study-list-item:focus-visible, .guided-study-list-item.is-active { border-color: var(--primary); background: rgba(198, 172, 143, 0.18); }
+
+.memory-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(17rem, 0.65fr); gap: 1rem; align-items: start; }
+.memory-practice, .memory-add { display: grid; gap: 1rem; }
+.memory-prompt { color: var(--muted); margin: 0; }
+.memory-reveal { border: 1px solid rgba(34, 51, 59, 0.12); border-radius: 14px; overflow: hidden; }
+.memory-reveal summary { cursor: pointer; padding: 0.85rem 1rem; color: var(--primary-dark); font-weight: 800; }
+.memory-reveal blockquote { margin: 0; padding: 1rem; border-top: 1px solid rgba(34, 51, 59, 0.1); font-family: Georgia, "Times New Roman", serif; font-size: 1.16rem; line-height: 1.7; }
+.memory-reveal footer { margin-top: 0.7rem; color: var(--muted); font-family: Manrope, sans-serif; font-size: 0.8rem; font-weight: 800; }
+.memory-review-actions { display: flex; flex-wrap: wrap; gap: 0.65rem; }
+.memory-bookmark-list { display: grid; gap: 0.6rem; max-height: 36rem; overflow: auto; }
+.memory-bookmark-list > div { display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; padding: 0.65rem 0; border-bottom: 1px solid rgba(34, 51, 59, 0.1); }
+.memory-bookmark-list form { margin: 0; }
 
 .chapter-jump-form {
     margin: 0;
@@ -8464,6 +8576,13 @@ h2 {
 }
 .reader-heading { font-size: 1.6rem; letter-spacing: -0.025em; }
 @media (max-width: 760px) {
+    .translation-comparison-grid,
+    .guided-study-grid,
+    .memory-grid { grid-template-columns: 1fr; }
+
+    .translation-comparison-form { align-items: stretch; }
+    .translation-comparison-form label { flex: 1 1 100%; }
+
     .bible-canvas-action-bar [data-reader-action="font"] { display: block; }
     .bible-canvas-action-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
