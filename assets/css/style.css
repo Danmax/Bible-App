@@ -7652,7 +7652,7 @@ body.has-bookmark-popup .mobile-study-sheet {
 
     .bible-canvas-action-bar [data-mobile-reader-focus],
     .bible-canvas-action-bar [data-reader-action] {
-        display: none;
+        display: inline-flex;
     }
 
     .home-quick-access {
