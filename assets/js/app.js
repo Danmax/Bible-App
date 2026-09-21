@@ -2369,6 +2369,9 @@ if (chapterReader) {
 }
 
 if (chapterReader && bookmarkPopup) {
+    // Reader panels use backdrop filters, which otherwise trap fixed sheets
+    // inside the scrolling panel instead of anchoring them to the viewport.
+    document.body.append(bookmarkPopup);
     const popupModeLabel = bookmarkPopup.querySelector('[data-popup-mode-label]');
     const popupReference = bookmarkPopup.querySelector('[data-popup-reference]');
     const popupPreview = bookmarkPopup.querySelector('[data-popup-preview]');
@@ -2791,12 +2794,17 @@ if (chapterReader && bookmarkPopup) {
             }
 
             if (isMobileReaderViewport()) {
-                window.getSelection()?.removeAllRanges();
+                const selection = window.getSelection();
+                if (selection && !selection.isCollapsed) {
+                    updateSelection();
+                    return;
+                }
                 chapterReader.querySelectorAll('[data-verse-card].is-mobile-selected').forEach((card) => {
                     card.classList.remove('is-mobile-selected');
                 });
                 verseCard.classList.add('is-mobile-selected');
                 activeStudyVerseCard = verseCard;
+                openPopupForSelection({ startVerseCard: verseCard, highlightVerse: true });
                 return;
             }
 
