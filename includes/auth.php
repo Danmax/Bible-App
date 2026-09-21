@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/auth_destination.php';
 require_once __DIR__ . '/mailer.php';
 require_once __DIR__ . '/repository.php';
 
@@ -310,8 +311,11 @@ function refresh_current_user(): ?array
 function require_login(): void
 {
     if (!is_logged_in()) {
-        set_flash('Sign in first to access your study dashboard.', 'warning');
-        redirect('login.php');
+        set_flash('Sign in to save and access your personal work. Bible reading is always open.', 'info');
+        $page = basename((string) ($_SERVER['SCRIPT_NAME'] ?? 'bible.php'));
+        $query = (string) ($_SERVER['QUERY_STRING'] ?? '');
+        $destination = auth_destination($page . ($query !== '' ? '?' . $query : ''));
+        redirect('login.php?next=' . rawurlencode($destination));
     }
 }
 

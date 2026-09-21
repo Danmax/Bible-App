@@ -10,11 +10,11 @@ $pageScripts = isset($pageScripts) && is_array($pageScripts) ? $pageScripts : []
             <div class="container footer-grid">
                 <div>
                     <h3><?= e(APP_NAME); ?></h3>
-                    <p>Study The Word Bible, save what matters, and stay rooted in a stronger community rhythm.</p>
+                    <p>A welcoming place to read Scripture and grow in understanding.</p>
                 </div>
                 <div>
                     <h4>Core Areas</h4>
-                    <p>Bible reading, Library, Plans, and Bible-centered community.</p>
+                    <p>Bible reading, Scripture search, study tools, and reading plans.</p>
                 </div>
                 <div>
                     <h4>Verse</h4>
@@ -24,7 +24,7 @@ $pageScripts = isset($pageScripts) && is_array($pageScripts) ? $pageScripts : []
             </div>
             <div class="container footer-base">
                 <span>&copy; <span id="year"><?= e(current_year()); ?></span> <?= e(APP_NAME); ?></span>
-                <span>PHP + MySQL starter for Hostinger</span>
+                <span>Read the Word. Grow in understanding.</span>
             </div>
         </footer>
     </div>

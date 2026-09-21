@@ -2954,12 +2954,12 @@ if (chapterReader && bookmarkPopup) {
                     ? activeStudyVerseCard
                     : chapterReader.querySelector('[data-verse-card]');
 
-                if (isMobileReaderViewport()) {
+                if (action === 'font') {
+                    openMobileStudySheet(verseCard, 'more');
                     return;
                 }
 
-                if (action === 'font') {
-                    openMobileStudySheet(verseCard, 'more');
+                if (isMobileReaderViewport()) {
                     return;
                 }
 
@@ -3760,3 +3760,28 @@ if (document.querySelector('form [data-study-day]')) {
         });
     });
 }
+
+// Reading position stays on this device and never requires an account.
+(() => {
+    try {
+        const reader = document.querySelector('[data-reading-url]');
+        if (reader) {
+            localStorage.setItem('good-news-reading-position', JSON.stringify({
+                url: reader.dataset.readingUrl,
+                label: reader.dataset.readingLabel,
+            }));
+        }
+        const saved = JSON.parse(localStorage.getItem('good-news-reading-position') || 'null');
+        if (!saved || typeof saved.url !== 'string' || typeof saved.label !== 'string') return;
+        const url = new URL(saved.url, window.location.href);
+        const expected = new URL('bible.php', window.location.href);
+        if (url.origin !== expected.origin || url.pathname !== expected.pathname) return;
+        document.querySelectorAll('[data-resume-reading]').forEach((link) => {
+            link.href = url.href;
+            link.textContent = `Continue reading · ${saved.label}`;
+            link.hidden = false;
+        });
+    } catch {
+        // Reading remains available when browser storage is disabled.
+    }
+})();
