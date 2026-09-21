@@ -5904,6 +5904,18 @@ textarea:focus {
     border-bottom-color: transparent;
 }
 
+@media (max-width: 760px) {
+    .reader-verse.is-mobile-selected {
+        outline: 2px solid var(--primary);
+        outline-offset: 3px;
+        border-radius: 10px;
+    }
+
+    .chapter-reader.is-paragraph .reader-verse.is-mobile-selected {
+        outline-offset: 1px;
+    }
+}
+
 .chapter-reader.is-paragraph .reader-verse {
     display: inline;
     padding: 0;

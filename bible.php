@@ -1514,6 +1514,10 @@ require_once __DIR__ . '/includes/header.php';
                         <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-3.5L6 21V4.5Z"/></svg>
                         <span>Bookmark</span>
                     </button>
+                    <button type="button" data-reader-action="highlight" title="Highlight selected verse">
+                        <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 16 8.8-8.8 3.4 3.4L9.4 19.4H6V16Z"/><path d="m13.4 8.6 2.3-2.3 3.4 3.4-2.3 2.3"/><path d="M5 21h14"/></svg>
+                        <span>Highlight</span>
+                    </button>
                     <button type="button" data-reader-action="font" title="Change text size">
                         <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 10 5h2l5 14M7 14h8M16 19l2-5h1l2 5M17 17h3"/></svg>
                         <span>Text size</span>
@@ -1757,7 +1761,7 @@ require_once __DIR__ . '/includes/header.php';
                             <div>
                                 <p class="eyebrow" data-popup-mode-label>Save Verse</p>
                                 <h3 data-popup-reference>Select a verse</h3>
-                                <p class="muted-copy" data-popup-preview>Click any verse or highlight text inside a verse.</p>
+                                <p class="muted-copy" data-popup-preview>Tap a verse, then choose Highlight. Press and drag text to mark only part of a verse.</p>
                             </div>
                             <button class="popup-close" type="button" data-popup-close aria-label="Close bookmark popup">Close</button>
                         </div>
