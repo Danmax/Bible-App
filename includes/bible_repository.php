@@ -259,7 +259,7 @@ function parse_reference_query(string $query, array $books): ?array
     return null;
 }
 
-function search_scripture(string $query, string $translation): array
+function search_scripture(string $query, string $translation, string $sort = 'relevance'): array
 {
     if (uses_external_translation($translation)) {
         return search_external_translation($query, $translation);
@@ -272,7 +272,7 @@ function search_scripture(string $query, string $translation): array
         return fetch_reference_verses($reference, $translation);
     }
 
-    return fetch_keyword_verses($query, $translation);
+    return fetch_keyword_verses($query, $translation, 25, $sort);
 }
 
 function scripture_search_synonym_map(): array
@@ -302,6 +302,44 @@ function scripture_search_synonym_map(): array
         'trust' => ['faith', 'believe', 'hope', 'confidence'],
         'wisdom' => ['wise', 'understanding', 'knowledge'],
     ];
+}
+
+function scripture_search_topic_map(): array
+{
+    return [
+        'Anxiety & worry' => ['anxiety', 'anxious', 'worry', 'worried', 'care', 'troubled'],
+        'Comfort' => ['comfort', 'comforted', 'consolation', 'encourage', 'rest'],
+        'Faith & trust' => ['faith', 'believe', 'belief', 'trust', 'confidence'],
+        'Forgiveness' => ['forgive', 'forgiven', 'forgiveness', 'pardon', 'mercy'],
+        'Guidance & wisdom' => ['guidance', 'guide', 'wisdom', 'wise', 'understanding', 'counsel'],
+        'Healing' => ['heal', 'healed', 'healing', 'restore', 'restored'],
+        'Hope' => ['hope', 'hopeful', 'wait', 'expectation'],
+        'Joy' => ['joy', 'rejoice', 'glad', 'gladness'],
+        'Love' => ['love', 'loving', 'charity', 'kindness'],
+        'Peace' => ['peace', 'quiet', 'rest', 'calm'],
+        'Prayer' => ['pray', 'prayer', 'supplication', 'petition', 'ask'],
+        'Salvation' => ['save', 'saved', 'salvation', 'redeem', 'redemption', 'deliver'],
+        'Strength & courage' => ['strength', 'strong', 'power', 'might', 'courage', 'fear', 'afraid'],
+    ];
+}
+
+function scripture_search_topics(array $terms): array
+{
+    $termSet = array_fill_keys(array_map('scripture_search_stem', $terms), true);
+    $topics = [];
+
+    foreach (scripture_search_topic_map() as $label => $topicTerms) {
+        $matched = array_values(array_filter(
+            $topicTerms,
+            static fn(string $term): bool => isset($termSet[scripture_search_stem($term)])
+        ));
+
+        if ($matched !== []) {
+            $topics[] = ['label' => $label, 'terms' => $topicTerms, 'matched_terms' => $matched];
+        }
+    }
+
+    return $topics;
 }
 
 function scripture_search_stem(string $term): string
@@ -354,6 +392,15 @@ function scripture_search_expanded_terms(array $terms): array
                 $expanded[] = $relatedTerm;
                 $expanded[] = scripture_search_stem($relatedTerm);
             }
+        }
+    }
+
+    // Topic families are intentionally bidirectional: searching "worry" can
+    // surface verses using "peace", and searching "quiet" can find "peace".
+    foreach (scripture_search_topics($terms) as $topic) {
+        foreach ($topic['terms'] as $relatedTerm) {
+            $expanded[] = $relatedTerm;
+            $expanded[] = scripture_search_stem($relatedTerm);
         }
     }
 
@@ -525,11 +572,13 @@ function fetch_reference_verses(array $reference, string $translation): array
     ];
 }
 
-function fetch_keyword_verses(string $query, string $translation, int $limit = 25): array
+function fetch_keyword_verses(string $query, string $translation, int $limit = 25, string $sort = 'relevance'): array
 {
     $normalizedQuery = mb_strtolower(trim(preg_replace('/\s+/', ' ', $query) ?? $query));
     $queryTerms = scripture_search_terms($query);
     $expandedTerms = scripture_search_expanded_terms($queryTerms);
+    $topics = scripture_search_topics($queryTerms);
+    $sort = $sort === 'canonical' ? 'canonical' : 'relevance';
 
     if ($normalizedQuery === '') {
         return [
@@ -568,7 +617,7 @@ function fetch_keyword_verses(string $query, string $translation, int $limit = 2
         WHERE verses.translation = :translation
             AND (' . implode(' OR ', $whereParts) . ')
         ORDER BY books.id ASC, verses.chapter_number ASC, verses.verse_number ASC
-        LIMIT 160'
+        LIMIT 400'
     );
     $statement->execute($params);
 
@@ -585,7 +634,19 @@ function fetch_keyword_verses(string $query, string $translation, int $limit = 2
         $rankedVerses[] = $verse;
     }
 
-    usort($rankedVerses, static function (array $left, array $right): int {
+    usort($rankedVerses, static function (array $left, array $right) use ($sort): int {
+        if ($sort === 'canonical') {
+            return [
+                (int) ($left['book_id'] ?? 0),
+                (int) ($left['chapter_number'] ?? 0),
+                (int) ($left['verse_number'] ?? 0),
+            ] <=> [
+                (int) ($right['book_id'] ?? 0),
+                (int) ($right['chapter_number'] ?? 0),
+                (int) ($right['verse_number'] ?? 0),
+            ];
+        }
+
         $scoreComparison = ((int) ($right['_search_score'] ?? 0)) <=> ((int) ($left['_search_score'] ?? 0));
 
         if ($scoreComparison !== 0) {
@@ -607,6 +668,9 @@ function fetch_keyword_verses(string $query, string $translation, int $limit = 2
         'mode' => 'keyword',
         'results' => array_slice($rankedVerses, 0, $limit),
         'heading' => 'Search Results',
+        'expanded_terms' => array_values(array_diff($expandedTerms, $queryTerms)),
+        'topics' => $topics,
+        'sort' => $sort,
     ];
 }
 

@@ -379,6 +379,8 @@ $user = is_logged_in() ? refresh_current_user() : null;
 $pageError = null;
 $searchMessage = null;
 $query = trim($_GET['q'] ?? '');
+$searchSort = strtolower(trim((string) ($_GET['search_sort'] ?? 'relevance')));
+$searchSort = $searchSort === 'canonical' ? 'canonical' : 'relevance';
 $selectedTranslation = trim($_GET['translation'] ?? APP_DEFAULT_TRANSLATION);
 $selectedBookId = (int) ($_GET['book_id'] ?? 0);
 $selectedChapter = (int) ($_GET['chapter'] ?? 0);
@@ -409,6 +411,8 @@ $wholeChapterUrl = null;
 $bookOverviewUrl = null;
 $comparisonVerses = [];
 $comparisonTranslationHasData = false;
+$searchExpandedTerms = [];
+$searchTopics = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -552,9 +556,11 @@ try {
             );
         }
     } elseif ($query !== '') {
-        $search = search_scripture($query, $selectedTranslation);
+        $search = search_scripture($query, $selectedTranslation, $searchSort);
         $searchResults = $search['results'];
         $searchHeading = $search['heading'];
+        $searchExpandedTerms = array_slice((array) ($search['expanded_terms'] ?? []), 0, 8);
+        $searchTopics = (array) ($search['topics'] ?? []);
         $displayMode = 'search';
 
         if ($searchResults === []) {
@@ -996,6 +1002,7 @@ require_once __DIR__ . '/includes/header.php';
                         <input type="hidden" name="verse" value="<?= e($selectedVerseNumber > 0 ? (string) $selectedVerseNumber : ''); ?>">
                         <input type="hidden" name="verse_end" value="<?= e($selectedVerseEndNumber > $selectedVerseNumber ? (string) $selectedVerseEndNumber : ''); ?>">
                         <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
+                        <input type="hidden" name="search_sort" value="<?= e($searchSort); ?>">
                         <select name="translation" aria-label="Translation" data-translation-switch>
                             <?php foreach ($translations as $translation): ?>
                                 <option value="<?= e($translation); ?>" <?= $selectedTranslation === $translation ? 'selected' : ''; ?>>
@@ -1406,9 +1413,27 @@ require_once __DIR__ . '/includes/header.php';
                         <div>
                             <p class="eyebrow">Bible Search Results</p>
                             <h3 id="scripture-search-results-title"><?= e($searchHeading); ?></h3>
-                            <p class="muted-copy"><?= e((string) count($searchResults)); ?> passage<?= count($searchResults) === 1 ? '' : 's'; ?> ready to capture, save, and share.</p>
+                            <p class="muted-copy"><?= e((string) count($searchResults)); ?> best-matching passage<?= count($searchResults) === 1 ? '' : 's'; ?><?= $searchSort === 'relevance' ? ', ranked by relevance.' : ', in Bible order.'; ?></p>
                         </div>
                         <a class="button button-secondary" href="<?= e(app_url('bible.php?translation=' . urlencode($selectedTranslation))); ?>">Open Reader</a>
+                    </div>
+
+                    <div class="scripture-search-toolbar" aria-label="Search result controls">
+                        <div class="search-sort-tabs" aria-label="Sort search results">
+                            <a class="<?= $searchSort === 'relevance' ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url(['q' => $query, 'translation' => $selectedTranslation, 'reader_mode' => $readerMode, 'search_sort' => 'relevance'])); ?>">Most relevant</a>
+                            <a class="<?= $searchSort === 'canonical' ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url(['q' => $query, 'translation' => $selectedTranslation, 'reader_mode' => $readerMode, 'search_sort' => 'canonical'])); ?>">Bible order</a>
+                        </div>
+                        <?php if ($searchTopics !== [] || $searchExpandedTerms !== []): ?>
+                            <div class="search-related-terms" aria-label="Related searches">
+                                <span>Also explore</span>
+                                <?php foreach ($searchTopics as $topic): ?>
+                                    <a href="<?= e(bible_reader_url(['q' => (string) $topic['label'], 'translation' => $selectedTranslation, 'reader_mode' => $readerMode])); ?>"><?= e((string) $topic['label']); ?></a>
+                                <?php endforeach; ?>
+                                <?php foreach ($searchExpandedTerms as $term): ?>
+                                    <a href="<?= e(bible_reader_url(['q' => (string) $term, 'translation' => $selectedTranslation, 'reader_mode' => $readerMode])); ?>"><?= e(mb_convert_case((string) $term, MB_CASE_TITLE, 'UTF-8')); ?></a>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
 
                     <div class="stack-list top-gap-sm">
