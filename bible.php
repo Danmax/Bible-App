@@ -1157,7 +1157,7 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && count($translations) > 1): ?>
-                <details class="translation-comparison top-gap-sm" <?= $comparisonTranslation !== '' ? 'open' : ''; ?>>
+                <details class="translation-comparison <?= $comparisonTranslation !== '' ? 'is-active' : ''; ?> top-gap-sm" <?= $comparisonTranslation !== '' ? 'open' : ''; ?>>
                     <summary>Compare translations</summary>
                     <div class="translation-comparison-body">
                         <form method="get" class="translation-comparison-form">
@@ -1417,7 +1417,7 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endforeach; ?>
                     </div>
                 </section>
-            <?php elseif (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) : ?>
+            <?php elseif (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== [] && !($comparisonTranslation !== '' && $comparisonTranslationHasData && $comparisonVerses !== [])) : ?>
                 <article class="chapter-reader <?= $readerMode === 'paragraph' ? 'is-paragraph' : ''; ?> top-gap-sm" data-chapter-reader data-reading-url="<?= e(app_url($readerDestination)); ?>" data-reading-label="<?= e(bible_share_reference($browseVerses, $selectedTranslation)); ?>">
                     <?php foreach ($browseVerses as $verse): ?>
                         <?php

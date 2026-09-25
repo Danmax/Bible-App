@@ -5477,9 +5477,16 @@ textarea:focus {
 }
 
 .translation-comparison {
+    max-width: 76rem;
+    margin-inline: auto;
     border: 1px solid rgba(34, 51, 59, 0.12);
     border-radius: 16px;
     background: rgba(255, 255, 255, 0.52);
+}
+
+.translation-comparison.is-active {
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow: 0 18px 42px rgba(34, 51, 59, 0.08);
 }
 
 .translation-comparison > summary {
