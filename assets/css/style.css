@@ -3132,6 +3132,50 @@ textarea:focus {
     border: 1px solid rgba(34, 51, 59, 0.12);
 }
 
+.scripture-search-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem 0;
+    border-block: 1px solid rgba(34, 51, 59, 0.1);
+}
+
+.search-sort-tabs,
+.search-related-terms {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.search-sort-tabs a,
+.search-related-terms a {
+    min-height: 2rem;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid rgba(34, 51, 59, 0.13);
+    border-radius: 999px;
+    color: var(--primary-dark);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.search-sort-tabs a.is-active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--bone);
+}
+
+.search-related-terms > span {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.scripture-search-results-spotlight .stack-list { gap: 0.65rem; }
+
 .study-summary-bar {
     display: flex;
     flex-wrap: wrap;
