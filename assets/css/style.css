@@ -3174,6 +3174,12 @@ textarea:focus {
     font-weight: 700;
 }
 
+.search-correction {
+    margin: 0.35rem 0 0;
+    color: var(--primary-dark);
+    font-size: 0.86rem;
+}
+
 .scripture-search-results-spotlight .stack-list { gap: 0.65rem; }
 
 .study-summary-bar {

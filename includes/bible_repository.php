@@ -261,10 +261,6 @@ function parse_reference_query(string $query, array $books): ?array
 
 function search_scripture(string $query, string $translation, string $sort = 'relevance'): array
 {
-    if (uses_external_translation($translation)) {
-        return search_external_translation($query, $translation);
-    }
-
     $books = fetch_books();
     $reference = parse_reference_query($query, $books);
 
@@ -272,7 +268,21 @@ function search_scripture(string $query, string $translation, string $sort = 're
         return fetch_reference_verses($reference, $translation);
     }
 
-    return fetch_keyword_verses($query, $translation, 25, $sort);
+    $spellcheck = scripture_search_correct_query($query, $translation);
+
+    if (uses_external_translation($translation)) {
+        $search = search_external_translation((string) $spellcheck['query'], $translation);
+        $search['corrected_query'] = (string) $spellcheck['query'];
+        $search['corrections'] = $spellcheck['corrections'];
+
+        return $search;
+    }
+
+    $search = fetch_keyword_verses((string) $spellcheck['query'], $translation, 25, $sort);
+    $search['corrected_query'] = (string) $spellcheck['query'];
+    $search['corrections'] = $spellcheck['corrections'];
+
+    return $search;
 }
 
 function scripture_search_synonym_map(): array
@@ -316,6 +326,7 @@ function scripture_search_topic_map(): array
         'Hope' => ['hope', 'hopeful', 'wait', 'expectation'],
         'Joy' => ['joy', 'rejoice', 'glad', 'gladness'],
         'Love' => ['love', 'loving', 'charity', 'kindness'],
+        'Obedience' => ['obedience', 'obey', 'obeyed', 'command', 'commandments'],
         'Peace' => ['peace', 'quiet', 'rest', 'calm'],
         'Prayer' => ['pray', 'prayer', 'supplication', 'petition', 'ask'],
         'Salvation' => ['save', 'saved', 'salvation', 'redeem', 'redemption', 'deliver'],
@@ -377,6 +388,90 @@ function scripture_search_terms(string $query): array
     }
 
     return array_values(array_unique($terms));
+}
+
+function scripture_search_vocabulary(string $translation): array
+{
+    if (uses_external_translation($translation)) {
+        $translation = 'KJV';
+    }
+
+    return app_cache_remember('bible.search_vocabulary.v1.' . DB_NAME . '.' . strtoupper($translation), 86400, static function () use ($translation): array {
+        $statement = db()->prepare('SELECT verse_text FROM verses WHERE translation = :translation');
+        $statement->execute(['translation' => $translation]);
+        $vocabulary = [];
+
+        foreach ($statement->fetchAll() as $verse) {
+            foreach (scripture_analysis_tokens((string) ($verse['verse_text'] ?? '')) as $word) {
+                if (mb_strlen($word) >= 3) {
+                    $vocabulary[$word] = ($vocabulary[$word] ?? 0) + 1;
+                }
+            }
+        }
+
+        return $vocabulary;
+    });
+}
+
+function scripture_search_correct_query(string $query, string $translation): array
+{
+    $vocabulary = scripture_search_vocabulary($translation);
+
+    if ($vocabulary === []) {
+        return ['query' => $query, 'corrections' => []];
+    }
+
+    $corrections = [];
+
+    foreach (array_unique(scripture_analysis_tokens($query)) as $term) {
+        if (mb_strlen($term) < 5 || isset($vocabulary[$term]) || !preg_match('/^[a-z]+$/', $term)) {
+            continue;
+        }
+
+        $maximumDistance = mb_strlen($term) <= 6 ? 1 : (mb_strlen($term) <= 10 ? 2 : 3);
+        $bestWord = null;
+        $bestDistance = $maximumDistance + 1;
+        $bestFrequency = -1;
+        $firstLetter = mb_substr($term, 0, 1);
+
+        foreach ($vocabulary as $word => $frequency) {
+            if (mb_substr($word, 0, 1) !== $firstLetter || abs(mb_strlen($word) - mb_strlen($term)) > $maximumDistance) {
+                continue;
+            }
+
+            $distance = levenshtein($term, $word);
+            if ($distance > $maximumDistance) {
+                continue;
+            }
+
+            if ($distance < $bestDistance || ($distance === $bestDistance && $frequency > $bestFrequency)) {
+                $bestWord = $word;
+                $bestDistance = $distance;
+                $bestFrequency = $frequency;
+            }
+        }
+
+        if ($bestWord !== null) {
+            $corrections[$term] = $bestWord;
+        }
+    }
+
+    if ($corrections === []) {
+        return ['query' => $query, 'corrections' => []];
+    }
+
+    $correctedQuery = preg_replace_callback(
+        "/[\\p{L}][\\p{L}'-]*/u",
+        static function (array $match) use ($corrections): string {
+            $original = (string) $match[0];
+            $replacement = $corrections[mb_strtolower($original)] ?? null;
+
+            return $replacement === null ? $original : $replacement;
+        },
+        $query
+    );
+
+    return ['query' => $correctedQuery ?? $query, 'corrections' => $corrections];
 }
 
 function scripture_search_expanded_terms(array $terms): array

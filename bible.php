@@ -413,6 +413,8 @@ $comparisonVerses = [];
 $comparisonTranslationHasData = false;
 $searchExpandedTerms = [];
 $searchTopics = [];
+$searchCorrections = [];
+$correctedSearchQuery = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -561,6 +563,8 @@ try {
         $searchHeading = $search['heading'];
         $searchExpandedTerms = array_slice((array) ($search['expanded_terms'] ?? []), 0, 8);
         $searchTopics = (array) ($search['topics'] ?? []);
+        $searchCorrections = (array) ($search['corrections'] ?? []);
+        $correctedSearchQuery = $searchCorrections !== [] ? (string) ($search['corrected_query'] ?? $query) : null;
         $displayMode = 'search';
 
         if ($searchResults === []) {
@@ -1414,6 +1418,9 @@ require_once __DIR__ . '/includes/header.php';
                             <p class="eyebrow">Bible Search Results</p>
                             <h3 id="scripture-search-results-title"><?= e($searchHeading); ?></h3>
                             <p class="muted-copy"><?= e((string) count($searchResults)); ?> best-matching passage<?= count($searchResults) === 1 ? '' : 's'; ?><?= $searchSort === 'relevance' ? ', ranked by relevance.' : ', in Bible order.'; ?></p>
+                            <?php if ($correctedSearchQuery !== null): ?>
+                                <p class="search-correction">Showing results for <strong><?= e($correctedSearchQuery); ?></strong>.</p>
+                            <?php endif; ?>
                         </div>
                         <a class="button button-secondary" href="<?= e(app_url('bible.php?translation=' . urlencode($selectedTranslation))); ?>">Open Reader</a>
                     </div>
