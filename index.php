@@ -32,7 +32,7 @@ require_once __DIR__ . '/includes/header.php';
                 <a class="button button-secondary" href="<?= e(app_url('bible.php?q=' . urlencode((string) $dailyVerse['query']) . '&translation=' . urlencode((string) $dailyVerse['translation']))); ?>">Read in context <span aria-hidden="true">→</span></a>
             </aside>
         </div>
-        <form class="word-search panel" method="get" action="<?= e(app_url('bible.php')); ?>" role="search">
+        <form class="word-search panel" method="get" action="<?= e(app_url('search.php')); ?>" role="search">
             <label for="home-scripture-search">Find a passage or explore a word</label>
             <div class="word-search-row">
                 <input id="home-scripture-search" type="search" name="q" placeholder="John 3:16, Psalm 23, or hope" required>

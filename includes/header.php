@@ -71,10 +71,10 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
         <header class="site-header">
             <div class="container header-row">
                 <a class="brand" href="<?= e($homeHref); ?>">
-                    <span class="brand-mark">STWB</span>
+                    <span class="brand-mark">GN</span>
                     <span>
                         <strong><?= e(APP_NAME); ?></strong>
-                        <small>Study The Word Bible</small>
+                        <small>Read. Reflect. Grow.</small>
                     </span>
                 </a>
 
@@ -83,19 +83,19 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                 </button>
 
                 <nav class="primary-nav" id="primary-nav" aria-label="Primary navigation">
-                    <a class="desktop-nav-link <?= in_array($activePage, ['home', 'dashboard'], true) ? 'is-active' : ''; ?>" href="<?= e($homeHref); ?>">Home</a>
+                    <a class="desktop-nav-link <?= $activePage === 'bible' ? 'is-active' : ''; ?>" href="<?= e(app_url('bible.php')); ?>">Read</a>
                     <?php
                     $bibleActivePages = ['bible'];
                     $libraryActivePages = ['library', 'bookmarks', 'notes', 'sermon-notes', 'sermon-note-view', 'prayer'];
                     $planActivePages = ['studies'];
                     $communityActivePages = ['community', 'sessions', 'friends'];
                     ?>
-                    <a class="desktop-nav-link <?= in_array($activePage, $bibleActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('bible.php')); ?>">Bible</a>
-                    <a class="desktop-nav-link <?= in_array($activePage, ['tools', 'dictionary', 'good-news'], true) ? 'is-active' : ''; ?>" href="<?= e(app_url('tools.php')); ?>">Study tools</a>
-                    <a class="desktop-nav-link <?= in_array($activePage, $planActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('studies.php')); ?>">Plans</a>
+                    <a class="desktop-nav-link <?= $activePage === 'search' ? 'is-active' : ''; ?>" href="<?= e(app_url('search.php')); ?>">Search</a>
+                    <a class="desktop-nav-link <?= in_array($activePage, ['tools', 'dictionary', 'good-news', 'studies', 'guided-study', 'memory'], true) ? 'is-active' : ''; ?>" href="<?= e(app_url('tools.php')); ?>">Study</a>
+                    <a class="desktop-nav-link <?= in_array($activePage, $libraryActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('library.php')); ?>">Library</a>
                     <?php
                     $morePages = ['planner', 'profile', 'admin', 'community', 'sessions', 'friends', 'library', 'sermon-notes'];
-                    $moreIsActive = in_array($activePage, $morePages, true);
+                    $moreIsActive = in_array($activePage, array_diff($morePages, $libraryActivePages), true) || in_array($activePage, ['home', 'dashboard'], true);
                     $mobileMoreIsActive = $moreIsActive;
                     $moreSections = [];
 
@@ -243,7 +243,7 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
                     array_unshift($moreSections, [
                         'label' => 'Your space',
                         'links' => [
-                            ['label' => 'Saved verses & notes' . ($isSignedIn ? '' : ' · Sign in'), 'href' => app_url('library.php'), 'active' => in_array($activePage, $libraryActivePages, true), 'class' => ''],
+                            ['label' => 'Home', 'href' => $homeHref, 'active' => $activePage === 'home', 'class' => ''],
                             ['label' => 'Community', 'href' => app_url('community.php'), 'active' => $activePage === 'community', 'class' => ''],
                         ],
                     ]);
@@ -287,10 +287,10 @@ $shareImageHeight = is_array($shareImageSize) ? (int) ($shareImageSize[1] ?? 0) 
         </header>
 
         <nav class="mobile-primary-nav" aria-label="Primary navigation">
-            <a class="<?= in_array($activePage, ['home', 'dashboard'], true) ? 'is-active' : ''; ?>" href="<?= e($homeHref); ?>">Home</a>
-            <a class="<?= in_array($activePage, $bibleActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('bible.php')); ?>">Bible</a>
-            <a class="<?= in_array($activePage, ['tools', 'dictionary', 'good-news'], true) ? 'is-active' : ''; ?>" href="<?= e(app_url('tools.php')); ?>">Study tools</a>
-            <a class="<?= in_array($activePage, $planActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('studies.php')); ?>">Plans</a>
+            <a class="<?= $activePage === 'bible' ? 'is-active' : ''; ?>" href="<?= e(app_url('bible.php')); ?>">Read</a>
+            <a class="<?= $activePage === 'search' ? 'is-active' : ''; ?>" href="<?= e(app_url('search.php')); ?>">Search</a>
+            <a class="<?= in_array($activePage, ['tools', 'dictionary', 'good-news', 'studies', 'guided-study', 'memory'], true) ? 'is-active' : ''; ?>" href="<?= e(app_url('tools.php')); ?>">Study</a>
+            <a class="<?= in_array($activePage, $libraryActivePages, true) ? 'is-active' : ''; ?>" href="<?= e(app_url('library.php')); ?>">Library</a>
             <button class="mobile-primary-nav-more <?= $mobileMoreIsActive ? 'is-active' : ''; ?>" type="button" data-mobile-menu-trigger aria-expanded="false" aria-controls="primary-nav">More</button>
         </nav>
 

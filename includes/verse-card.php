@@ -45,7 +45,7 @@ $verseResourceTerms = function_exists('bible_resource_terms_for_text')
             data-share-url="<?= e($verseShareUrl); ?>"
         >Share</button>
         <a class="button button-secondary" href="<?= e(app_url('bible.php?translation=' . urlencode((string) $verse['translation']) . '&book_id=' . $verse['book_id'] . '&chapter=' . $verse['chapter_number'])); ?>">
-            Open Chapter
+            Read in context
         </a>
         <?php if (is_logged_in() && !empty($verse['id'])): ?>
             <form class="inline-form scripture-save-form" method="post">
@@ -66,13 +66,13 @@ $verseResourceTerms = function_exists('bible_resource_terms_for_text')
                     <?php endforeach; ?>
                 </select>
                 <input type="text" name="note" placeholder="Verse notes">
-                <button class="button button-primary" type="submit">Highlight Verse</button>
+                <button class="button button-primary" type="submit">Save verse</button>
             </form>
-            <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes&verse_id=' . $verse['id'])); ?>">Create Bookmark</a>
+            <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes&verse_id=' . $verse['id'])); ?>">Add note</a>
         <?php elseif (is_logged_in()): ?>
             <span class="muted-copy">Marking for this result is unavailable until the verse is mapped locally.</span>
         <?php else: ?>
-            <a class="button button-primary" href="<?= e(app_url('login.php')); ?>">Sign in to bookmark</a>
+            <a class="button button-primary" href="<?= e(app_url('login.php?next=' . rawurlencode($verseReaderPath))); ?>">Sign in to bookmark</a>
         <?php endif; ?>
     </div>
 </article>

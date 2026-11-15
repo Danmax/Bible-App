@@ -8,6 +8,9 @@ require_once __DIR__ . '/includes/passage_resource_repository.php';
 
 function bible_reader_url(array $params = []): string
 {
+    if (!array_key_exists('compare_translation', $params) && !empty($GLOBALS['comparisonTranslation'])) {
+        $params['compare_translation'] = $GLOBALS['comparisonTranslation'];
+    }
     $query = http_build_query(array_filter(
         $params,
         static fn($value) => $value !== null && $value !== ''
@@ -485,11 +488,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'verse' => (int) ($_POST['return_verse'] ?? 0) ?: null,
             'verse_end' => (int) ($_POST['return_verse_end'] ?? 0) ?: null,
             'reader_mode' => bible_normalize_reader_mode($_POST['return_reader_mode'] ?? $readerMode),
+            'compare_translation' => $comparisonTranslation ?: null,
         ], static fn($value) => $value !== null && $value !== ''));
 
         redirect('bible.php' . ($redirectQuery === '' ? '' : '?' . $redirectQuery));
     } catch (Throwable $exception) {
-        $pageError = 'That bookmark or highlight could not be saved because the database is unavailable.';
+        $pageError = $exception instanceof RuntimeException ? $exception->getMessage() : 'Your mark could not be saved. Please try again.';
     }
 }
 
@@ -507,6 +511,9 @@ try {
     $bookCatalog = fetch_book_catalog($selectedTranslation);
     $selectedTranslationHasData = $translationAvailability[$selectedTranslation] ?? false;
     $referenceQuery = $query !== '' ? parse_reference_query($query, fetch_books()) : null;
+    if ($query !== '' && ($referenceQuery === null || (int) ($referenceQuery['end_chapter'] ?? $referenceQuery['chapter']) !== (int) $referenceQuery['chapter'])) {
+        redirect('search.php?' . http_build_query(['q' => $query, 'translation' => $selectedTranslation, 'sort' => $searchSort]));
+    }
     $themedSeries = fetch_thematic_scripture_series($selectedTranslation);
     if ($query !== '') {
         push_recent_bible_search($query, $selectedTranslation);
@@ -537,6 +544,9 @@ try {
             $endVerse = isset($referenceQuery['end_verse']) && $referenceQuery['end_verse'] !== null
                 ? (int) $referenceQuery['end_verse']
                 : $startVerse;
+            if ($chapterVerseSet !== [] && $endVerse > (int) end($chapterVerseSet)['verse_number']) {
+                throw new InvalidArgumentException('That range is not available in ' . $selectedBook['name'] . ' ' . $selectedChapter . ' (' . $selectedTranslation . '). Choose verses 1–' . (int) end($chapterVerseSet)['verse_number'] . '.');
+            }
             $browseVerses = array_values(array_filter(
                 $chapterVerseSet,
                 static fn(array $verse): bool => (int) $verse['verse_number'] >= $startVerse
@@ -550,7 +560,7 @@ try {
         if ($chapterVerseSet === []) {
             $searchMessage = 'This chapter has no verses loaded for ' . $selectedTranslation . '.';
         } elseif ($browseVerses === []) {
-            $searchMessage = 'Those verses were not found in this chapter.';
+            $searchMessage = 'Choose verses available in this chapter (1–' . (int) end($chapterVerseSet)['verse_number'] . ').';
         } elseif (is_logged_in()) {
             $chapterBookmarks = fetch_bookmarks_for_verses(
                 (int) $user['id'],
@@ -582,6 +592,9 @@ try {
             $searchMessage = 'This chapter has no verses loaded for ' . $selectedTranslation . '.';
         } else {
             if ($selectedVerseNumber > 0) {
+                if ($selectedVerseEndNumber > 0 && $selectedVerseEndNumber < $selectedVerseNumber) {
+                    throw new InvalidArgumentException('Choose the ending verse after the starting verse.');
+                }
                 $rangeEndVerseNumber = $selectedVerseEndNumber > $selectedVerseNumber
                     ? $selectedVerseEndNumber
                     : $selectedVerseNumber;
@@ -593,7 +606,11 @@ try {
                     )
                 );
 
-                if ($matchingVerse !== []) {
+                if ($matchingVerse === []) {
+                    $browseVerses = [];
+                    $displayMode = 'passage';
+                    $searchMessage = 'That verse is not available in this chapter. Choose a verse from the passage picker.';
+                } else {
                     $browseVerses = $matchingVerse;
                     $searchHeading = $rangeEndVerseNumber > $selectedVerseNumber
                         ? sprintf('%s %d:%d-%d (%s)', $selectedBook['name'], $selectedChapter, $selectedVerseNumber, $rangeEndVerseNumber, $selectedTranslation)
@@ -642,8 +659,10 @@ try {
                 && (int) $verse['verse_number'] <= $lastComparisonVerse
         ));
     }
+} catch (InvalidArgumentException $exception) {
+    $pageError = $exception->getMessage();
 } catch (Throwable $exception) {
-    $pageError = 'Scripture content could not be loaded because the database is unavailable.';
+    $pageError = 'Scripture could not load right now. Please try again or choose another translation.';
 }
 
 if ($selectedBook && $bookChapters !== [] && $selectedChapter > 0) {
@@ -673,6 +692,26 @@ if ($selectedBook && $bookChapters !== [] && $selectedChapter > 0) {
                 'chapter' => $nextChapterNumber,
                 'reader_mode' => $readerMode,
             ]);
+        }
+    }
+}
+
+
+if ($selectedBook && $selectedChapter > 0 && $bookCatalog !== []) {
+    $position = array_search($selectedBookId, array_column($bookCatalog, 'id'));
+    if ($position !== false) {
+        foreach ([-1, 1] as $direction) {
+            if (($direction === -1 ? $previousChapterUrl : $nextChapterUrl) !== null) { continue; }
+            for ($index = $position + $direction; isset($bookCatalog[$index]); $index += $direction) {
+                $adjacent = $bookCatalog[$index];
+                if ((int) ($adjacent['chapter_count'] ?? 0) < 1) { continue; }
+                $adjacentChapters = fetch_book_chapters((int) $adjacent['id'], $selectedTranslation);
+                if ($adjacentChapters === []) { continue; }
+                $chapter = $direction === -1 ? end($adjacentChapters) : $adjacentChapters[0];
+                $url = bible_reader_url(['translation' => $selectedTranslation, 'book_id' => (int) $adjacent['id'], 'chapter' => (int) $chapter['chapter_number'], 'reader_mode' => $readerMode]);
+                if ($direction === -1) { $previousChapterUrl = $url; } else { $nextChapterUrl = $url; }
+                break;
+            }
         }
     }
 }
@@ -863,7 +902,7 @@ if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 
     }
 }
 
-$readerDestination = 'bible.php?' . http_build_query(['q' => $query, 'translation' => $selectedTranslation, 'book_id' => $selectedBookId, 'chapter' => $selectedChapter, 'verse' => $selectedVerseNumber, 'verse_end' => $selectedVerseEndNumber, 'reader_mode' => $readerMode]);
+$readerDestination = 'bible.php?' . http_build_query(['q' => $query, 'translation' => $selectedTranslation, 'book_id' => $selectedBookId, 'chapter' => $selectedChapter, 'verse' => $selectedVerseNumber, 'verse_end' => $selectedVerseEndNumber, 'reader_mode' => $readerMode, 'compare_translation' => $comparisonTranslation]);
 $readerLoginUrl = app_url('login.php?next=' . rawurlencode($readerDestination));
 $readerRegisterUrl = app_url('register.php?next=' . rawurlencode($readerDestination));
 
@@ -921,6 +960,7 @@ require_once __DIR__ . '/includes/header.php';
                 >
                     <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
                     <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
+                    <input type="hidden" name="compare_translation" value="<?= e($comparisonTranslation); ?>">
 
                     <label class="bible-mobile-book-field">
                         <span>Book</span>
@@ -996,6 +1036,8 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endif; ?>
             </div>
 
+            <details class="reader-search-drawer" <?= in_array($displayMode, ['chapter', 'verse', 'passage'], true) ? '' : 'open'; ?>>
+                <summary>Find or choose a passage <span class="muted-copy">Search Scripture or browse books</span></summary>
             <div class="bible-search-shell">
                 <form class="form-stack bible-search-form" method="get" data-translation-switch-form>
                     <div class="search-row search-row-compact search-row-scripture" data-voice-search>
@@ -1006,6 +1048,7 @@ require_once __DIR__ . '/includes/header.php';
                         <input type="hidden" name="verse" value="<?= e($selectedVerseNumber > 0 ? (string) $selectedVerseNumber : ''); ?>">
                         <input type="hidden" name="verse_end" value="<?= e($selectedVerseEndNumber > $selectedVerseNumber ? (string) $selectedVerseEndNumber : ''); ?>">
                         <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
+                    <input type="hidden" name="compare_translation" value="<?= e($comparisonTranslation); ?>">
                         <input type="hidden" name="search_sort" value="<?= e($searchSort); ?>">
                         <select name="translation" aria-label="Translation" data-translation-switch>
                             <?php foreach ($translations as $translation): ?>
@@ -1045,6 +1088,7 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="reader-select-row reader-select-row-compact">
                                 <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
                                 <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
+                    <input type="hidden" name="compare_translation" value="<?= e($comparisonTranslation); ?>">
 
                                 <label class="reader-compact-label">
                                     <select name="book_id" aria-label="Bible book" data-reader-select="book">
@@ -1100,6 +1144,8 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </details>
             </div>
+
+            </details>
 
             <div class="scripture-heading">
                 <div>
@@ -1168,8 +1214,8 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <?php if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && count($translations) > 1): ?>
-                <details class="translation-comparison <?= $comparisonTranslation !== '' ? 'is-active' : ''; ?> top-gap-sm" <?= $comparisonTranslation !== '' ? 'open' : ''; ?>>
-                    <summary>Compare translations</summary>
+                <details class="translation-comparison <?= $comparisonTranslation !== '' ? 'is-active' : ''; ?> top-gap-sm"  >
+                    <summary>Compare translations<?= $comparisonTranslation !== '' ? ' · ' . e($selectedTranslation) . ' + ' . e($comparisonTranslation) : ''; ?></summary>
                     <div class="translation-comparison-body">
                         <form method="get" class="translation-comparison-form">
                             <input type="hidden" name="translation" value="<?= e($selectedTranslation); ?>">
@@ -1180,17 +1226,13 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
                             <label><span>Second translation</span><select name="compare_translation"><option value="">Choose a translation</option><?php foreach ($translations as $t): ?><?php if ($t !== $selectedTranslation && ($translationAvailability[$t] ?? false)): ?><option value="<?= e($t); ?>" <?= $comparisonTranslation === $t ? 'selected' : ''; ?>><?= e($t); ?></option><?php endif; ?><?php endforeach; ?></select></label>
                             <button class="button button-secondary" type="submit">Compare</button>
-                            <?php if ($comparisonTranslation !== ''): ?><a class="button button-secondary" href="<?= e(bible_reader_url(['translation' => $selectedTranslation, 'book_id' => $selectedBookId, 'chapter' => $selectedChapter, 'verse' => $selectedVerseNumber ?: null, 'verse_end' => $selectedVerseEndNumber > $selectedVerseNumber ? $selectedVerseEndNumber : null, 'reader_mode' => $readerMode])); ?>">Close</a><?php endif; ?>
+                            <?php if ($comparisonTranslation !== ''): ?><a class="button button-secondary" href="<?= e(bible_reader_url(['translation' => $selectedTranslation, 'book_id' => $selectedBookId, 'chapter' => $selectedChapter, 'verse' => $selectedVerseNumber ?: null, 'verse_end' => $selectedVerseEndNumber > $selectedVerseNumber ? $selectedVerseEndNumber : null, 'reader_mode' => $readerMode, 'compare_translation' => null])); ?>">Close</a><?php endif; ?>
                         </form>
                         <?php if ($comparisonTranslation !== ''): ?>
                             <?php if (!$comparisonTranslationHasData || $comparisonVerses === []): ?>
                                 <p class="passage-study-empty">This passage is not available in <?= e($comparisonTranslation); ?> yet.</p>
                             <?php else: ?>
-                                <?php $comparisonByVerse = []; foreach ($comparisonVerses as $comparisonVerse) { $comparisonByVerse[(int) $comparisonVerse['verse_number']] = $comparisonVerse; } ?>
-                                <div class="translation-comparison-grid">
-                                    <section><h3><?= e($selectedTranslation); ?></h3><?php foreach ($browseVerses as $verse): ?><p><sup><?= e((string) $verse['verse_number']); ?></sup><?= e((string) $verse['verse_text']); ?></p><?php endforeach; ?></section>
-                                    <section><h3><?= e($comparisonTranslation); ?></h3><?php foreach ($browseVerses as $verse): ?><?php $comparedVerse = $comparisonByVerse[(int) $verse['verse_number']] ?? null; ?><p><sup><?= e((string) $verse['verse_number']); ?></sup><?php if ($comparedVerse): ?><?= e((string) $comparedVerse['verse_text']); ?><?php else: ?><em>Verse unavailable.</em><?php endif; ?></p><?php endforeach; ?></section>
-                                </div>
+                                <p class="muted-copy">Verses are paired below. Select text in <?= e($selectedTranslation); ?> to save or highlight it.</p>
                             <?php endif; ?>
                         <?php endif; ?>
                     </div>
@@ -1449,8 +1491,9 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endforeach; ?>
                     </div>
                 </section>
-            <?php elseif (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== [] && !($comparisonTranslation !== '' && $comparisonTranslationHasData && $comparisonVerses !== [])) : ?>
-                <article class="chapter-reader <?= $readerMode === 'paragraph' ? 'is-paragraph' : ''; ?> top-gap-sm" data-chapter-reader data-reading-url="<?= e(app_url($readerDestination)); ?>" data-reading-label="<?= e(bible_share_reference($browseVerses, $selectedTranslation)); ?>">
+            <?php elseif (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) : ?>
+                <?php $comparisonByVerse = []; foreach ($comparisonVerses as $comparedVerse) { $comparisonByVerse[(int) $comparedVerse['verse_number']] = $comparedVerse; } $showComparison = $comparisonTranslation !== '' && $comparisonTranslationHasData && $comparisonVerses !== []; ?>
+                <article class="chapter-reader <?= $readerMode === 'paragraph' ? 'is-paragraph' : ''; ?> <?= $showComparison ? 'is-comparison' : ''; ?> top-gap-sm" data-chapter-reader data-reading-url="<?= e(app_url($readerDestination)); ?>" data-reading-label="<?= e(bible_share_reference($browseVerses, $selectedTranslation)); ?>">
                     <?php foreach ($browseVerses as $verse): ?>
                         <?php
                         $verseBookmarkSet = $chapterBookmarks[(int) $verse['id']] ?? [];
@@ -1458,6 +1501,7 @@ require_once __DIR__ . '/includes/header.php';
                         $verseNoteUrl = app_url('library.php?view=notes&verse_id=' . (int) $verse['id']);
                         $verseTerms = bible_resource_terms_for_text((string) $verse['verse_text']);
                         $readerClasses = ['reader-verse'];
+                        if ($showComparison) { $readerClasses[] = 'comparison-row'; }
                         if ($displayMode !== 'verse' && $selectedVerseNumber === (int) $verse['verse_number']) {
                             $readerClasses[] = 'is-target';
                         }
@@ -1479,6 +1523,7 @@ require_once __DIR__ . '/includes/header.php';
                             data-verse-text="<?= e((string) $verse['verse_text']); ?>"
                         >
                             <p class="reader-verse-copy">
+                                <?php if ($showComparison): ?><span class="comparison-edition"><?= e($selectedTranslation); ?></span><?php endif; ?>
                                 <sup>
                                     <?php if ($readerMode === 'verse'): ?>
                                         <a class="reader-verse-number-link" href="<?= e($verseFocusUrl); ?>"><?= e((string) $verse['verse_number']); ?></a>
@@ -1492,8 +1537,12 @@ require_once __DIR__ . '/includes/header.php';
                                     data-verse-number="<?= e((string) $verse['verse_number']); ?>"
                                 ><?= render_verse_text_with_highlights((string) $verse['verse_text'], $verseBookmarkSet); ?></span>
                             </p>
+                            <?php if ($showComparison): ?>
+                                <?php $pairedVerse = $comparisonByVerse[(int) $verse['verse_number']] ?? null; ?>
+                                <p class="reader-comparison-copy"><span class="comparison-edition"><?= e($comparisonTranslation); ?></span><sup><?= e((string) $verse['verse_number']); ?></sup> <?php if ($pairedVerse): ?><?= e((string) $pairedVerse['verse_text']); ?><?php else: ?><em>Verse unavailable in this translation.</em><?php endif; ?></p>
+                            <?php endif; ?>
                             <?php if ($readerMode === 'verse'): ?>
-                                <nav class="reader-verse-resources" aria-label="<?= e(format_verse_reference($verse)); ?> resources">
+                                <nav class="reader-verse-resources aria-label="<?= e(format_verse_reference($verse)); ?> resources">
                                     <a href="<?= e($verseFocusUrl); ?>">Open</a>
                                     <a href="<?= e($verseNoteUrl); ?>">Note</a>
                                     <a href="<?= e(app_url('dictionary.php?q=' . urlencode($verseReferenceQuery))); ?>">Reference</a>
@@ -1609,17 +1658,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <a class="button button-primary" href="<?= e($readerLoginUrl); ?>">Sign In To Save</a>
                                         <a class="button button-secondary" href="<?= e($readerRegisterUrl); ?>">Create Account</a>
                                     <?php endif; ?>
-                                    <?php if ($readerMode === 'paragraph'): ?>
-                                        <div class="reader-font-size-control reader-font-size-control-inline" data-reader-font-size-control>
-                                            <p class="reader-tool-label">Text size</p>
-                                            <div class="reader-font-size-options" role="group" aria-label="Paragraph text size">
-                                                <button type="button" data-reader-font-size="1" aria-pressed="true">A</button>
-                                                <button type="button" data-reader-font-size="2" aria-pressed="false">A</button>
-                                                <button type="button" data-reader-font-size="3" aria-pressed="false">A</button>
-                                                <button type="button" data-reader-font-size="4" aria-pressed="false">A</button>
-                                            </div>
-                                        </div>
-                                    <?php endif; ?>
+
                                     <a class="button button-secondary" href="<?= e($wholeChapterUrl ?: bible_reader_url([
                                         'translation' => $selectedTranslation,
                                         'book_id' => $selectedBookId,
@@ -1744,17 +1783,15 @@ require_once __DIR__ . '/includes/header.php';
 
                             <div class="mobile-study-tab-panel" data-study-tab-panel="more">
                                 <div class="mobile-study-more-stack">
-                                    <?php if ($readerMode === 'paragraph'): ?>
                                         <div class="reader-font-size-control" data-reader-font-size-control>
                                             <p class="reader-tool-label">Text size</p>
                                             <div class="reader-font-size-options" role="group" aria-label="Paragraph text size">
-                                                <button type="button" data-reader-font-size="1" aria-pressed="true">1</button>
-                                                <button type="button" data-reader-font-size="2" aria-pressed="false">2</button>
-                                                <button type="button" data-reader-font-size="3" aria-pressed="false">3</button>
-                                                <button type="button" data-reader-font-size="4" aria-pressed="false">4</button>
+                                                <button type="button" data-reader-font-size="1" aria-label="Small text" aria-pressed="true">1</button>
+                                                <button type="button" data-reader-font-size="2" aria-label="Medium text" aria-pressed="false">2</button>
+                                                <button type="button" data-reader-font-size="3" aria-label="Large text" aria-pressed="false">3</button>
+                                                <button type="button" data-reader-font-size="4" aria-label="Extra large text" aria-pressed="false">4</button>
                                             </div>
                                         </div>
-                                    <?php endif; ?>
                                     <div>
                                         <p class="reader-tool-label">Study words</p>
                                 <?php if ($passageFocusTerms !== []): ?>

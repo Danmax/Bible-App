@@ -2,6 +2,10 @@
 
 Good News Bible is a PHP + MySQL Bible study app focused on reading, prayer, sermon notes, planning, and community. It is built for straightforward PHP hosting, mobile use, and gradual feature growth without a heavy framework.
 
+The [v2 review and delivery plan](V2_REVIEW_AND_PLAN.md) documents the November 2026 review, prioritized reading and search improvements, implementation phases, and release criteria.
+
+The first implementation is described in the [November 2026 release notes](V2_RELEASE_NOTES.md), including dedicated Scripture search, reader continuity, and personal Library search.
+
 ## Overview
 
 - Bible reader with quick reference search like `John 3:16` and `Daniel 6:20-24`

@@ -61,6 +61,14 @@ This refactor removes the old `public/` deployment step. You no longer need to m
 
 Upload or deploy the repo root into `public_html/`.
 
+### Existing-site replacement warning
+
+The Hostinger `hosting_deploy` directory operation replaces the existing document root. Excluding `.env.local` and personal uploads from the upload does **not** preserve their server copies. The November 2026 release exposed this behavior: code deployment succeeded, but the server configuration then needed restoration.
+
+Before using a replacement deployment, securely back up and arrange restoration of the production environment file and every uploaded asset directory. Keep secret backups outside the source repository. Prefer an incremental SSH/SFTP release that preserves server-only files when that access is available. A source-code-only rollback does not restore server configuration or uploaded content.
+
+After deployment, verify actual database-backed passage and keyword results, account redirects, and referenced personal assets. An HTTP 200 page alone is insufficient because this app can render an error or fallback page when its database configuration is missing.
+
 Important:
 
 - keep `.env.local` local to the server

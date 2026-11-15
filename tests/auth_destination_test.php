@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/auth_destination.php';
 
 $cases = [
+    ['search.php?q=hope&page=2', 'search.php?q=hope&page=2'],
     ['bible.php?q=John+1&translation=MSB', 'bible.php?q=John+1&translation=MSB'],
     ['guided-study.php?book_id=43&chapter=3', 'guided-study.php?book_id=43&chapter=3'],
     ['memory.php', 'memory.php'],
