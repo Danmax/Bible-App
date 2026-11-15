@@ -12,7 +12,7 @@
 
 No database migration is required. Existing reader deep links continue to resolve; keyword links open the dedicated search page. Production environment files and uploaded personal assets are excluded from the release package.
 
-Deployment status: code uploaded to `bible.frowear.com`; production verification is pending restoration of the server environment file removed by Hostinger's replacement operation. The user has approved one-use configuration recovery, and its token-protected endpoint is deployed. The hosting web PHP service currently returns HTTP 503 before that endpoint can execute, so configuration has not yet been restored. A PHP-process restart through hPanel has been requested; the connected tools do not expose that operation. See `DEPLOY_HOSTINGER.md` for the replacement warning.
+Deployment status: code uploaded to `bible.frowear.com`; production verification is pending restoration of the server environment file removed by Hostinger's replacement operation. The user approved one-use web configuration recovery, and its token-protected endpoint is deployed. Web PHP still returns HTTP 503 after the user restarted processes in hPanel, so configuration has not yet been restored. A temporary-job alternative with an encrypted configuration bundle is prepared but awaits separate approval after automatic approval review rejected the new execution path. See `DEPLOY_HOSTINGER.md` for the replacement warning.
 
 ## Verification
 
