@@ -2,6 +2,8 @@
 
 Reviewed November 15, 2026, against the current workspace and the public deployment. This is a follow-up to the first v2 implementation. No application code or production settings were changed during this review.
 
+Recovery update, November 15, 2026: B1's live outage has since cleared. The user restored the configuration manually, reported hosting resources at 100%, and ended a long-running process. Fresh homepage, John 3:16, and keyword-search checks returned HTTP 200 with real Scripture/results. The other findings below remain open; the original observations describe the state at review time. The precise process responsible for resource saturation is not yet known.
+
 ## Highest-priority findings
 
 | ID | Priority | Finding | Evidence |
@@ -27,7 +29,7 @@ The exception handler renders a friendly page but does not change the HTTP statu
 
 **Fix:** restore the correct production configuration through the approved hosting channel, then verify an actual passage, keyword results, and sign-in return handling. Return a suitable unavailable status for infrastructure failures, preserving the helpful page. Make release checks inspect expected Scripture/results as well as HTTP status. Keep configuration and uploaded content outside any replaceable release tree, with a tested backup/restore procedure.
 
-Configuration recovery was not retried: the earlier one-use credential-writing endpoint remains unapproved following automatic approval review. No recovery endpoint was deployed during this review. Excluding server-only files from an upload does not preserve them during a document-root replacement. Previously uploaded assets also need an inventory/recovery check; this review does not establish which assets existed before replacement.
+At review time, configuration recovery had not been retried following automatic approval review. The user later approved web recovery, but ultimately restored the environment file manually while PHP requests were unavailable. No recovery endpoint was deployed during this review itself. Excluding server-only files from an upload does not preserve them during a document-root replacement. Previously uploaded assets also need an inventory/recovery check; this review does not establish which assets existed before replacement.
 
 ## B2 — Reader bookmark saves can erase existing annotations
 
