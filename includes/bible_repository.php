@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/system_repository.php';
+require_once __DIR__ . '/scripture_search.php';
 
 function fetch_recent_notes(int $userId, int $limit = 3): array
 {
@@ -222,66 +223,28 @@ function external_translation_provider_config(string $translation): ?array
     };
 }
 
-function parse_reference_query(string $query, array $books): ?array
+function search_scripture(string $query, string $translation, string $sort = 'relevance', array $options = []): array
 {
-    $normalizedQuery = preg_replace('/\s+/', ' ', trim($query));
-
-    if ($normalizedQuery === '') {
-        return null;
+    $query = trim($query);
+    if (mb_strlen($query) > 200) {
+        throw new InvalidArgumentException('Keep your search to 200 characters or fewer.');
     }
-
-    if (!preg_match('/^(.+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/i', $normalizedQuery, $matches)) {
-        return null;
-    }
-
-    $bookQuery = normalize_book_key($matches[1]);
-    $chapter = (int) $matches[2];
-    $startVerse = isset($matches[3]) ? (int) $matches[3] : null;
-    $endVerse = isset($matches[4]) ? (int) $matches[4] : null;
-
-    foreach ($books as $book) {
-        $nameKey = normalize_book_key((string) $book['name']);
-        $abbreviationKey = normalize_book_key((string) $book['abbreviation']);
-
-        if ($bookQuery !== $nameKey && $bookQuery !== $abbreviationKey) {
-            continue;
-        }
-
-        return [
-            'book_id' => (int) $book['id'],
-            'book_name' => (string) $book['name'],
-            'chapter' => $chapter,
-            'start_verse' => $startVerse,
-            'end_verse' => $endVerse,
-        ];
-    }
-
-    return null;
-}
-
-function search_scripture(string $query, string $translation, string $sort = 'relevance'): array
-{
     $books = fetch_books();
     $reference = parse_reference_query($query, $books);
-
     if ($reference !== null) {
         return fetch_reference_verses($reference, $translation);
     }
-
-    $spellcheck = scripture_search_correct_query($query, $translation);
-
     if (uses_external_translation($translation)) {
-        $search = search_external_translation((string) $spellcheck['query'], $translation);
-        $search['corrected_query'] = (string) $spellcheck['query'];
-        $search['corrections'] = $spellcheck['corrections'];
-
+        $search = search_external_translation($query, $translation);
+        $search['provider_limited'] = true;
         return $search;
     }
-
-    $search = fetch_keyword_verses((string) $spellcheck['query'], $translation, 25, $sort);
-    $search['corrected_query'] = (string) $spellcheck['query'];
-    $search['corrections'] = $spellcheck['corrections'];
-
+    $search = fetch_keyword_verses($query, $translation, 20, $sort, $options);
+    // Suggestions never replace the reader's words or run on each keystroke.
+    if ($search['results'] === [] && strtoupper($translation) !== 'RVR') {
+        $suggestion = scripture_search_correct_query($query, $translation);
+        $search['suggested_query'] = $suggestion['corrections'] !== [] ? $suggestion['query'] : null;
+    }
     return $search;
 }
 
@@ -401,7 +364,7 @@ function scripture_search_vocabulary(string $translation): array
         $statement->execute(['translation' => $translation]);
         $vocabulary = [];
 
-        foreach ($statement->fetchAll() as $verse) {
+        while ($verse = $statement->fetch()) {
             foreach (scripture_analysis_tokens((string) ($verse['verse_text'] ?? '')) as $word) {
                 if (mb_strlen($word) >= 3) {
                     $vocabulary[$word] = ($vocabulary[$word] ?? 0) + 1;
@@ -424,7 +387,7 @@ function scripture_search_correct_query(string $query, string $translation): arr
     $corrections = [];
 
     foreach (array_unique(scripture_analysis_tokens($query)) as $term) {
-        if (mb_strlen($term) < 5 || isset($vocabulary[$term]) || !preg_match('/^[a-z]+$/', $term)) {
+        if (mb_strlen($term) < 4 || isset($vocabulary[$term]) || !preg_match('/^[a-z]+$/', $term)) {
             continue;
         }
 
@@ -432,10 +395,9 @@ function scripture_search_correct_query(string $query, string $translation): arr
         $bestWord = null;
         $bestDistance = $maximumDistance + 1;
         $bestFrequency = -1;
-        $firstLetter = mb_substr($term, 0, 1);
 
         foreach ($vocabulary as $word => $frequency) {
-            if (mb_substr($word, 0, 1) !== $firstLetter || abs(mb_strlen($word) - mb_strlen($term)) > $maximumDistance) {
+            if (abs(mb_strlen($word) - mb_strlen($term)) > $maximumDistance) {
                 continue;
             }
 
@@ -507,55 +469,11 @@ function scripture_search_expanded_terms(array $terms): array
 
 function scripture_search_score(array $verse, string $normalizedQuery, array $queryTerms, array $expandedTerms): int
 {
-    $verseText = mb_strtolower((string) ($verse['verse_text'] ?? ''));
-    $verseTokens = scripture_analysis_tokens($verseText);
-    $verseTermSet = [];
-
-    foreach ($verseTokens as $token) {
-        $verseTermSet[$token] = true;
-        $stem = scripture_search_stem($token);
-
-        if ($stem !== $token && mb_strlen($stem) >= 3) {
-            $verseTermSet[$stem] = true;
-        }
+    $literal = scripture_search_match($verse, $normalizedQuery, 'KJV', 'any');
+    if ($literal !== null) {
+        return $literal['score'];
     }
-
-    $score = 0;
-
-    if ($normalizedQuery !== '' && mb_strpos($verseText, $normalizedQuery) !== false) {
-        $score += 100;
-    }
-
-    foreach ($queryTerms as $term) {
-        if (isset($verseTermSet[$term])) {
-            $score += 24;
-        } elseif (mb_strpos($verseText, $term) !== false) {
-            $score += 12;
-        }
-    }
-
-    foreach ($expandedTerms as $term) {
-        if (in_array($term, $queryTerms, true)) {
-            continue;
-        }
-
-        if (isset($verseTermSet[$term])) {
-            $score += 8;
-        } elseif (mb_strpos($verseText, $term) !== false) {
-            $score += 4;
-        }
-    }
-
-    $queryCoverage = count(array_filter(
-        $queryTerms,
-        static fn(string $term): bool => isset($verseTermSet[$term]) || mb_strpos($verseText, $term) !== false
-    ));
-
-    if ($queryCoverage > 1) {
-        $score += $queryCoverage * 10;
-    }
-
-    return $score;
+    return array_filter($expandedTerms, static fn(string $term): bool => scripture_search_contains((string) $verse['verse_text'], $term)) ? 1 : 0;
 }
 
 function search_external_translation(string $query, string $translation): array
@@ -628,145 +546,115 @@ function fetch_external_translation_keyword_verses(string $query, string $transl
 
 function fetch_reference_verses(array $reference, string $translation): array
 {
-    $sql = 'SELECT verses.*, books.name AS book_name, books.abbreviation
-        FROM verses
-        INNER JOIN books ON books.id = verses.book_id
-        WHERE verses.book_id = :book_id
-            AND verses.chapter_number = :chapter_number
-            AND verses.translation = :translation';
-
-    $params = [
-        'book_id' => $reference['book_id'],
-        'chapter_number' => $reference['chapter'],
-        'translation' => $translation,
-    ];
-
-    if ($reference['start_verse'] !== null) {
-        $sql .= ' AND verses.verse_number >= :start_verse';
-        $params['start_verse'] = $reference['start_verse'];
+    $endChapter = (int) ($reference['end_chapter'] ?? $reference['chapter']);
+    if ($endChapter === (int) $reference['chapter']) {
+        if (uses_external_translation($translation)) {
+            return fetch_external_translation_reference_verses($reference, $translation);
+        }
+        $verses = fetch_chapter_verses((int) $reference['book_id'], (int) $reference['chapter'], $translation);
+    } else {
+        $verses = [];
+        // Cross-chapter requests use the same translation adapter as the reader.
+        if ($endChapter - (int) $reference['chapter'] > 10) {
+            throw new InvalidArgumentException('Open up to 11 chapters at a time.');
+        }
+        for ($chapter = (int) $reference['chapter']; $chapter <= $endChapter; $chapter++) {
+            $verses = array_merge($verses, fetch_chapter_verses((int) $reference['book_id'], $chapter, $translation));
+        }
     }
-
-    if ($reference['end_verse'] !== null) {
-        $sql .= ' AND verses.verse_number <= :end_verse';
-        $params['end_verse'] = $reference['end_verse'];
-    } elseif ($reference['start_verse'] !== null) {
-        $sql .= ' AND verses.verse_number = :exact_verse';
-        $params['exact_verse'] = $reference['start_verse'];
+    $start = $reference['start_verse'];
+    $end = $reference['end_verse'] ?? $start;
+    if ($verses !== [] && $end !== null) {
+        $last = end($verses);
+        if ((int) $last['chapter_number'] === $endChapter && $end > (int) $last['verse_number']) {
+            throw new InvalidArgumentException('The ending verse is not available in this chapter and translation.');
+        }
     }
-
-    $sql .= ' ORDER BY verses.verse_number ASC';
-
-    $statement = db()->prepare($sql);
-    $statement->execute($params);
-    $verses = $statement->fetchAll();
-
-    return [
-        'mode' => 'reference',
-        'results' => $verses,
-        'heading' => build_reference_heading($reference, $translation),
-    ];
+    $verses = array_values(array_filter($verses, static function (array $verse) use ($reference, $endChapter, $start, $end): bool {
+        $chapter = (int) $verse['chapter_number'];
+        $number = (int) $verse['verse_number'];
+        return ($start === null || $chapter > (int) $reference['chapter'] || $number >= $start)
+            && ($end === null || $chapter < $endChapter || $number <= $end);
+    }));
+    return ['mode' => 'reference', 'results' => $verses, 'heading' => build_reference_heading($reference, $translation)];
 }
 
-function fetch_keyword_verses(string $query, string $translation, int $limit = 25, string $sort = 'relevance'): array
+/** Complete translation-scoped retrieval, with compact cached rankings and stable paging. */
+function fetch_keyword_verses(string $query, string $translation, int $limit = 20, string $sort = 'relevance', array $options = [], ?PDO $connection = null): array
 {
-    $normalizedQuery = mb_strtolower(trim(preg_replace('/\s+/', ' ', $query) ?? $query));
-    $queryTerms = scripture_search_terms($query);
-    $expandedTerms = scripture_search_expanded_terms($queryTerms);
-    $topics = scripture_search_topics($queryTerms);
+    $options = scripture_search_options($options);
     $sort = $sort === 'canonical' ? 'canonical' : 'relevance';
-
-    if ($normalizedQuery === '') {
-        return [
-            'mode' => 'keyword',
-            'results' => [],
-            'heading' => 'Search Results',
-        ];
+    $limit = max(1, min(100, $limit));
+    $pdo = $connection ?? db();
+    $tokens = array_values(array_unique(array_filter(preg_split("/[\s']+/u", scripture_search_text($query)) ?: [])));
+    if (count($tokens) > 24) {
+        throw new InvalidArgumentException('Try a shorter phrase with up to 24 words.');
     }
-
-    $candidateTerms = array_slice(array_values(array_unique(array_merge(
-        [$normalizedQuery],
-        $queryTerms,
-        $expandedTerms
-    ))), 0, 12);
-
-    $whereParts = ['verses.verse_text LIKE :phrase'];
-    $params = [
-        'translation' => $translation,
-        'phrase' => '%' . trim($query) . '%',
-    ];
-
-    foreach ($candidateTerms as $index => $term) {
-        if ($term === '') {
-            continue;
-        }
-
-        $param = 'term_' . $index;
-        $whereParts[] = 'verses.verse_text LIKE :' . $param;
-        $params[$param] = '%' . $term . '%';
+    if ($options['match'] === 'related' && strtoupper($translation) !== 'RVR') {
+        $tokens = array_values(array_unique(array_merge($tokens, scripture_search_expanded_terms(scripture_search_terms($query)))));
     }
-
-    $statement = db()->prepare(
-        'SELECT verses.*, books.name AS book_name, books.abbreviation
-        FROM verses
-        INNER JOIN books ON books.id = verses.book_id
-        WHERE verses.translation = :translation
-            AND (' . implode(' OR ', $whereParts) . ')
-        ORDER BY books.id ASC, verses.chapter_number ASC, verses.verse_number ASC
-        LIMIT 400'
-    );
-    $statement->execute($params);
-
-    $rankedVerses = [];
-
-    foreach ($statement->fetchAll() as $verse) {
-        $score = scripture_search_score($verse, $normalizedQuery, $queryTerms, $expandedTerms);
-
-        if ($score <= 0) {
-            continue;
+    $rankOptions = $options;
+    unset($rankOptions['page']);
+    $cacheKey = 'bible.search.v2.' . DB_NAME . '.' . hash('sha256', json_encode([$query, $translation, $sort, $rankOptions]));
+    $buildRanking = static function () use ($pdo, $tokens, $query, $translation, $sort, $options): array {
+        if (trim($query) === '' || $tokens === []) {
+            return [];
         }
-
-        $verse['_search_score'] = $score;
-        $rankedVerses[] = $verse;
+        $where = ['verses.translation = :translation'];
+        $params = ['translation' => $translation];
+        $candidates = [];
+        foreach ($tokens as $index => $token) {
+            $candidates[] = "verses.verse_text LIKE :term_" . $index . " ESCAPE '!'";
+            $params['term_' . $index] = scripture_search_like($token);
+        }
+        $where[] = '(' . implode(' OR ', $candidates) . ')';
+        if ($options['book_id'] > 0) {
+            $where[] = 'verses.book_id = :book_id';
+            $params['book_id'] = $options['book_id'];
+        }
+        if ($options['scope'] !== 'all') {
+            $where[] = 'books.testament = :testament';
+            $params['testament'] = $options['scope'] === 'old' ? 'Old Testament' : 'New Testament';
+        }
+        $statement = $pdo->prepare('SELECT verses.id, verses.book_id, verses.chapter_number, verses.verse_number, verses.verse_text
+            FROM verses INNER JOIN books ON books.id = verses.book_id WHERE ' . implode(' AND ', $where));
+        $statement->execute($params);
+        $ranked = [];
+        while ($verse = $statement->fetch()) {
+            $match = scripture_search_match($verse, $query, $translation, $options['match']);
+            if ($match !== null) {
+                $ranked[] = ['id' => (int) $verse['id'], 'score' => $match['score'], 'reason' => $match['reason'],
+                    'location' => [(int) $verse['book_id'], (int) $verse['chapter_number'], (int) $verse['verse_number']]];
+            }
+        }
+        usort($ranked, static function (array $a, array $b) use ($sort): int {
+            return ($sort === 'canonical' ? 0 : $b['score'] <=> $a['score']) ?: ($a['location'] <=> $b['location']);
+        });
+        return $ranked;
+    };
+    // An injected connection is used by isolated database regression fixtures.
+    $ranked = $connection !== null ? $buildRanking() : app_cache_remember($cacheKey, 120, $buildRanking);
+    $total = count($ranked);
+    $pageCount = max(1, (int) ceil($total / $limit));
+    $page = min($options['page'], $pageCount);
+    $slice = array_slice($ranked, ($page - 1) * $limit, $limit);
+    $results = [];
+    if ($slice !== []) {
+        $ids = array_column($slice, 'id');
+        $statement = $pdo->prepare('SELECT verses.*, books.name AS book_name, books.abbreviation FROM verses INNER JOIN books ON books.id = verses.book_id WHERE verses.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')');
+        $statement->execute($ids);
+        $byId = [];
+        foreach ($statement->fetchAll() as $verse) {
+            $byId[(int) $verse['id']] = $verse;
+        }
+        foreach ($slice as $rank) {
+            if (isset($byId[$rank['id']])) {
+                $results[] = $byId[$rank['id']] + ['match_reason' => $rank['reason']];
+            }
+        }
     }
-
-    usort($rankedVerses, static function (array $left, array $right) use ($sort): int {
-        if ($sort === 'canonical') {
-            return [
-                (int) ($left['book_id'] ?? 0),
-                (int) ($left['chapter_number'] ?? 0),
-                (int) ($left['verse_number'] ?? 0),
-            ] <=> [
-                (int) ($right['book_id'] ?? 0),
-                (int) ($right['chapter_number'] ?? 0),
-                (int) ($right['verse_number'] ?? 0),
-            ];
-        }
-
-        $scoreComparison = ((int) ($right['_search_score'] ?? 0)) <=> ((int) ($left['_search_score'] ?? 0));
-
-        if ($scoreComparison !== 0) {
-            return $scoreComparison;
-        }
-
-        return [
-            (int) ($left['book_id'] ?? 0),
-            (int) ($left['chapter_number'] ?? 0),
-            (int) ($left['verse_number'] ?? 0),
-        ] <=> [
-            (int) ($right['book_id'] ?? 0),
-            (int) ($right['chapter_number'] ?? 0),
-            (int) ($right['verse_number'] ?? 0),
-        ];
-    });
-
-    return [
-        'mode' => 'keyword',
-        'results' => array_slice($rankedVerses, 0, $limit),
-        'heading' => 'Search Results',
-        'expanded_terms' => array_values(array_diff($expandedTerms, $queryTerms)),
-        'topics' => $topics,
-        'sort' => $sort,
-    ];
+    return ['mode' => 'keyword', 'results' => $results, 'heading' => 'Search results', 'total' => $total,
+        'page' => $page, 'page_count' => $pageCount, 'has_more' => $page < $pageCount, 'sort' => $sort];
 }
 
 function fetch_featured_verses(string $translation, int $limit = 3): array
@@ -1233,6 +1121,9 @@ function format_verse_reference(array $verse): string
 function build_reference_heading(array $reference, string $translation): string
 {
     $heading = sprintf('%s %d', $reference['book_name'], $reference['chapter']);
+    if ((int) ($reference['end_chapter'] ?? $reference['chapter']) !== (int) $reference['chapter']) {
+        return $heading . ':' . $reference['start_verse'] . '–' . $reference['end_chapter'] . ':' . $reference['end_verse'] . ' (' . $translation . ')';
+    }
 
     if ($reference['start_verse'] !== null && $reference['end_verse'] !== null) {
         $heading .= sprintf(':%d-%d', $reference['start_verse'], $reference['end_verse']);

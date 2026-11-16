@@ -14,7 +14,7 @@ require_once __DIR__ . '/includes/header.php';
             <h1>A little context.<br>A deeper understanding.</h1>
             <p>Start with Scripture, then explore the words and connections around it. No account needed.</p>
         </div>
-        <form class="word-search panel" method="get" action="<?= e(app_url('bible.php')); ?>" role="search">
+        <form class="word-search panel" method="get" action="<?= e(app_url('search.php')); ?>" role="search">
             <label for="tools-passage">Which passage are you studying?</label>
             <div class="word-search-row">
                 <input id="tools-passage" type="search" name="q" placeholder="For example, John 1:1–18 or grace" required>

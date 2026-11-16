@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/library_search.php';
 
 require_login();
 
@@ -10,6 +11,12 @@ $pageTitle = 'Library';
 $activePage = 'library';
 $pageDescription = 'Your saved Scripture, notes, sermon documents, and prayer reflections in one Bible-centered library.';
 $user = refresh_current_user();
+$librarySearchActive = isset($_GET['find']);
+$libraryQuery = mb_substr(trim((string) ($_GET['find'] ?? '')), 0, 200);
+$libraryType = in_array($_GET['type'] ?? '', ['saved', 'notes'], true) ? $_GET['type'] : 'all';
+$libraryBookId = max(0, (int) ($_GET['book'] ?? 0));
+$libraryMatches = ['results' => [], 'total' => 0, 'page' => 1, 'page_count' => 1];
+$libraryBooks = [];
 $pageError = null;
 $formError = null;
 $bookmarks = [];
@@ -198,12 +205,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 try {
+    $libraryBooks = fetch_books();
+    if ($librarySearchActive) {
+        $libraryMatches = fetch_library_matches((int) $user['id'], $libraryQuery, $libraryType, $libraryBookId, (int) ($_GET['page'] ?? 1));
+    } else {
     $bookmarks = fetch_bookmarks((int) $user['id']);
     $notes = fetch_notes((int) $user['id']);
     $prayerEntries = fetch_prayer_entries_for_user((int) $user['id'], 50);
 
     if ($sermonNotesEnabled) {
         $sermonNotes = fetch_sermon_notes((int) $user['id']);
+    }
     }
 } catch (Throwable $exception) {
     $pageError = $pageError ?? 'Your library is available, but some saved content could not be loaded right now.';
@@ -229,7 +241,7 @@ require_once __DIR__ . '/includes/header.php';
                 <p>Saved verses, highlights, notes, sermon documents, and prayer reflections gathered around the Bible.</p>
             </div>
 
-            <div class="quick-stat-row">
+            <?php if (!$librarySearchActive): ?><div class="quick-stat-row">
                 <div class="quick-stat">
                     <strong><?= e((string) count($bookmarks)); ?></strong>
                     <span>saved passages</span>
@@ -248,6 +260,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
+            <?php endif; ?>
             <div class="hero-actions">
                 <a class="button button-primary" href="<?= e(app_url('bible.php')); ?>">Open Bible</a>
                 <a class="button button-secondary" href="<?= e(app_url('library.php?view=notes')); ?>">Write Note</a>
@@ -262,6 +275,20 @@ require_once __DIR__ . '/includes/header.php';
             <div class="flash flash-warning"><?= e($formError); ?></div>
         <?php endif; ?>
 
+        <form method="get" class="panel library-search top-gap" role="search">
+            <label for="library-find">Find your saved Scripture and notes</label>
+            <div class="word-search-row"><input id="library-find" type="search" name="find" value="<?= e($libraryQuery); ?>" maxlength="200" placeholder="Search verse text, note titles, reflections, or tags"><button class="button button-primary" type="submit">Search Library</button></div>
+            <div class="search-primary-options"><label>Type<select name="type"><?php foreach (['all' => 'Saved Scripture & notes', 'saved' => 'Saved Scripture', 'notes' => 'Notes'] as $key => $label): ?><option value="<?= e($key); ?>" <?= $libraryType === $key ? 'selected' : ''; ?>><?= e($label); ?></option><?php endforeach; ?></select></label><label>Book<select name="book"><option value="">All books</option><?php foreach ($libraryBooks as $book): ?><option value="<?= e((string) $book['id']); ?>" <?= $libraryBookId === (int) $book['id'] ? 'selected' : ''; ?>><?= e((string) $book['name']); ?></option><?php endforeach; ?></select></label><?php if ($librarySearchActive): ?><a href="<?= e(app_url('library.php')); ?>">Clear search</a><?php endif; ?></div>
+        </form>
+        <?php if ($librarySearchActive): ?>
+            <section class="top-gap"><h2><?= e((string) $libraryMatches['total']); ?> results in your Library</h2>
+                <?php if ($libraryMatches['results'] === []): ?><p class="empty-state">No saved Scripture or notes matched. Try fewer words or clear the book filter.</p><?php endif; ?>
+                <div class="stack-list"><?php foreach ($libraryMatches['results'] as $item): ?>
+                    <article class="panel search-result"><p class="eyebrow"><?= $item['kind'] === 'notes' ? 'Note' : 'Saved Scripture'; ?></p><h3><?= e((string) ($item['title'] ?: ($item['book_name'] ?? 'Saved verse'))); ?></h3><?php if ($item['book_name']): ?><p><?= e(format_verse_reference($item)); ?></p><?php endif; ?><p><?= e(truncate_text((string) ($item['content'] ?: $item['verse_text']), 300)); ?></p><div class="inline-actions"><a class="button button-secondary" href="<?= e(app_url($item['kind'] === 'notes' ? 'library.php?view=notes&edit_note=' . (int) $item['id'] : 'library.php?view=saved#bookmark-' . (int) $item['id'])); ?>">Open <?= $item['kind'] === 'notes' ? 'note' : 'saved verse'; ?></a><?php if ($item['book_name']): ?><a href="<?= e(library_reader_url($item)); ?>">Read passage</a><?php endif; ?></div></article>
+                <?php endforeach; ?></div>
+                <?php if ($libraryMatches['page_count'] > 1): ?><nav class="search-pagination top-gap" aria-label="Library result pages"><?php foreach ([-1 => '← Previous', 1 => 'Next →'] as $direction => $label): ?><?php $targetPage = $libraryMatches['page'] + $direction; ?><?php if ($targetPage >= 1 && $targetPage <= $libraryMatches['page_count']): ?><a class="button button-secondary" href="<?= e(app_url('library.php?' . http_build_query(['find' => $libraryQuery, 'type' => $libraryType, 'book' => $libraryBookId, 'page' => $targetPage]))); ?>"><?= e($label); ?></a><?php endif; ?><?php endforeach; ?><span>Page <?= e((string) $libraryMatches['page']); ?> of <?= e((string) $libraryMatches['page_count']); ?></span></nav><?php endif; ?>
+            </section>
+        <?php else: ?>
         <nav class="filter-row top-gap" aria-label="Library views">
             <?php foreach ($libraryViews as $viewKey => $viewLabel): ?>
                 <a class="filter-chip <?= $activeView === $viewKey ? 'is-active' : ''; ?>" href="<?= e(app_url('library.php?view=' . urlencode($viewKey))); ?>">
@@ -708,6 +735,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </section>
             </div>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
 </section>

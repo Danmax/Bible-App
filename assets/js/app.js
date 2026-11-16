@@ -2322,7 +2322,7 @@ if (chapterReader) {
         }
     };
 
-    if (chapterReader.classList.contains('is-paragraph')) {
+    {
         setParagraphFontSize(savedParagraphFontSize, false);
 
         paragraphFontButtons.forEach((button) => {
@@ -2337,7 +2337,8 @@ if (chapterReader) {
     }
 
     const scrollToTargetVerse = () => {
-        const pendingHash = window.sessionStorage.getItem('reader-smooth-scroll-target') || '';
+        let pendingHash = '';
+        try { pendingHash = window.sessionStorage.getItem('reader-smooth-scroll-target') || ''; } catch { return; }
         const hash = pendingHash.trim();
 
         if (!hash.startsWith('#verse-')) {
@@ -2360,7 +2361,7 @@ if (chapterReader) {
         }, 90);
 
         if (pendingHash !== '') {
-            window.sessionStorage.removeItem('reader-smooth-scroll-target');
+            try { window.sessionStorage.removeItem('reader-smooth-scroll-target'); } catch { /* Optional scroll hint. */ }
         }
     };
 
@@ -2748,6 +2749,15 @@ if (chapterReader && bookmarkPopup) {
         const endVerseText = endVerseCard.querySelector('.reader-verse-text');
 
         if (!(startVerseText instanceof Element) || !(endVerseText instanceof Element)) {
+            return;
+        }
+
+        // A drag across paired columns has no single translation-specific offset.
+        if (chapterReader.classList.contains('is-comparison') && (
+            startVerseCard !== endVerseCard ||
+            !startVerseText.contains(range.startContainer) ||
+            !endVerseText.contains(range.endContainer)
+        )) {
             return;
         }
 
@@ -3767,10 +3777,30 @@ if (document.querySelector('form [data-study-day]')) {
     try {
         const reader = document.querySelector('[data-reading-url]');
         if (reader) {
-            localStorage.setItem('good-news-reading-position', JSON.stringify({
-                url: reader.dataset.readingUrl,
-                label: reader.dataset.readingLabel,
-            }));
+            const rememberPosition = () => {
+                const verses = Array.from(reader.querySelectorAll('[data-verse-card]'));
+                const visible = verses.find((verse) => {
+                    const rect = verse.getBoundingClientRect();
+                    return rect.bottom > 110 && rect.top < window.innerHeight;
+                });
+                const url = new URL(reader.dataset.readingUrl, window.location.href);
+                if (visible?.id) url.hash = visible.id;
+                else if (window.location.hash.startsWith('#verse-')) url.hash = window.location.hash;
+                try {
+                    localStorage.setItem('good-news-reading-position', JSON.stringify({
+                        url: url.href,
+                        label: reader.dataset.readingLabel,
+                        updatedAt: Date.now(),
+                    }));
+                } catch { /* Reading remains available without storage. */ }
+            };
+            let positionTimer;
+            window.addEventListener('scroll', () => {
+                clearTimeout(positionTimer);
+                positionTimer = setTimeout(rememberPosition, 180);
+            }, { passive: true });
+            window.addEventListener('pagehide', rememberPosition);
+            setTimeout(rememberPosition, 350);
         }
         const saved = JSON.parse(localStorage.getItem('good-news-reading-position') || 'null');
         if (!saved || typeof saved.url !== 'string' || typeof saved.label !== 'string') return;
@@ -3786,3 +3816,11 @@ if (document.querySelector('form [data-study-day]')) {
         // Reading remains available when browser storage is disabled.
     }
 })();
+
+// Keep the passage picker reachable when the reading search drawer is collapsed.
+document.querySelectorAll('[data-mobile-reader-focus]').forEach((button) => {
+    button.addEventListener('click', () => {
+        const drawer = document.querySelector('.reader-search-drawer');
+        if (drawer instanceof HTMLDetailsElement) drawer.open = true;
+    });
+});

@@ -8663,3 +8663,57 @@ h2 {
     .auth-shell .auth-rail { display: none; }
     .auth-shell { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Scripture search and the shared reader/comparison surface. */
+.search-container { max-width: 1040px; }
+.search-page .section-heading h1 { font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.12; }
+.search-page.has-query .section-heading { margin-bottom: 1.1rem; }
+.search-page.has-query .section-heading h1 { font-size: 1.8rem; margin-bottom: 0; }
+.search-page.has-query .section-heading > p { display: none; }
+.search-page.has-query .search-workspace > .muted-copy { display: none; }
+.reader-search-drawer > summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; cursor: pointer; font-weight: 700; padding-block: 0.6rem; }
+.reader-search-drawer:not([open]) { border-bottom: 1px solid var(--border); margin-bottom: 0.75rem; }
+.reader-search-drawer:not([open]) > summary::after { content: '+'; }
+.reader-search-drawer .bible-search-shell { margin-top: 1rem; }
+.search-workspace, .library-search { display: grid; gap: 0.9rem; }
+.search-workspace > label, .library-search > label { font-weight: 800; }
+.search-workspace input, .library-search input { min-width: 0; }
+.search-primary-options { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; }
+.search-primary-options label { display: grid; gap: 0.35rem; min-width: 145px; }
+.search-primary-options > a { padding-block: 0.75rem; }
+.search-filter-panel { border-top: 1px solid var(--border); padding-top: 1rem; }
+.search-filter-panel summary { cursor: pointer; font-weight: 700; padding-block: 0.4rem; }
+.search-filter-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+.search-filter-grid label { display: grid; gap: 0.4rem; min-width: 0; }
+.search-filter-grid select, .search-primary-options select { width: 100%; min-height: 44px; }
+.search-result { box-shadow: none; }
+.search-result-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+.search-result-heading h3 { margin: 0; }
+.search-result .scripture-text { font-family: Georgia, serif; font-size: 1.2rem; line-height: 1.8; margin-block: 1rem; }
+.search-result mark { background: #f5df9d; color: #24200f; border-radius: 0.15rem; padding: 0.05em 0.12em; }
+.search-topic-passages { display: grid; gap: 0.8rem; margin-top: 1rem; }
+.search-topic-passages a { display: block; min-height: 44px; padding-block: 0.5rem; }
+.search-topic-suggestion { padding: 1rem; border-left: 3px solid var(--primary); background: var(--surface); }
+.search-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; }
+.search-pagination .button { min-height: 44px; }
+.search-recent .word-suggestions { flex-wrap: wrap; }
+.chapter-reader.is-comparison { max-width: none; }
+.chapter-reader.is-comparison .reader-verse.comparison-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem; padding-block: 1rem; border-bottom: 1px solid var(--border); }
+.chapter-reader.is-comparison .reader-verse-copy, .reader-comparison-copy { margin: 0; font-size: var(--reader-paragraph-font-size, 1.28rem); line-height: 1.8; }
+.comparison-edition { display: block; font-family: Manrope, sans-serif; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.25rem; }
+.chapter-reader.is-comparison .reader-verse-resources { grid-column: 1 / -1; }
+.reader-comparison-copy { user-select: text; }
+.chapter-reader:not(.is-paragraph) .reader-verse-copy { font-size: var(--reader-paragraph-font-size, 1.2rem); }
+.chapter-reader .reader-verse-text { font-size: inherit; line-height: inherit; }
+.reader-verse[id] { scroll-margin-top: 9rem; }
+@media (max-width: 760px) {
+    .search-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .search-primary-options label { min-width: 0; flex: 1 1 120px; }
+    .search-workspace, .library-search { padding: 1.1rem; }
+    .chapter-reader.is-comparison .reader-verse.comparison-row { grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
+    .reader-comparison-copy { padding-left: 1rem; border-left: 2px solid var(--border-strong); }
+    .search-page input, .library-search input, .search-filter-grid select { font-size: 16px; }
+}
+@media (max-width: 380px) {
+    .search-filter-grid { grid-template-columns: minmax(0, 1fr); }
+}
