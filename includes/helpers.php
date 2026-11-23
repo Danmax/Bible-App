@@ -414,6 +414,9 @@ function render_verse_text_with_highlights(string $verseText, array $highlights 
     $fullVerseClass = null;
 
     foreach ($highlights as $highlight) {
+        if (empty($highlight['highlight_color'])) {
+            continue;
+        }
         $start = isset($highlight['selection_start']) ? (int) $highlight['selection_start'] : null;
         $end = isset($highlight['selection_end']) ? (int) $highlight['selection_end'] : null;
         $selectedText = trim((string) ($highlight['selected_text'] ?? ''));
@@ -453,11 +456,11 @@ function render_verse_text_with_highlights(string $verseText, array $highlights 
         ];
     }
 
-    if ($segments === []) {
-        if ($fullVerseClass !== null) {
-            return '<mark class="verse-highlight ' . e($fullVerseClass) . '">' . e($verseText) . '</mark>';
-        }
+    if ($fullVerseClass !== null) {
+        return '<mark class="verse-highlight ' . e($fullVerseClass) . '">' . e($verseText) . '</mark>';
+    }
 
+    if ($segments === []) {
         return e($verseText);
     }
 
@@ -482,10 +485,6 @@ function render_verse_text_with_highlights(string $verseText, array $highlights 
     }
 
     $output .= e(mb_substr($verseText, $cursor));
-
-    if ($fullVerseClass !== null) {
-        return '<span class="verse-highlight ' . e($fullVerseClass) . '">' . $output . '</span>';
-    }
 
     return $output;
 }

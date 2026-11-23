@@ -12,7 +12,7 @@
 
 No database migration is required. Existing reader deep links continue to resolve; keyword links open the dedicated search page. Production environment files and uploaded personal assets are excluded from the release package.
 
-Deployment status: code uploaded to `bible.frowear.com`; production verification is pending restoration of the server environment file removed by Hostinger's replacement operation. The user approved one-use web configuration recovery, and its token-protected endpoint is deployed. Web PHP still returns HTTP 503 after the user restarted processes in hPanel, so configuration has not yet been restored. A temporary-job alternative with an encrypted configuration bundle is prepared but awaits separate approval after automatic approval review rejected the new execution path. See `DEPLOY_HOSTINGER.md` for the replacement warning.
+Deployment status: live reading and search verified on November 15, 2026. The user restored `.env.local` through hPanel, reported hosting resources at 100%, and ended a long-running process. Service resumed afterward. Three sequential public checks passed: homepage HTTP 200, `Jn3:16` opening John 3:16 in KJV with the expected verse text, and keyword search HTTP 200 with 20 result cards. The exact process responsible has not been identified. No temporary server-side recovery job was created or run. The unused recovery PHP file remains pending manual removal through hPanel; see `DEPLOY_HOSTINGER.md` for the replacement warning.
 
 ## Verification
 

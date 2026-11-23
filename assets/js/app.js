@@ -2373,6 +2373,7 @@ if (chapterReader && bookmarkPopup) {
     // Reader panels use backdrop filters, which otherwise trap fixed sheets
     // inside the scrolling panel instead of anchoring them to the viewport.
     document.body.append(bookmarkPopup);
+    if (mobileStudySheet) document.body.append(mobileStudySheet);
     const popupModeLabel = bookmarkPopup.querySelector('[data-popup-mode-label]');
     const popupReference = bookmarkPopup.querySelector('[data-popup-reference]');
     const popupPreview = bookmarkPopup.querySelector('[data-popup-preview]');
@@ -2394,6 +2395,10 @@ if (chapterReader && bookmarkPopup) {
     const tagInput = bookmarkPopupForm?.querySelector('input[name="tag"]') || null;
     const noteInput = bookmarkPopupForm?.querySelector('textarea[name="note"]') || null;
     let activeStudyVerseCard = null;
+    let studySheetOpener = null;
+    chapterReader.addEventListener('reader:verse-selected', (event) => {
+        activeStudyVerseCard = event.detail;
+    });
 
     const isMobileReaderViewport = () => {
         return window.matchMedia('(max-width: 760px)').matches;
@@ -2481,10 +2486,11 @@ if (chapterReader && bookmarkPopup) {
     };
 
     const closeMobileStudySheet = () => {
-        if (mobileStudySheet instanceof HTMLElement) {
+        if (mobileStudySheet instanceof HTMLElement && !mobileStudySheet.hidden) {
             mobileStudySheet.hidden = true;
             mobileStudySheet.setAttribute('aria-hidden', 'true');
             document.body.classList.remove('has-mobile-study-sheet');
+            studySheetOpener?.focus({ preventScroll: true });
         }
     };
 
@@ -2581,6 +2587,7 @@ if (chapterReader && bookmarkPopup) {
         if (!(mobileStudySheet instanceof HTMLElement)) {
             return false;
         }
+        if (mobileStudySheet.hidden) studySheetOpener = document.activeElement;
 
         activeStudyVerseCard = verseCard instanceof HTMLElement
             ? verseCard
@@ -2716,7 +2723,15 @@ if (chapterReader && bookmarkPopup) {
         bookmarkPopup.hidden = false;
         bookmarkPopup.classList.add('is-open');
         document.body.classList.add('has-bookmark-popup');
-        setActiveColor(selectedText || highlightVerse ? 'neon-yellow' : '');
+        let existingBookmark = null;
+        if (!selectedText && startVerseCard === endVerseCard) {
+            try { existingBookmark = JSON.parse(startVerseCard.dataset.verseBookmark || 'null'); } catch { /* No saved annotation. */ }
+        }
+        if (existingBookmark) {
+            if (tagInput) tagInput.value = existingBookmark.tag || '';
+            if (noteInput) noteInput.value = existingBookmark.note || '';
+        }
+        setActiveColor(existingBookmark?.highlight_color || (selectedText || highlightVerse ? 'neon-yellow' : ''));
         positionPopup(startVerseCard);
 
         if (focusNote && noteInput instanceof HTMLTextAreaElement) {
@@ -2725,6 +2740,9 @@ if (chapterReader && bookmarkPopup) {
     };
 
     const updateSelection = () => {
+        // Touch readers select whole verses by tapping, without fighting native
+        // selection handles or repeatedly resetting the editor while scrolling.
+        if (chapterReader.hasAttribute('data-tap-reader') && window.matchMedia('(pointer: coarse)').matches) return;
         const selection = window.getSelection();
 
         if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
@@ -2797,6 +2815,7 @@ if (chapterReader && bookmarkPopup) {
 
     chapterReader.querySelectorAll('[data-verse-card]').forEach((verseCard) => {
         verseCard.addEventListener('click', (event) => {
+            if (chapterReader.hasAttribute('data-tap-reader')) return;
             const target = event.target;
 
             if (target instanceof Element && target.closest('a, button')) {
@@ -2912,7 +2931,20 @@ if (chapterReader && bookmarkPopup) {
     }
 
     document.addEventListener('keydown', (event) => {
+        if (event.key === 'Tab' && mobileStudySheet && !mobileStudySheet.hidden) {
+            const focusable = [...mobileStudySheet.querySelectorAll('.mobile-study-panel a[href], .mobile-study-panel button:not(:disabled), .mobile-study-panel [tabindex="0"]')].filter((node) => node.getClientRects().length);
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && (document.activeElement === first || !mobileStudySheet.contains(document.activeElement))) {
+                event.preventDefault();
+                last?.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !mobileStudySheet.contains(document.activeElement))) {
+                event.preventDefault();
+                first?.focus();
+            }
+        }
         if (event.key === 'Escape') {
+            if (!bookmarkPopup.hidden || (mobileStudySheet && !mobileStudySheet.hidden)) event.preventDefault();
             window.getSelection()?.removeAllRanges();
             hidePopup();
             closeMobileStudySheet();
@@ -3820,6 +3852,7 @@ if (document.querySelector('form [data-study-day]')) {
 // Keep the passage picker reachable when the reading search drawer is collapsed.
 document.querySelectorAll('[data-mobile-reader-focus]').forEach((button) => {
     button.addEventListener('click', () => {
+        if (button.closest('.bible-reading-page')) return;
         const drawer = document.querySelector('.reader-search-drawer');
         if (drawer instanceof HTMLDetailsElement) drawer.open = true;
     });
