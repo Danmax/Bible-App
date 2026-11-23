@@ -905,10 +905,12 @@ if (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 
 $readerDestination = 'bible.php?' . http_build_query(['q' => $query, 'translation' => $selectedTranslation, 'book_id' => $selectedBookId, 'chapter' => $selectedChapter, 'verse' => $selectedVerseNumber, 'verse_end' => $selectedVerseEndNumber, 'reader_mode' => $readerMode, 'compare_translation' => $comparisonTranslation]);
 $readerLoginUrl = app_url('login.php?next=' . rawurlencode($readerDestination));
 $readerRegisterUrl = app_url('register.php?next=' . rawurlencode($readerDestination));
+$pageScripts = ['assets/js/reader-selection.js'];
+$isReadingPassage = in_array($displayMode, ['chapter', 'verse', 'passage'], true) && $browseVerses !== [];
 
 require_once __DIR__ . '/includes/header.php';
 ?>
-<section class="section">
+<section class="section <?= $isReadingPassage ? 'bible-reading-page' : ''; ?>">
     <div class="container">
         <?php if ($displayMode === 'catalog' || $displayMode === 'book'): ?>
             <div class="section-heading section-heading-rich">
@@ -940,6 +942,29 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
 
         <div class="panel scripture-panel bible-canvas-shell top-gap">
+            <?php if ($isReadingPassage): ?>
+                <div class="reader-topbar" aria-label="Reading controls">
+                    <button type="button" class="reader-passage-picker" data-mobile-reader-focus aria-label="Choose book and chapter">
+                        <?= e((string) ($selectedBook['name'] ?? 'Bible')); ?> <?= e((string) $selectedChapter); ?> <span aria-hidden="true">⌄</span>
+                    </button>
+                    <form method="get" class="reader-edition-picker">
+                        <input type="hidden" name="book_id" value="<?= e((string) $selectedBookId); ?>">
+                        <input type="hidden" name="chapter" value="<?= e((string) $selectedChapter); ?>">
+                        <input type="hidden" name="verse" value="<?= e((string) $selectedVerseNumber); ?>">
+                        <input type="hidden" name="verse_end" value="<?= e((string) $selectedVerseEndNumber); ?>">
+                        <input type="hidden" name="reader_mode" value="<?= e($readerMode); ?>">
+                        <select name="translation" aria-label="Bible translation" data-reader-edition>
+                            <?php foreach ($translations as $translation): ?>
+                                <?php if ($translationAvailability[$translation] ?? false): ?>
+                                    <option value="<?= e($translation); ?>" <?= $translation === $selectedTranslation ? 'selected' : ''; ?>><?= e($translation); ?></option>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="submit">Read</button>
+                    </form>
+                    <button type="button" class="reader-type-button" data-reader-action="font" aria-label="Reading appearance">Aa</button>
+                </div>
+            <?php endif; ?>
             <div class="bible-mobile-canvas-nav" data-mobile-bible-nav>
                 <button
                     class="bible-mobile-nav-handle"
@@ -1493,10 +1518,12 @@ require_once __DIR__ . '/includes/header.php';
                 </section>
             <?php elseif (($displayMode === 'chapter' || $displayMode === 'verse' || $displayMode === 'passage') && $browseVerses !== []) : ?>
                 <?php $comparisonByVerse = []; foreach ($comparisonVerses as $comparedVerse) { $comparisonByVerse[(int) $comparedVerse['verse_number']] = $comparedVerse; } $showComparison = $comparisonTranslation !== '' && $comparisonTranslationHasData && $comparisonVerses !== []; ?>
-                <article class="chapter-reader <?= $readerMode === 'paragraph' ? 'is-paragraph' : ''; ?> <?= $showComparison ? 'is-comparison' : ''; ?> top-gap-sm" data-chapter-reader data-reading-url="<?= e(app_url($readerDestination)); ?>" data-reading-label="<?= e(bible_share_reference($browseVerses, $selectedTranslation)); ?>">
+                <p class="reader-selection-hint">Tap a verse to select it. Tap more to highlight a passage.</p>
+                <article class="chapter-reader <?= $readerMode === 'paragraph' ? 'is-paragraph' : ''; ?> <?= $showComparison ? 'is-comparison' : ''; ?> top-gap-sm" data-chapter-reader data-tap-reader data-reading-url="<?= e(app_url($readerDestination)); ?>" data-reading-label="<?= e(bible_share_reference($browseVerses, $selectedTranslation)); ?>" data-chapter-label="<?= e((string) ($selectedBook['name'] ?? '') . ' ' . $selectedChapter); ?>" data-translation="<?= e($selectedTranslation); ?>">
                     <?php foreach ($browseVerses as $verse): ?>
                         <?php
                         $verseBookmarkSet = $chapterBookmarks[(int) $verse['id']] ?? [];
+                        $fullVerseBookmark = array_values(array_filter($verseBookmarkSet, static fn(array $mark): bool => empty($mark['selected_text']) && !isset($mark['selection_start']) && !isset($mark['selection_end'])))[0] ?? null;
                         $verseReferenceQuery = bible_reference_query_for_verse($verse);
                         $verseNoteUrl = app_url('library.php?view=notes&verse_id=' . (int) $verse['id']);
                         $verseTerms = bible_resource_terms_for_text((string) $verse['verse_text']);
@@ -1521,6 +1548,7 @@ require_once __DIR__ . '/includes/header.php';
                             data-verse-number="<?= e((string) $verse['verse_number']); ?>"
                             data-verse-reference="<?= e(format_verse_reference($verse)); ?>"
                             data-verse-text="<?= e((string) $verse['verse_text']); ?>"
+                            data-verse-bookmark="<?= e((string) json_encode($fullVerseBookmark)); ?>"
                         >
                             <p class="reader-verse-copy">
                                 <?php if ($showComparison): ?><span class="comparison-edition"><?= e($selectedTranslation); ?></span><?php endif; ?>
@@ -1533,6 +1561,10 @@ require_once __DIR__ . '/includes/header.php';
                                 </sup>
                                 <span
                                     class="reader-verse-text"
+                                    role="button"
+                                    tabindex="0"
+                                    aria-pressed="false"
+                                    aria-label="Select <?= e(format_verse_reference($verse) . ': ' . (string) $verse['verse_text']); ?>"
                                     data-verse-id="<?= e((string) $verse['id']); ?>"
                                     data-verse-number="<?= e((string) $verse['verse_number']); ?>"
                                 ><?= render_verse_text_with_highlights((string) $verse['verse_text'], $verseBookmarkSet); ?></span>
@@ -1542,7 +1574,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <p class="reader-comparison-copy"><span class="comparison-edition"><?= e($comparisonTranslation); ?></span><sup><?= e((string) $verse['verse_number']); ?></sup> <?php if ($pairedVerse): ?><?= e((string) $pairedVerse['verse_text']); ?><?php else: ?><em>Verse unavailable in this translation.</em><?php endif; ?></p>
                             <?php endif; ?>
                             <?php if ($readerMode === 'verse'): ?>
-                                <nav class="reader-verse-resources aria-label="<?= e(format_verse_reference($verse)); ?> resources">
+                                <nav class="reader-verse-resources" aria-label="<?= e(format_verse_reference($verse)); ?> resources">
                                     <a href="<?= e($verseFocusUrl); ?>">Open</a>
                                     <a href="<?= e($verseNoteUrl); ?>">Note</a>
                                     <a href="<?= e(app_url('dictionary.php?q=' . urlencode($verseReferenceQuery))); ?>">Reference</a>
@@ -1554,6 +1586,7 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     <?php endforeach; ?>
                 </article>
+                <?php require __DIR__ . '/includes/reader_selection.php'; ?>
 
                 <?php if ($selectedBook && $bookChapters !== []): ?>
                     <?php
@@ -1783,6 +1816,14 @@ require_once __DIR__ . '/includes/header.php';
 
                             <div class="mobile-study-tab-panel" data-study-tab-panel="more">
                                 <div class="mobile-study-more-stack">
+                                    <div>
+                                        <p class="reader-tool-label">Reading layout</p>
+                                        <div class="reader-mode-switch">
+                                            <?php foreach (['paragraph' => 'Paragraph', 'verse' => 'Verse by verse'] as $mode => $label): ?>
+                                                <a class="mini-card <?= $readerMode === $mode ? 'is-active' : ''; ?>" href="<?= e(bible_reader_url(['translation' => $selectedTranslation, 'book_id' => $selectedBookId, 'chapter' => $selectedChapter, 'verse' => $selectedVerseNumber ?: null, 'verse_end' => $selectedVerseEndNumber ?: null, 'reader_mode' => $mode])); ?>"><?= e($label); ?></a>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
                                         <div class="reader-font-size-control" data-reader-font-size-control>
                                             <p class="reader-tool-label">Text size</p>
                                             <div class="reader-font-size-options" role="group" aria-label="Paragraph text size">
