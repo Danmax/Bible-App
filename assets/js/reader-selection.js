@@ -100,12 +100,13 @@
     });
     panel.querySelector('[data-selection-close]').addEventListener('click', clearSelection);
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') clearSelection();
+        if (event.key === 'Escape' && !event.defaultPrevented) clearSelection();
     });
 
     const saveMark = async (action, color = '') => {
         if (saving || !form || !selected.size) return;
         const selection = orderedSelection();
+        const restoreFocus = panel.contains(document.activeElement);
         const data = new FormData(form);
         data.set('mark_action', action);
         data.set('color', color);
@@ -140,6 +141,7 @@
             saving = false;
             const message = action === 'highlight' ? 'Highlight saved.' : action === 'bookmark' ? 'Saved to your Library.' : 'Highlight removed.';
             clearSelection();
+            if (restoreFocus) selection[0].querySelector('.reader-verse-text').focus({ preventScroll: true });
             announce(message);
         } catch (error) {
             status.textContent = error.name === 'AbortError' ? 'Saving took too long. Please try again.' : error.message;

@@ -2944,6 +2944,7 @@ if (chapterReader && bookmarkPopup) {
             }
         }
         if (event.key === 'Escape') {
+            if (!bookmarkPopup.hidden || (mobileStudySheet && !mobileStudySheet.hidden)) event.preventDefault();
             window.getSelection()?.removeAllRanges();
             hidePopup();
             closeMobileStudySheet();
